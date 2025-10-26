@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = 'https://jqixjcydhfdazztrxglb.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxaXhqY3lkaGZkYXp6dHJ4Z2xiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NTUyMTgsImV4cCI6MjA3MzUzMTIxOH0.Ug1KFnwr8HgKpJx-pSCOW1o7I5ly6iYPM5lDpn96790';
+const supabaseUrl = 'https://aurtewhjijjrmhammhrm.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1cnRld2hqaWpqcm1oYW1taHJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE0MzA0MzMsImV4cCI6MjA3NzAwNjQzM30.O9-IuBww7nCRycYMk4t5oAnM95TcOtSmRoR5qos9WRY';
 
 // VERIFICACIÓN INMEDIATA
 console.log('🔍 Verificando credenciales:');
