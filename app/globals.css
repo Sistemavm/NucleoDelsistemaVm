@@ -94,3 +94,34 @@ body {
 @media screen { 
   .only-print { display: none; } 
 }
+/* ===== COLORES PERSONALIZADOS PARA EL SISTEMA ===== */
+
+/* Botones principales - Verde */
+.btn-primary {
+  @apply bg-primary-700 hover:bg-primary-600 border-primary-800 text-white;
+}
+
+/* Focus rings en verde */
+input:focus, select:focus, textarea:focus {
+  @apply ring-2 ring-primary-500/50 border-primary-500;
+}
+
+/* Estados activos en verde */
+.active-tab {
+  @apply bg-primary-700 border-primary-800 text-white;
+}
+
+/* Chips/badges en verde */
+.chip-primary {
+  @apply bg-primary-800/40 text-primary-200 border-primary-700/40;
+}
+
+/* Scrollbar verde */
+::-webkit-scrollbar-thumb {
+  background: #05803d !important;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #06a04b !important;
+}
