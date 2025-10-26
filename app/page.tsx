@@ -815,7 +815,7 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
           <img 
             src="/logo.png" 
             alt="VMI Electrónica" 
-  className="h-15 w-15 rounded"          />
+ className="h-16 w-16 rounded-sm"         />
           <div className="text-sm font-bold tracking-wide">
             Facturación — {hasSupabase ? "By : Tobias carrizo" : "Local"}
           </div>
