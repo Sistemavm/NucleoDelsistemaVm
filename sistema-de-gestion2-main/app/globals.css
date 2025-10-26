@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { 
+  color-scheme: dark; 
+}
+
+body { 
+  @apply bg-slate-950 text-slate-100; 
+}
+
+/* ===== PRINT FIX (v3) ===== */
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+
+  /* Forzar render limpio en impresión */
+  html, body, #__next, main {
+    background: #fff !important;
+    color: #000 !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Modo claro sólo para imprimir */
+  :root { color-scheme: light; }
+
+  /* ❗ Ocultar SOLO lo que marques explícitamente */
+  .no-print { display: none !important; }
+
+  /* Asegurar que wrappers semánticos sigan visibles si la app los usa */
+  header, nav, footer { display: block !important; }
+
+  /* Zona imprimible (envolvé tu comprobante con esta clase) */
+  .print-area {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Limpieza de estilos oscuros dentro del comprobante */
+  .print-area * {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Texto consistente en la impresión */
+  .print-area, .print-area * { 
+    font-size: 12px; 
+    line-height: 1.25; 
+  }
+
+  /* Imágenes responsivas en impresión */
+  .print-area img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Tablas de comprobante */
+  .print-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed;
+  }
+  .print-table th, .print-table td {
+    border: 1px solid #000; 
+    padding: 4px 6px; 
+    vertical-align: top;
+    word-break: break-word;
+  }
+  .print-table thead { display: table-header-group; }
+  .print-table tfoot { display: table-footer-group; }
+  .print-table tr, .print-table td, .print-table th { 
+    break-inside: avoid; 
+    page-break-inside: avoid; 
+  }
+
+  /* Utilidades de corte */
+  .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+  .page-break { break-after: page; page-break-after: always; }
+
+  /* Evitar que Chrome agregue la URL al final de los enlaces */
+  a[href^="http"]::after { content: "" !important; }
+}
+
+/* Elementos que sólo deben verse al imprimir */
+@media screen { 
+  .only-print { display: none; } 
+}
