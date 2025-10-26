@@ -816,9 +816,9 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
             src="/logo.png" 
             alt="VMI Electrónica" 
  className="h-16 w-16 rounded-sm"         />
-          <div className="text-sm font-bold tracking-wide">
-            Facturación — {hasSupabase ? "By : Tobias carrizo" : "Local"}
-          </div>
+          <div className="text-xs text-slate-400 font-medium">
+  v1.0 • Desarrollado por Tobias Carrizo
+</div>
         </div>
         {/* 👆👆👆 HASTA AQUÍ EL LOGO */}
         
@@ -1142,7 +1142,7 @@ const toPay = Math.max(0, total - applied);
         label="Alias / CVU destino"
         value={alias}
         onChange={setAlias}
-        placeholder="ej: mitobicel.algo.banco"
+        placeholder="ej: Vm.Electronica"
       />
     </div>
 
@@ -1195,7 +1195,7 @@ const toPay = Math.max(0, total - applied);
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{p.name}</div>
                         <div className="text-xs text-slate-400">
-                          Mitobicel: {money(p.price1)} · ElshoppingDlc: {money(p.price2)} <span className="text-[10px] text-slate-500 ml-1">{p.list_label}</span>
+                          Revendedores: {money(p.price1)} · Cliente Final: {money(p.price2)} <span className="text-[10px] text-slate-500 ml-1">{p.list_label}</span>
                         </div>
                       </div>
                       <Button onClick={() => addItem(p)} tone="slate" className="shrink-0">
@@ -2889,20 +2889,20 @@ function ReportesTab({ state, setState, session }: any) {
 
   // --- helpers para vuelto por día ---
   const diaClave = dia; // YYYY-MM-DD del selector
-  const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, number>;
-  const cashFloatTarget = periodo === "dia" ? parseNum(cashFloatByDate[diaClave] ?? 0) : 0;
+  const cashFloatByDate = (state?.meta?.cashFloatDate ?? {}) as Record<string, number>;
+  const cashFloatTarget = periodo === "dia" ? parseNum(cashFloatDate[diaClave] ?? 0) : 0;
 
   async function setCashFloatForDay(nuevo: number) {
     const st = clone(state);
-    st.meta.cashFloatByDate = st.meta.cashFloatByDate || {};
-    st.meta.cashFloatByDate[diaClave] = nuevo;
+    st.meta.cashFloatDate = st.meta.cashFloatDate || {};
+    st.meta.cashFloatDate[diaClave] = nuevo;
     setState(st);
 
     if (hasSupabase) {
       await supabase
         .from("cash_floats")
         .upsert(
-          { day: diaClave, amount: nuevo, updated_by: "app" },
+          { day: diaClave, amount: nuevo, updated_: "app" },
           { onConflict: "day" }
         );
     } else {
@@ -2911,21 +2911,21 @@ function ReportesTab({ state, setState, session }: any) {
   }
 
   // --- helpers para comisiones por día ---
-  const commissionsByDate = (state?.meta?.commissionsByDate ?? {}) as Record<string, number>;
+  const commissionsDate = (state?.meta?.commissionsDate ?? {}) as Record<string, number>;
   const commissionTarget =
-    periodo === "dia" ? parseNum(commissionsByDate[diaClave] ?? 0) : 0;
+    periodo === "dia" ? parseNum(commissionsDate[diaClave] ?? 0) : 0;
 
   async function setCommissionForDay(nuevo: number) {
     const st = clone(state);
-    st.meta.commissionsByDate = st.meta.commissionsByDate || {};
-    st.meta.commissionsByDate[diaClave] = nuevo;
+    st.meta.commissionsDate = st.meta.commissionsDate || {};
+    st.meta.commissionsDate[diaClave] = nuevo;
     setState(st);
 
     if (hasSupabase) {
       await supabase
         .from("commissions")
         .upsert(
-          { day: diaClave, amount: nuevo, updated_by: "app" },
+          { day: diaClave, amount: nuevo, updated_: "app" },
           { onConflict: "day" }
         );
     } else {
@@ -2936,8 +2936,8 @@ function ReportesTab({ state, setState, session }: any) {
   // Función para guardar fondos iniciales de Gabi
   async function setGabiFundsForDay(nuevo: number) {
     const st = clone(state);
-    st.meta.gabiFundsByDate = st.meta.gabiFundsByDate || {};
-    st.meta.gabiFundsByDate[diaClave] = nuevo;
+    st.meta.gabiFundsDate = st.meta.gabiFundsDate || {};
+    st.meta.gabiFundsDate[diaClave] = nuevo;
     setState(st);
 
     if (hasSupabase) {
@@ -3077,7 +3077,7 @@ function ReportesTab({ state, setState, session }: any) {
   }, [periodo, dia, mes, anio, state.meta?.lastSavedInvoiceId, state.gastos?.length]);
 
   // ✅ Ahora sí: comisiones del período usando start/end
-  const commissionsPeriodo = Object.entries(commissionsByDate).reduce((sum, [k, v]) => {
+  const commissionsPeriodo = Object.entries(commissionsDate).reduce((sum, [k, v]) => {
     const t = new Date(`${k}T00:00:00`).getTime();
     return t >= start && t <= end ? sum + parseNum(v) : sum;
   }, 0);
@@ -3133,7 +3133,7 @@ function ReportesTab({ state, setState, session }: any) {
   const totalGastosGabi = gastosGabi.reduce((s: number, g: any) => s + parseNum(g.efectivo) + parseNum(g.transferencia), 0);
 
   // Fondos de Gabi
-  const gabiFundsByDate = (state?.meta?.gabiFundsByDate ?? {}) as Record<string, number>;
+  const gabiFundsDate = (state?.meta?.gabiFundsByDate ?? {}) as Record<string, number>;
   const gabiInitialTarget = periodo === "dia" ? parseNum(gabiFundsByDate[diaClave] ?? 0) : 0;
   const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
 
