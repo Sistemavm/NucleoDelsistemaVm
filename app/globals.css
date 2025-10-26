@@ -7,9 +7,8 @@
 }
 
 body { 
-  @apply bg-slate-950 text-slate-100; 
+  @apply bg-emerald-950 text-slate-100; 
 }
-
 /* ===== PRINT FIX (v3) ===== */
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
@@ -96,32 +95,31 @@ body {
 }
 /* ===== COLORES PERSONALIZADOS PARA EL SISTEMA ===== */
 
-/* Botones principales - Verde */
 .btn-primary {
-  @apply bg-primary-700 hover:bg-primary-600 border-primary-800 text-white;
+  @apply bg-emerald-700 hover:bg-emerald-600 border-emerald-800 text-white;
 }
 
-/* Focus rings en verde */
 input:focus, select:focus, textarea:focus {
-  @apply ring-2 ring-primary-500/50 border-primary-500;
+  @apply ring-2 ring-emerald-500/50 border-emerald-500;
 }
 
-/* Estados activos en verde */
 .active-tab {
-  @apply bg-primary-700 border-primary-800 text-white;
+  @apply bg-emerald-700 border-emerald-800 text-white;
 }
 
-/* Chips/badges en verde */
 .chip-primary {
-  @apply bg-primary-800/40 text-primary-200 border-primary-700/40;
-}
-
-/* Scrollbar verde */
-::-webkit-scrollbar-thumb {
-  background: #05803d !important;
-  border-radius: 8px;
+  @apply bg-emerald-800/40 text-emerald-200 border-emerald-700/40;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #06a04b !important;
+}
+
+/* ✅ DESPUÉS (puedes usar estos tonos o dejarlos igual): */
+::-webkit-scrollbar-thumb {
+  background: #059669 !important; /* Emerald-600 */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #047857 !important; /* Emerald-700 */
 }
