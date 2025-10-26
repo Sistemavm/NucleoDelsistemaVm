@@ -816,7 +816,7 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
             src="/logo.png" 
             alt="VMI Electrónica" 
  className="h-16 w-16 rounded-sm"         />
-          <div className="text-xs text-slate-400 font-medium">
+<div className="text-xs text-slate-400 font-medium font-poppins tracking-wider">
   v1.0 • Desarrollado por Tobias Carrizo
 </div>
         </div>
@@ -2889,9 +2889,8 @@ function ReportesTab({ state, setState, session }: any) {
 
   // --- helpers para vuelto por día ---
   const diaClave = dia; // YYYY-MM-DD del selector
-  const cashFloatByDate = (state?.meta?.cashFloatDate ?? {}) as Record<string, number>;
-  const cashFloatTarget = periodo === "dia" ? parseNum(cashFloatDate[diaClave] ?? 0) : 0;
-
+const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, number>;
+  const cashFloatTarget = periodo === "dia" ? parseNum(cashFloatByDate[diaClave] ?? 0) : 0;
   async function setCashFloatForDay(nuevo: number) {
     const st = clone(state);
     st.meta.cashFloatDate = st.meta.cashFloatDate || {};
