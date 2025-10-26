@@ -3132,9 +3132,9 @@ const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, n
   const totalGastosGabi = gastosGabi.reduce((s: number, g: any) => s + parseNum(g.efectivo) + parseNum(g.transferencia), 0);
 
   // Fondos de Gabi
-  const gabiFundsDate = (state?.meta?.gabiFundsByDate ?? {}) as Record<string, number>;
-  const gabiInitialTarget = periodo === "dia" ? parseNum(gabiFundsByDate[diaClave] ?? 0) : 0;
-  const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
+const gabiFundsDate = (state?.meta?.gabiFundsByDate ?? {}) as Record<string, number>;
+const gabiInitialTarget = periodo === "dia" ? parseNum(gabiFundsDate[diaClave] ?? 0) : 0;
+const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
 
   const totalGastos = gastosPeriodo.reduce((s: number, g: any) => s + parseNum(g.efectivo) + parseNum(g.transferencia), 0);
   const totalGastosEfectivo = gastosPeriodo.reduce((s: number, g: any) => s + parseNum(g.efectivo), 0);
