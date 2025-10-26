@@ -795,24 +795,34 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
     "Presupuestos",
     "Gastos y Devoluciones",
     "Cola",
-    "Pedidos Online", // 👈 NUEVA PESTAÑA
+    "Pedidos Online",
   ];
 
   const visibleTabs =
     role === "admin"
       ? TABS
       : role === "vendedor"
-      ? ["Facturación", "Clientes", "Productos", "Deudores", "Presupuestos", "Gastos y Devoluciones", "Cola", "Pedidos Online"] // 👈 AGREGAR
+      ? ["Facturación", "Clientes", "Productos", "Deudores", "Presupuestos", "Gastos y Devoluciones", "Cola", "Pedidos Online"]
       : role === "pedido-online"
-      ? ["Hacer Pedido"] // 👈 Solo para clientes haciendo pedidos online
+      ? ["Hacer Pedido"]
       : ["Panel"];
 
   return (
-<div className="sticky top-0 z-50 bg-emerald-950/80 backdrop-blur border-b border-emerald-800">
+    <div className="sticky top-0 z-50 bg-emerald-950/80 backdrop-blur border-b border-emerald-800">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div className="text-sm font-bold tracking-wide">
-           Facturación — {hasSupabase ? "By : Tobias carrizo" : "Local"}
+        {/* 👇👇👇 LOGO AGREGADO AQUÍ */}
+        <div className="flex items-center gap-3">
+          <img 
+            src="/logo.png" 
+            alt="VMI Electrónica" 
+            className="h-8 w-8 rounded-sm"
+          />
+          <div className="text-sm font-bold tracking-wide">
+            Facturación — {hasSupabase ? "By : Tobias carrizo" : "Local"}
+          </div>
         </div>
+        {/* 👆👆👆 HASTA AQUÍ EL LOGO */}
+        
         <nav className="flex-1 flex gap-1 flex-wrap">
           {visibleTabs.map((t) => (
             <button
