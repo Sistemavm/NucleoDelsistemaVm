@@ -287,7 +287,7 @@ async function saveCountersSupabase(meta: any) {
 /* ====== UI atoms ====== */
 function Card({ title, actions, className = "", children }: any) {
   return (
-    <div className={"rounded-2xl border border-slate-800 bg-slate-900/60 p-4 " + className}>
+<div className={"rounded-2xl border border-emerald-800 bg-emerald-900/60 p-4 " + className}>
       {(title || actions) && (
         <div className="flex items-center justify-between mb-3">
           {title && <h3 className="text-sm font-semibold text-slate-200">{title}</h3>}
@@ -808,7 +808,7 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
       : ["Panel"];
 
   return (
-    <div className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur border-b border-slate-800">
+<div className="sticky top-0 z-50 bg-emerald-950/80 backdrop-blur border-b border-emerald-800">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
         <div className="text-sm font-bold tracking-wide">
            Facturación — {hasSupabase ? "By : Tobias carrizo" : "Local"}
@@ -6763,9 +6763,8 @@ export default function Page() {
   return (
     <>
       {/* App visible (no se imprime) */}
-      <div className="min-h-screen bg-slate-950 text-slate-100 no-print">
-        <style>{`::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:#0b1220}::-webkit-scrollbar-thumb{background:#22304a;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#2f436a}`}</style>
-
+<div className="min-h-screen bg-emerald-950 text-slate-100 no-print">
+<style>{`::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:#0b1220}::-webkit-scrollbar-thumb{background:#065f46;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#047857}`}</style>
         {!session ? (
           <Login
             onLogin={onLogin}
