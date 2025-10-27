@@ -16,7 +16,7 @@ type Producto = {
   id: string;
   name: string;
   modelo: string;
-  capacidad?: string; // 👈 AGREGAR ESTA LÍNEA
+  capacidad?: string;
   imei: string;
   grado: GradoProducto;
   estado: EstadoProducto;
@@ -24,6 +24,9 @@ type Producto = {
   color: string;
   precio_compra: number;
   precio_venta: number;
+  // 👇👇👇 AGREGAR ESTAS DOS LÍNEAS NUEVAS
+  precio_consumidor_final: number;
+  precio_revendedor: number;
   costo_reparacion: number;
   descripcion?: string;
   fecha_ingreso: string;
