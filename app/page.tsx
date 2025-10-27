@@ -1561,84 +1561,101 @@ showSuccess("✅ Turno agendado correctamente");
     }
   }
 
-  // COMPONENTE DE CALENDARIO VISUAL (se mantiene igual)
-  function CalendarioVisual() {
-    const dias = generarDiasDelMes();
-    const nombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-    const nombreMes = mesCalendario.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+// COMPONENTE DE CALENDARIO VISUAL (VERSIÓN CORREGIDA)
+function CalendarioVisual() {
+  const dias = generarDiasDelMes();
+  const nombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  const nombreMes = mesCalendario.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
-   
+  return (
+    <Card title={`📅 Calendario - ${nombreMes}`}>
+      {/* Controles del mes */}
+      <div className="flex justify-between items-center mb-4">
+        <Button 
+          tone="slate" 
+          onClick={() => cambiarMesCalendario("anterior")}
+        >
+          ◀ Mes anterior
+        </Button>
+        <div className="font-semibold">{nombreMes}</div>
+        <Button 
+          tone="slate" 
+          onClick={() => cambiarMesCalendario("siguiente")}
+        >
+          Mes siguiente ▶
+        </Button>
+      </div>
 
-        {/* Días de la semana */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {nombresDias.map(dia => (
-            <div key={dia} className="text-center text-sm font-semibold text-slate-400 py-2">
-              {dia}
+      {/* Días de la semana */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {nombresDias.map(dia => (
+          <div key={dia} className="text-center text-sm font-semibold text-slate-400 py-2">
+            {dia}
+          </div>
+        ))}
+      </div>
+
+      {/* Días del mes */}
+      <div className="grid grid-cols-7 gap-1">
+        {dias.map((dia, index) => (
+          <div
+            key={index}
+            className={`min-h-[80px] border rounded-lg p-1 cursor-pointer transition-all ${
+              !dia.esMesActual ? 'bg-slate-900/20 text-slate-500 border-slate-600' : 
+              dia.esSeleccionado ? 'bg-emerald-900/30 border-emerald-500' : 
+              dia.esHoy ? 'bg-blue-900/20 border-blue-500' : 'bg-slate-800/30 border-slate-700'
+            } hover:bg-slate-700/50`}
+            onClick={() => setFechaSeleccionada(dia.fecha)}
+          >
+            <div className={`text-xs font-medium text-center ${
+              dia.esSeleccionado ? 'text-emerald-300' : 
+              dia.esHoy ? 'text-blue-300' : ''
+            }`}>
+              {new Date(dia.fecha).getDate()}
             </div>
-          ))}
-        </div>
-
-        {/* Días del mes */}
-        <div className="grid grid-cols-7 gap-1">
-          {dias.map((dia, index) => (
-            <div
-              key={index}
-              className={`min-h-[80px] border rounded-lg p-1 cursor-pointer transition-all ${
-                !dia.esMesActual ? 'bg-slate-900/20 text-slate-500 border-slate-600' : 
-                dia.esSeleccionado ? 'bg-emerald-900/30 border-emerald-500' : 
-                dia.esHoy ? 'bg-blue-900/20 border-blue-500' : 'bg-slate-800/30 border-slate-700'
-              } hover:bg-slate-700/50`}
-              onClick={() => setFechaSeleccionada(dia.fecha)}
-            >
-              <div className={`text-xs font-medium text-center ${
-                dia.esSeleccionado ? 'text-emerald-300' : 
-                dia.esHoy ? 'text-blue-300' : ''
-              }`}>
-                {new Date(dia.fecha).getDate()}
-              </div>
-              
-              {/* Mini indicadores de turnos */}
-              <div className="flex flex-wrap gap-1 mt-1 justify-center">
-                {dia.turnos.slice(0, 3).map((turno: Turno) => (
-                  <div
-                    key={turno.id}
-                    className={`w-2 h-2 rounded-full ${obtenerColorTipo(turno.tipo)}`}
-                    title={`${turno.hora} - ${turno.cliente_nombre}`}
-                  />
-                ))}
-                {dia.turnos.length > 3 && (
-                  <div className="w-2 h-2 rounded-full bg-gray-400" title={`+${dia.turnos.length - 3} más`} />
-                )}
-              </div>
-
-              {/* Contador de turnos */}
-              {dia.turnos.length > 0 && (
-                <div className="text-xs text-center mt-1 text-slate-300">
-                  {dia.turnos.length} turno{dia.turnos.length !== 1 ? 's' : ''}
-                </div>
+            
+            {/* Mini indicadores de turnos */}
+            <div className="flex flex-wrap gap-1 mt-1 justify-center">
+              {dia.turnos.slice(0, 3).map((turno: Turno) => (
+                <div
+                  key={turno.id}
+                  className={`w-2 h-2 rounded-full ${obtenerColorTipo(turno.tipo)}`}
+                  title={`${turno.hora} - ${turno.cliente_nombre}`}
+                />
+              ))}
+              {dia.turnos.length > 3 && (
+                <div className="w-2 h-2 rounded-full bg-gray-400" title={`+${dia.turnos.length - 3} más`} />
               )}
             </div>
-          ))}
-        </div>
 
-        {/* Leyenda */}
-        <div className="flex justify-center gap-4 mt-4 text-xs">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span>Entrega</span>
+            {/* Contador de turnos */}
+            {dia.turnos.length > 0 && (
+              <div className="text-xs text-center mt-1 text-slate-300">
+                {dia.turnos.length} turno{dia.turnos.length !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-            <span>Reparación</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span>Consulta</span>
-          </div>
+        ))}
+      </div>
+
+      {/* Leyenda */}
+      <div className="flex justify-center gap-4 mt-4 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span>Entrega</span>
         </div>
-      </Card>
-    );
-  }
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+          <span>Reparación</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <span>Consulta</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
