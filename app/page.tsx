@@ -8217,11 +8217,7 @@ export default function Page() {
     setSession(null);
   }
 
-  return (
-    <>
-      {/* App visible (no se imprime) */}
-<div className="min-h-screen bg-emerald-950 text-slate-100 no-print">
-<style>{`::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:#0b1220}::-webkit-scrollbar-thumb{background:#065f46;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#047857}`}</style>
+
  /* ===== SISTEMA DE NOTIFICACIONES ===== */
 function NotificationSystem() {
   const [notifications, setNotifications] = useState<any[]>([]);
