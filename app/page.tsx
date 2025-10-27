@@ -696,6 +696,23 @@ async function cambiarEstadoTurno(turnoId: string, nuevoEstado: Turno["estado"])
       }
     }
   }
+  // Función para cambiar estado del producto
+async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProducto) {
+  const st = clone(state);
+  const producto = st.products.find((p: Producto) => p.id === productoId);
+  if (producto) {
+    producto.estado = nuevoEstado;
+    setState(st);
+
+    if (hasSupabase) {
+      await supabase.from("products")
+        .update({ estado: nuevoEstado })
+        .eq("id", productoId);
+    }
+    
+    showSuccess(`✅ Estado cambiado a: ${nuevoEstado}`);
+  }
+}
 
   // Calcular capital total en inventario
   const capitalTotal = state.products
