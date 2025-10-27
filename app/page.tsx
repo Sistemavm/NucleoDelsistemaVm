@@ -8,6 +8,100 @@ import { supabase, hasSupabase } from "../lib/supabaseClient";
 
 
 /* ===== TIPOS NUEVOS ===== */
+type GradoProducto = "A+" | "A" | "A-" | "AB";
+type EstadoProducto = "EN STOCK" | "VENDIDO" | "EN REPARACION" | "INGRESANDO";
+type UbicacionProducto = "LOCAL" | "DEPOSITO" | "DEPOSITO_2";
+
+type Producto = {
+  id: string;
+  name: string;
+  modelo: string;
+  imei: string;
+  grado: GradoProducto;
+  estado: EstadoProducto;
+  ubicacion: UbicacionProducto;
+  color: string;
+  precio_compra: number;
+  precio_venta: number;
+  costo_reparacion: number;
+  descripcion?: string;
+  fecha_ingreso: string;
+  vendido_en?: string;
+  vendido_a?: string;
+};
+
+// Cliente adaptado a TU estructura
+type Cliente = {
+  id: string;
+  name: string;           // En tu BD es 'name' no 'nombre'
+  apellido?: string;      // Nueva columna que vamos a agregar
+  telefono?: string;      // Nueva columna que vamos a agregar  
+  email?: string;         // Nueva columna que vamos a agregar
+  debt: number;           // Ya existe en tu BD
+  deuda_total: number;    // Ya existe en tu BD  
+  saldo_favor: number;    // Ya existe en tu BD
+  dni?: string;           // Ya existe en tu BD
+  direccion?: string;     // Ya existe en tu BD
+  creado_por: string;     // Ya existe en tu BD
+  fecha_registro: string; // Ya existe en tu BD
+  deuda_manual?: boolean; // Ya existe en tu BD
+};
+
+type ItemVenta = {
+  productId: string;
+  imei: string;
+  name: string;
+  modelo: string;
+  grado: GradoProducto;
+  color: string;
+  precio_venta: number;
+  costo_reparacion: number;
+  comision_entrega: number;
+  vendedor_id: string;
+  vendedor_nombre: string;
+};
+
+type Venta = {
+  id: string;
+  number: number;
+  date_iso: string;
+  client_id: string;
+  client_name: string;    // Cambiado para coincidir con tu estructura
+  client_dni?: string;
+  client_telefono?: string;
+  items: ItemVenta[];
+  total: number;
+  costo_total: number;
+  ganancia: number;
+  comisiones_total: number;
+  payments: {
+    cash: number;
+    transfer: number;
+    change: number;
+    alias?: string;
+    saldo_aplicado: number;
+  };
+  status: "Pagada" | "No Pagada";
+  vendedor_id: string;
+  vendedor_nombre: string;
+  tipo: "Venta";
+};
+
+type Turno = {
+  id: string;
+  fecha: string;
+  hora: string;
+  cliente_id: string;
+  cliente_nombre: string;
+  cliente_telefono: string;
+  tipo: "ENTREGA" | "REPARACION" | "CONSULTA";
+  estado: "PENDIENTE" | "CONFIRMADO" | "COMPLETADO" | "CANCELADO";
+  productos: string[];
+  descripcion?: string;
+  vendedor_asignado?: string;
+  created_at: string;
+};
+
 type Pedido = {
   id: string;
   client_id: string;
@@ -65,16 +159,6 @@ type DebtPayment = {
   deuda_real_antes?: number;
    comprobante_url?: string;
   comprobante_subido_at?: string;
-};
-type Cliente = {
-  id: string;
-  number: number;
-  name: string;
-  debt: number;
-  saldo_favor: number;
-  creado_por?: string; // Para saber quién creó el cliente
-  fecha_creacion?: string;
-  deuda_manual?: boolean; // Para identificar si la deuda fue asignada manualmente
 };
 /* ===== helpers ===== */
 const pad = (n: number, width = 8) => String(n).padStart(width, "0");
@@ -424,6 +508,813 @@ function SubirComprobante({ tipo, id, session, onComprobanteSubido }: {
       >
         {subiendo ? '📤 Subiendo...' : '📎 Comprobante'}
       </button>
+    </div>
+  );
+}
+/* ===== NUEVOS COMPONENTES PARA SISTEMA iPHONES ===== */
+
+// 1. COMPONENTE DE INVENTARIO DE iPHONES
+function ProductosiPhoneTab({ state, setState, session }: any) {
+  const [modo, setModo] = useState<"lista" | "nuevo" | "editar">("lista");
+  const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  
+  // Estados para nuevo producto
+  const [nombre, setNombre] = useState("");
+  const [modelo, setModelo] = useState("");
+  const [imei, setImei] = useState("");
+  const [grado, setGrado] = useState<GradoProducto>("A");
+  const [color, setColor] = useState("");
+  const [precioCompra, setPrecioCompra] = useState("");
+  const [precioVenta, setPrecioVenta] = useState("");
+  const [costoReparacion, setCostoReparacion] = useState("");
+  const [ubicacion, setUbicacion] = useState<UbicacionProducto>("LOCAL");
+  const [descripcion, setDescripcion] = useState("");
+  // En ProductosiPhoneTab, agregar:
+const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
+  // En ProductosiPhoneTab:
+const productosStockBajo = state.products.filter((p: Producto) => 
+  p.estado === "EN STOCK" && 
+  calcularDiasEnStock(p) > 30  // Alertar si lleva más de 30 días
+);
+
+const modelosiPhone = [
+  // iPhone 8 Series
+  "iPhone 8", "iPhone 8 Plus",
+  
+  // iPhone X Series
+  "iPhone X", "iPhone XS", "iPhone XS Max", "iPhone XR",
+  
+  // iPhone 11 Series
+  "iPhone 11", "iPhone 11 Pro", "iPhone 11 Pro Max",
+  
+  // iPhone 12 Series
+  "iPhone 12", "iPhone 12 mini", "iPhone 12 Pro", "iPhone 12 Pro Max",
+  
+  // iPhone 13 Series
+  "iPhone 13", "iPhone 13 mini", "iPhone 13 Pro", "iPhone 13 Pro Max",
+  
+  // iPhone 14 Series
+  "iPhone 14", "iPhone 14 Plus", "iPhone 14 Pro", "iPhone 14 Pro Max",
+  
+  // iPhone 15 Series
+  "iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro", "iPhone 15 Pro Max",
+  
+  // iPhone 16 Series (futuros modelos)
+  "iPhone 16", "iPhone 16 Pro", "iPhone 16 Pro Max",
+  
+  // iPhone 17 Series (futuros modelos)
+  "iPhone 17", "iPhone 17 Air", "iPhone 17 Pro", "iPhone 17 Pro Max"
+];
+
+  const colores = [
+    "Negro", "Blanco", "Rojo", "Azul", "Verde", "Rosa", "Morado", "Gold", "Graphite"
+  ];
+
+  async function agregarProducto() {
+    if (!nombre || !modelo || !imei) {
+      alert("Complete nombre, modelo e IMEI");
+      return;
+    }
+
+    // Verificar IMEI único
+    const imeiExistente = state.products.find((p: Producto) => p.imei === imei);
+    if (imeiExistente) {
+      alert("El IMEI ya existe en el sistema");
+      return;
+    }
+
+    const nuevoProducto: Producto = {
+      id: "ip_" + Math.random().toString(36).slice(2, 9),
+      name: nombre,
+      modelo,
+      imei,
+      grado,
+      color,
+      estado: "EN STOCK",
+      ubicacion,
+      precio_compra: parseNum(precioCompra),
+      precio_venta: parseNum(precioVenta),
+      costo_reparacion: parseNum(costoReparacion),
+      descripcion: descripcion || undefined,
+      fecha_ingreso: todayISO()
+    };
+
+    const st = clone(state);
+    st.products.push(nuevoProducto);
+    setState(st);
+
+    if (hasSupabase) {
+      await supabase.from("products").insert(nuevoProducto);
+    }
+
+    // Limpiar formulario
+    setNombre("");
+    setModelo("");
+    setImei("");
+    setPrecioCompra("");
+    setPrecioVenta("");
+    setCostoReparacion("");
+    setDescripcion("");
+    setModo("lista");
+
+    alert("✅ iPhone agregado al inventario");
+  }
+
+  function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProducto) {
+    const st = clone(state);
+    const producto = st.products.find((p: Producto) => p.id === productoId);
+    if (producto) {
+      producto.estado = nuevoEstado;
+      setState(st);
+
+      if (hasSupabase) {
+        supabase.from("products")
+          .update({ estado: nuevoEstado })
+          .eq("id", productoId);
+      }
+    }
+  }
+
+  function cambiarUbicacionProducto(productoId: string, nuevaUbicacion: UbicacionProducto) {
+    const st = clone(state);
+    const producto = st.products.find((p: Producto) => p.id === productoId);
+    if (producto) {
+      producto.ubicacion = nuevaUbicacion;
+      setState(st);
+
+      if (hasSupabase) {
+        supabase.from("products")
+          .update({ ubicacion: nuevaUbicacion })
+          .eq("id", productoId);
+      }
+    }
+  }
+
+  // Calcular capital total en inventario
+  const capitalTotal = state.products
+    .filter((p: Producto) => p.estado === "EN STOCK")
+    .reduce((total: number, p: Producto) => total + p.precio_compra + p.costo_reparacion, 0);
+
+  return (
+    <div className="max-w-7xl mx-auto p-4 space-y-4">
+      {/* Resumen de capital */}
+      <Card title="💰 Capital en Inventario">
+        <div className="text-3xl font-bold text-emerald-400">
+          {money(capitalTotal)}
+        </div>
+        <div className="text-sm text-slate-400 mt-1">
+          Total invertido en productos en stock
+        </div>
+      </Card>
+
+      {modo === "lista" && (
+        <>
+          <Card 
+            title="📱 Inventario de iPhones"
+            actions={
+              <Button onClick={() => setModo("nuevo")}>
+                ➕ Agregar iPhone
+              </Button>
+            }
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="text-left text-slate-400">
+                  <tr>
+                    <th className="py-2 px-2">Modelo</th>
+                    <th className="py-2 px-2">IMEI</th>
+                    <th className="py-2 px-2">Grado</th>
+                    <th className="py-2 px-2">Color</th>
+                    <th className="py-2 px-2">Estado</th>
+                    <th className="py-2 px-2">Ubicación</th>
+                    <th className="py-2 px-2">Costo Total</th>
+                    <th className="py-2 px-2">Precio Venta</th>
+                    <th className="py-2 px-2">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {state.products.map((producto: Producto) => (
+                    <tr key={producto.id} className={
+                      producto.estado === "VENDIDO" ? "bg-green-900/20" :
+                      producto.estado === "EN REPARACION" ? "bg-yellow-900/20" :
+                      producto.estado === "INGRESANDO" ? "bg-blue-900/20" : ""
+                    }>
+                      <td className="py-2 px-2">
+                        <div className="font-medium">{producto.name}</div>
+                        <div className="text-xs text-slate-400">{producto.modelo}</div>
+                      </td>
+                      <td className="py-2 px-2 font-mono text-xs">{producto.imei}</td>
+                      <td className="py-2 px-2">
+                        <Chip tone={
+                          producto.grado === "A+" ? "emerald" :
+                          producto.grado === "A" ? "blue" :
+                          producto.grado === "A-" ? "yellow" : "slate"
+                        }>
+                          {producto.grado}
+                        </Chip>
+                      </td>
+                      <td className="py-2 px-2">{producto.color}</td>
+                      <td className="py-2 px-2">
+                        <Select
+                          value={producto.estado}
+                          onChange={(v: EstadoProducto) => cambiarEstadoProducto(producto.id, v)}
+                          options={[
+                            { value: "EN STOCK", label: "🟢 EN STOCK" },
+                            { value: "VENDIDO", label: "💰 VENDIDO" },
+                            { value: "EN REPARACION", label: "🛠️ EN REPARACIÓN" },
+                            { value: "INGRESANDO", label: "📥 INGRESANDO" },
+                          ]}
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <Select
+                          value={producto.ubicacion}
+                          onChange={(v: UbicacionProducto) => cambiarUbicacionProducto(producto.id, v)}
+                          options={[
+                            { value: "LOCAL", label: "🏪 LOCAL" },
+                            { value: "DEPOSITO", label: "📦 DEPÓSITO" },
+                            { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
+                          ]}
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        {money(producto.precio_compra + producto.costo_reparacion)}
+                      </td>
+                      <td className="py-2 px-2 font-semibold">
+                        {money(producto.precio_venta)}
+                      </td>
+                      <td className="py-2 px-2">
+                        <button
+                          onClick={() => {
+                            setProductoEditando(producto);
+                            setModo("editar");
+                          }}
+                          className="text-blue-400 hover:text-blue-300 text-sm mr-2"
+                        >
+                          ✏️
+                        </button>
+                        {producto.estado === "EN STOCK" && (
+                          <Chip tone="emerald">Disponible</Chip>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {modo === "nuevo" && (
+        <Card title="➕ Agregar Nuevo iPhone">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Input
+              label="Nombre del producto"
+              value={nombre}
+              onChange={setNombre}
+              placeholder="Ej: iPhone 13 128GB"
+            />
+            <Select
+              label="Modelo"
+              value={modelo}
+              onChange={setModelo}
+              options={modelosiPhone.map(m => ({ value: m, label: m }))}
+            />
+            <Input
+              label="IMEI"
+              value={imei}
+              onChange={setImei}
+              placeholder="15 dígitos"
+            />
+            <Select
+              label="Grado"
+              value={grado}
+              onChange={setGrado}
+              options={[
+                { value: "A+", label: "A+ - Excelente" },
+                { value: "A", label: "A - Muy Bueno" },
+                { value: "A-", label: "A- - Bueno" },
+                { value: "AB", label: "AB - Regular" },
+              ]}
+            />
+            <Select
+              label="Color"
+              value={color}
+              onChange={setColor}
+              options={colores.map(c => ({ value: c, label: c }))}
+            />
+            <Select
+              label="Ubicación"
+              value={ubicacion}
+              onChange={setUbicacion}
+              options={[
+                { value: "LOCAL", label: "🏪 LOCAL" },
+                { value: "DEPOSITO", label: "📦 DEPÓSITO" },
+                { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
+              ]}
+            />
+            <NumberInput
+              label="Precio de Compra"
+              value={precioCompra}
+              onChange={setPrecioCompra}
+              placeholder="0"
+            />
+            <NumberInput
+              label="Precio de Venta"
+              value={precioVenta}
+              onChange={setPrecioVenta}
+              placeholder="0"
+            />
+            <NumberInput
+              label="Costo de Reparación"
+              value={costoReparacion}
+              onChange={setCostoReparacion}
+              placeholder="0"
+            />
+            <div className="md:col-span-2">
+              <Input
+                label="Descripción (opcional)"
+                value={descripcion}
+                onChange={setDescripcion}
+                placeholder="Detalles adicionales, fallas, etc."
+              />
+            </div>
+            <div className="md:col-span-2 flex gap-2 justify-end">
+              <Button tone="slate" onClick={() => setModo("lista")}>
+                Cancelar
+              </Button>
+              <Button onClick={agregarProducto}>
+                Guardar iPhone
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+// 2. COMPONENTE DE VENTAS DE iPHONES
+function VentasiPhoneTab({ state, setState, session }: any) {
+  const [clientId, setClientId] = useState("");
+  const [vendedorId, setVendedorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
+  const [items, setItems] = useState<ItemVenta[]>([]);
+  const [comisionEntrega, setComisionEntrega] = useState("");
+  
+  // Filtros para productos
+  const [filtroModelo, setFiltroModelo] = useState("Todos");
+  const [filtroGrado, setFiltroGrado] = useState("Todos");
+  const [filtroUbicacion, setFiltroUbicacion] = useState("Todos");
+
+  const productosDisponibles = state.products.filter((p: Producto) => 
+    p.estado === "EN STOCK" &&
+    (filtroModelo === "Todos" || p.modelo === filtroModelo) &&
+    (filtroGrado === "Todos" || p.grado === filtroGrado) &&
+    (filtroUbicacion === "Todos" || p.ubicacion === filtroUbicacion)
+  );
+
+  function agregarItem(producto: Producto) {
+    const item: ItemVenta = {
+      productId: producto.id,
+      imei: producto.imei,
+      name: producto.name,
+      modelo: producto.modelo,
+      grado: producto.grado,
+      color: producto.color,
+      precio_venta: producto.precio_venta,
+      costo_reparacion: producto.costo_reparacion,
+      comision_entrega: parseNum(comisionEntrega) || 0,
+      vendedor_id: vendedorId,
+      vendedor_nombre: state.vendors.find((v: any) => v.id === vendedorId)?.name || "Vendedor"
+    };
+
+    setItems([...items, item]);
+  }
+
+  async function finalizarVenta() {
+    if (!clientId || items.length === 0) {
+      alert("Seleccione cliente y agregue productos");
+      return;
+    }
+
+    const st = clone(state);
+    const number = st.meta.invoiceCounter++;
+    const id = "venta_" + number;
+
+    const cliente = st.clients.find((c: any) => c.id === clientId);
+    const vendedor = st.vendors.find((v: any) => v.id === vendedorId);
+
+    // Calcular totales
+    const total = items.reduce((sum, item) => sum + item.precio_venta, 0);
+    const costoTotal = items.reduce((sum, item) => sum + item.costo_reparacion, 0);
+    const comisionesTotal = items.reduce((sum, item) => sum + item.comision_entrega, 0);
+    const ganancia = total - costoTotal - comisionesTotal;
+
+    const venta: Venta = {
+      id,
+      number,
+      date_iso: todayISO(),
+      client_id: clientId,
+      client_name: cliente.name,
+      client_telefono: cliente.telefono || "",
+      client_dni: cliente.dni,
+      items: clone(items),
+      total,
+      costo_total: costoTotal,
+      ganancia,
+      comisiones_total: comisionesTotal,
+      payments: { cash: 0, transfer: 0, change: 0, saldo_aplicado: 0 },
+      status: "No Pagada",
+      vendedor_id: vendedorId,
+      vendedor_nombre: vendedor.name,
+      tipo: "Venta"
+    };
+
+    // Actualizar estado de productos a VENDIDO
+    items.forEach(item => {
+      const producto = st.products.find((p: Producto) => p.id === item.productId);
+      if (producto) {
+        producto.estado = "VENDIDO";
+        producto.vendido_en = id;
+        producto.vendido_a = clientId;
+      }
+    });
+
+    st.invoices.push(venta);
+    setState(st);
+
+    if (hasSupabase) {
+      await supabase.from("invoices").insert(venta);
+      // Actualizar productos
+      for (const item of items) {
+        await supabase.from("products")
+          .update({ 
+            estado: "VENDIDO",
+            vendido_en: id,
+            vendido_a: clientId
+          })
+          .eq("id", item.productId);
+      }
+      await saveCountersSupabase(st.meta);
+    }
+
+    // Imprimir recibo
+    window.dispatchEvent(new CustomEvent("print-invoice", { detail: venta } as any));
+    await nextPaint();
+    window.print();
+
+    // Limpiar
+    setItems([]);
+    setComisionEntrega("");
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-4 space-y-4">
+      <Card title="💰 Nueva Venta de iPhone">
+        <div className="grid md:grid-cols-3 gap-4">
+          <Select
+            label="Cliente"
+            value={clientId}
+            onChange={setClientId}
+            options={state.clients.map((c: Cliente) => ({
+              value: c.id,
+              label: `${c.name} - ${c.telefono || "Sin teléfono"}`
+            }))}
+          />
+          <Select
+            label="Vendedor"
+            value={vendedorId}
+            onChange={setVendedorId}
+            options={state.vendors.map((v: any) => ({
+              value: v.id,
+              label: v.name
+            }))}
+          />
+          <NumberInput
+            label="Comisión Entrega"
+            value={comisionEntrega}
+            onChange={setComisionEntrega}
+            placeholder="0"
+          />
+        </div>
+      </Card>
+
+      {/* Filtros de productos */}
+      <Card title="📱 Productos Disponibles">
+        <div className="grid md:grid-cols-4 gap-3 mb-4">
+          <Select
+            label="Modelo"
+            value={filtroModelo}
+            onChange={setFiltroModelo}
+            options={[
+              { value: "Todos", label: "Todos los modelos" },
+              ...Array.from(new Set(state.products.map((p: Producto) => p.modelo)))
+                .map(m => ({ value: m, label: m }))
+            ]}
+          />
+          <Select
+            label="Grado"
+            value={filtroGrado}
+            onChange={setFiltroGrado}
+            options={[
+              { value: "Todos", label: "Todos los grados" },
+              ...Array.from(new Set(state.products.map((p: Producto) => p.grado)))
+                .map(g => ({ value: g, label: g }))
+            ]}
+          />
+          <Select
+            label="Ubicación"
+            value={filtroUbicacion}
+            onChange={setFiltroUbicacion}
+            options={[
+              { value: "Todos", label: "Todas las ubicaciones" },
+              { value: "LOCAL", label: "🏪 LOCAL" },
+              { value: "DEPOSITO", label: "📦 DEPÓSITO" },
+              { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
+            ]}
+          />
+          <div className="pt-6">
+            <Chip tone="emerald">
+              {productosDisponibles.length} productos
+            </Chip>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Lista de productos */}
+          <div className="space-y-3">
+            {productosDisponibles.map((producto: Producto) => (
+              <div key={producto.id} className="border border-slate-700 rounded-lg p-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-semibold">{producto.name}</div>
+                    <div className="text-sm text-slate-400">
+                      {producto.modelo} • {producto.color} • {producto.grado}
+                    </div>
+                    <div className="text-xs text-slate-500 font-mono">
+                      IMEI: {producto.imei}
+                    </div>
+                    <div className="text-sm mt-1">
+                      <Chip tone="slate">{producto.ubicacion}</Chip>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-lg">{money(producto.precio_venta)}</div>
+                    <Button 
+                      onClick={() => agregarItem(producto)}
+                      tone="emerald"
+                      className="mt-2"
+                    >
+                      Agregar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Carrito de venta */}
+          <div className="space-y-4">
+            <div className="font-semibold">Carrito de Venta</div>
+            <div className="space-y-3">
+              {items.map((item, index) => (
+                <div key={index} className="border border-slate-700 rounded-lg p-3">
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="font-medium">{item.name}</div>
+                      <div className="text-sm text-slate-400">
+                        IMEI: {item.imei}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold">{money(item.precio_venta)}</div>
+                      <button
+                        onClick={() => setItems(items.filter((_, i) => i !== index))}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {items.length > 0 && (
+              <Card>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>{money(items.reduce((sum, item) => sum + item.precio_venta, 0))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Comisiones:</span>
+                    <span>{money(items.reduce((sum, item) => sum + item.comision_entrega, 0))}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg border-t border-slate-700 pt-2">
+                    <span>Total:</span>
+                    <span>{money(items.reduce((sum, item) => sum + item.precio_venta, 0))}</span>
+                  </div>
+                  <Button onClick={finalizarVenta} className="w-full">
+                    🚀 Finalizar Venta
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+// 3. COMPONENTE DE AGENDA DE TURNOS
+function AgendaTurnosTab({ state, setState, session }: any) {
+  const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
+    const hoy = new Date();
+    return hoy.toISOString().split('T')[0];
+  });
+  const [nuevoTurno, setNuevoTurno] = useState<Partial<Turno>>({
+    tipo: "ENTREGA",
+    estado: "PENDIENTE"
+  });
+
+  const horariosDisponibles = [
+    "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+    "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00"
+  ];
+
+  const turnosDelDia = state.turnos?.filter((t: Turno) => t.fecha === fechaSeleccionada) || [];
+
+  function generarTurnosDisponibles() {
+    const turnosOcupados = turnosDelDia.map((t: Turno) => t.hora);
+    return horariosDisponibles.filter(hora => !turnosOcupados.includes(hora));
+  }
+
+  async function crearTurno() {
+    if (!nuevoTurno.cliente_id || !nuevoTurno.hora) {
+      alert("Seleccione cliente y horario");
+      return;
+    }
+
+    const cliente = state.clients.find((c: Cliente) => c.id === nuevoTurno.cliente_id);
+    const turno: Turno = {
+      id: "turno_" + Math.random().toString(36).slice(2, 9),
+      fecha: fechaSeleccionada,
+      hora: nuevoTurno.hora!,
+      cliente_id: nuevoTurno.cliente_id!,
+      cliente_nombre: cliente.name,
+      cliente_telefono: cliente.telefono || "",
+      tipo: nuevoTurno.tipo!,
+      estado: "PENDIENTE",
+      productos: nuevoTurno.productos || [],
+      descripcion: nuevoTurno.descripcion,
+      vendedor_asignado: session.id,
+      created_at: todayISO()
+    };
+
+    const st = clone(state);
+    st.turnos = st.turnos || [];
+    st.turnos.push(turno);
+    setState(st);
+
+    if (hasSupabase) {
+      await supabase.from("turnos").insert(turno);
+    }
+
+    // Limpiar formulario
+    setNuevoTurno({ tipo: "ENTREGA", estado: "PENDIENTE" });
+    alert("✅ Turno agendado correctamente");
+  }
+
+  async function cambiarEstadoTurno(turnoId: string, nuevoEstado: Turno["estado"]) {
+    const st = clone(state);
+    const turno = st.turnos.find((t: Turno) => t.id === turnoId);
+    if (turno) {
+      turno.estado = nuevoEstado;
+      setState(st);
+
+      if (hasSupabase) {
+        await supabase.from("turnos")
+          .update({ estado: nuevoEstado })
+          .eq("id", turnoId);
+      }
+    }
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 space-y-4">
+      <Card title="📅 Agenda de Turnos">
+        <div className="grid md:grid-cols-3 gap-4">
+          <Input
+            label="Fecha"
+            type="date"
+            value={fechaSeleccionada}
+            onChange={setFechaSeleccionada}
+            min={new Date().toISOString().split('T')[0]}
+          />
+          <Select
+            label="Cliente"
+            value={nuevoTurno.cliente_id || ""}
+            onChange={(v) => setNuevoTurno({...nuevoTurno, cliente_id: v})}
+            options={[
+              { value: "", label: "Seleccionar cliente" },
+              ...state.clients.map((c: Cliente) => ({
+                value: c.id,
+                label: `${c.name} - ${c.telefono || "Sin teléfono"}`
+              }))
+            ]}
+          />
+          <Select
+            label="Horario disponible"
+            value={nuevoTurno.hora || ""}
+            onChange={(v) => setNuevoTurno({...nuevoTurno, hora: v})}
+            options={[
+              { value: "", label: "Seleccionar horario" },
+              ...generarTurnosDisponibles().map(hora => ({
+                value: hora,
+                label: hora
+              }))
+            ]}
+          />
+          <Select
+            label="Tipo de turno"
+            value={nuevoTurno.tipo || "ENTREGA"}
+            onChange={(v) => setNuevoTurno({...nuevoTurno, tipo: v as any})}
+            options={[
+              { value: "ENTREGA", label: "📦 Entrega" },
+              { value: "REPARACION", label: "🛠️ Reparación" },
+              { value: "CONSULTA", label: "💬 Consulta" },
+            ]}
+          />
+          <div className="md:col-span-3">
+            <Input
+              label="Descripción (opcional)"
+              value={nuevoTurno.descripcion || ""}
+              onChange={(v) => setNuevoTurno({...nuevoTurno, descripcion: v})}
+              placeholder="Motivo del turno..."
+            />
+          </div>
+          <div className="md:col-span-3 flex justify-end">
+            <Button onClick={crearTurno}>
+              Agendar Turno
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Lista de turnos del día */}
+      <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
+        <div className="space-y-3">
+          {turnosDelDia.length === 0 ? (
+            <div className="text-center text-slate-400 py-4">
+              No hay turnos para esta fecha
+            </div>
+          ) : (
+            turnosDelDia
+              .sort((a: Turno, b: Turno) => a.hora.localeCompare(b.hora))
+              .map((turno: Turno) => (
+                <div key={turno.id} className="border border-slate-700 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-semibold">
+                        {turno.hora} - {turno.cliente_nombre}
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        📞 {turno.cliente_telefono} • 
+                        {turno.tipo === "ENTREGA" ? " 📦 Entrega" : 
+                         turno.tipo === "REPARACION" ? " 🛠️ Reparación" : " 💬 Consulta"}
+                      </div>
+                      {turno.descripcion && (
+                        <div className="text-sm text-slate-300 mt-1">
+                          {turno.descripcion}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={turno.estado}
+                        onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
+                        options={[
+                          { value: "PENDIENTE", label: "⏳ Pendiente" },
+                          { value: "CONFIRMADO", label: "✅ Confirmado" },
+                          { value: "COMPLETADO", label: "🎉 Completado" },
+                          { value: "CANCELADO", label: "❌ Cancelado" },
+                        ]}
+                      />
+                      <Button
+                        tone="red"
+                        onClick={() => cambiarEstadoTurno(turno.id, "CANCELADO")}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -786,15 +1677,14 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
 
 function Navbar({ current, setCurrent, role, onLogout }: any) {
   const TABS = [
-    "Facturación",
-    "Clientes", 
-    "Productos",
+    "Ventas iPhones",
+    "Inventario iPhones", 
+    "Clientes",
+    "Agenda Turnos",
     "Deudores",
+    "Reportes iPhones",
     "Vendedores",
-    "Reportes",
-    "Presupuestos",
     "Gastos y Devoluciones",
-    "Cola",
     "Pedidos Online",
   ];
 
@@ -802,7 +1692,7 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
     role === "admin"
       ? TABS
       : role === "vendedor"
-      ? ["Facturación", "Clientes", "Productos", "Deudores", "Presupuestos", "Gastos y Devoluciones", "Cola", "Pedidos Online"]
+      ? ["Ventas iPhones", "Clientes", "Agenda Turnos", "Reportes iPhones", "Pedidos Online"]
       : role === "pedido-online"
       ? ["Hacer Pedido"]
       : ["Panel"];
@@ -810,17 +1700,16 @@ function Navbar({ current, setCurrent, role, onLogout }: any) {
   return (
     <div className="sticky top-0 z-50 bg-emerald-950/80 backdrop-blur border-b border-emerald-800">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-        {/* 👇👇👇 LOGO AGREGADO AQUÍ */}
         <div className="flex items-center gap-3">
           <img 
             src="/logo.png" 
-            alt="VMI Electrónica" 
- className="h-16 w-16 rounded-sm"         />
-<div className="text-xs text-slate-400 font-medium font-poppins tracking-wider">
-  v1.0 • Desarrollado por Tobias Carrizo
-</div>
+            alt="iPhone Store" 
+            className="h-16 w-16 rounded-sm"
+          />
+          <div className="text-xs text-slate-400 font-medium font-poppins tracking-wider">
+            v1.0 • Desarrollado Por Tobias Carrizo
+          </div>
         </div>
-        {/* 👆👆👆 HASTA AQUÍ EL LOGO */}
         
         <nav className="flex-1 flex gap-1 flex-wrap">
           {visibleTabs.map((t) => (
@@ -2872,7 +3761,7 @@ function VendedoresTab({ state, setState }: any) {
   );
 }
 
-/* Reportes */
+            /* Reportes */
 function ReportesTab({ state, setState, session }: any) {
   // ====== Filtros de fecha ======
   const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -2889,7 +3778,7 @@ function ReportesTab({ state, setState, session }: any) {
 
   // --- helpers para vuelto por día ---
   const diaClave = dia; // YYYY-MM-DD del selector
-const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, number>;
+  const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, number>;
   const cashFloatTarget = periodo === "dia" ? parseNum(cashFloatByDate[diaClave] ?? 0) : 0;
   async function setCashFloatForDay(nuevo: number) {
     const st = clone(state);
@@ -2999,6 +3888,39 @@ const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, n
     return { start: start.getTime(), end: end.getTime() };
   }
   const { start, end } = rangoActual();
+
+  // ===== MÉTRICAS ESPECÍFICAS PARA iPHONES =====
+  const ventasiPhone = state.invoices.filter((v: any) => 
+    v.tipo === "Venta" && v.items.some((item: any) => 
+      item.modelo && item.modelo.includes("iPhone")
+    )
+  );
+
+  const metricasiPhone = {
+    totalVentas: ventasiPhone.reduce((sum: number, v: any) => sum + v.total, 0),
+    totalUnidades: ventasiPhone.reduce((sum: number, v: any) => sum + v.items.length, 0),
+    gananciaTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.ganancia, 0),
+    
+    // Por modelo de iPhone
+    ventasPorModelo: ventasiPhone.reduce((acc: any, v: any) => {
+      v.items.forEach((item: any) => {
+        if (item.modelo) {
+          acc[item.modelo] = (acc[item.modelo] || 0) + 1;
+        }
+      });
+      return acc;
+    }, {}),
+
+    // Por grado
+    ventasPorGrado: ventasiPhone.reduce((acc: any, v: any) => {
+      v.items.forEach((item: any) => {
+        if (item.grado) {
+          acc[item.grado] = (acc[item.grado] || 0) + 1;
+        }
+      });
+      return acc;
+    }, {})
+  };
 
   // ===== NUEVO: estados para listados traídos por rango =====
   const [docsEnRango, setDocsEnRango] = useState<any[]>([]);
@@ -3309,6 +4231,15 @@ const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
         comisionesPeriodo: commissionsPeriodo,
       },
 
+      // MÉTRICAS iPHONES
+      metricasiPhone: {
+        totalVentas: metricasiPhone.totalVentas,
+        totalUnidades: metricasiPhone.totalUnidades,
+        gananciaTotal: metricasiPhone.gananciaTotal,
+        ventasPorModelo: metricasiPhone.ventasPorModelo,
+        ventasPorGrado: metricasiPhone.ventasPorGrado
+      },
+
       // DETALLES COMPLETOS
       ventas: invoices,
       gastos: gastosPeriodo,
@@ -3371,6 +4302,62 @@ const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
         </div>
       }>
         <div className="text-sm text-slate-400">Genera un reporte imprimible con el rango seleccionado.</div>
+      </Card>
+
+      {/* 👇👇👇 AGREGAR ESTA CARD NUEVA - MÉTRICAS iPHONES */}
+      <Card title="📱 Métricas iPhones">
+        <div className="grid md:grid-cols-4 gap-3">
+          <div>
+            <div className="text-xs text-slate-400 mb-1">Ventas iPhones</div>
+            <div className="text-xl font-bold text-emerald-400">
+              {money(metricasiPhone.totalVentas)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 mb-1">Unidades Vendidas</div>
+            <div className="text-xl font-bold text-blue-400">
+              {metricasiPhone.totalUnidades}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 mb-1">Ganancia iPhones</div>
+            <div className="text-xl font-bold text-green-400">
+              {money(metricasiPhone.gananciaTotal)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 mb-1">Ticket Promedio</div>
+            <div className="text-xl font-bold text-purple-400">
+              {money(metricasiPhone.totalUnidades > 0 ? metricasiPhone.totalVentas / metricasiPhone.totalUnidades : 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Detalle por modelo y grado */}
+        <div className="grid md:grid-cols-2 gap-4 mt-4">
+          <div>
+            <div className="text-sm font-semibold mb-2">Ventas por Modelo</div>
+            {Object.entries(metricasiPhone.ventasPorModelo)
+              .sort(([,a]: any, [,b]: any) => b - a)
+              .map(([modelo, cantidad]: any) => (
+                <div key={modelo} className="flex justify-between py-1 text-sm">
+                  <span>{modelo}</span>
+                  <span className="font-semibold">{cantidad} unidades</span>
+                </div>
+              ))}
+          </div>
+          <div>
+            <div className="text-sm font-semibold mb-2">Ventas por Grado</div>
+            {Object.entries(metricasiPhone.ventasPorGrado)
+              .sort(([,a]: any, [,b]: any) => b - a)
+              .map(([grado, cantidad]: any) => (
+                <div key={grado} className="flex justify-between py-1 text-sm">
+                  <span>Grado {grado}</span>
+                  <span className="font-semibold">{cantidad} unidades</span>
+                </div>
+              ))}
+          </div>
+        </div>
       </Card>
 
       {periodo === "dia" && (
@@ -3501,8 +4488,7 @@ const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
         <Card title="Ventas totales"><div className="text-2xl font-bold">{money(totalVentas)}</div></Card>
         <Card title="Efectivo (cobrado)">
           <div className="text-2xl font-bold">{money(totalEfectivo + efectivoPagosDeudores)}</div>
-          <div className="text-xs text-slate-400 mt-1">
-            Ventas: {money(totalEfectivo)} + Deudores: {money(efectivoPagosDeudores)}
+          <div className="text-xs text-slate-400 mt-1"> Ventas: {money(totalEfectivo)} + Deudores: {money(efectivoPagosDeudores)}
           </div>
         </Card>
         <Card title="Vuelto entregado">
