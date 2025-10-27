@@ -1349,7 +1349,7 @@ function VentasiPhoneTab({ state, setState, session }: any) {
     </div>
   );
 }
-// 3. COMPONENTE DE AGENDA DE TURNOS
+// 3. COMPONENTE DE AGENDA DE TURNOS - VERSIÓN CALENDARIO
 function AgendaTurnosTab({ state, setState, session }: any) {
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
     const hoy = new Date();
@@ -1359,6 +1359,8 @@ function AgendaTurnosTab({ state, setState, session }: any) {
     tipo: "ENTREGA",
     estado: "PENDIENTE"
   });
+  const [vistaCalendario, setVistaCalendario] = useState<"mes" | "semana" | "dia">("mes");
+  const [mesActual, setMesActual] = useState(new Date());
 
   const horariosDisponibles = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -1366,10 +1368,93 @@ function AgendaTurnosTab({ state, setState, session }: any) {
     "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00"
   ];
 
-  const turnosDelDia = state.turnos?.filter((t: Turno) => t.fecha === fechaSeleccionada) || [];
+  // Obtener todos los turnos
+  const todosLosTurnos = state.turnos || [];
+
+  // Función para obtener turnos de un día específico
+  function obtenerTurnosDelDia(fecha: string) {
+    return todosLosTurnos.filter((t: Turno) => t.fecha === fecha);
+  }
+
+  // Función para generar días del mes
+  function generarDiasDelMes() {
+    const year = mesActual.getFullYear();
+    const month = mesActual.getMonth();
+    
+    const primerDia = new Date(year, month, 1);
+    const ultimoDia = new Date(year, month + 1, 0);
+    
+    const dias = [];
+    
+    // Días del mes anterior (para completar la primera semana)
+    const primerDiaSemana = primerDia.getDay();
+    for (let i = primerDiaSemana - 1; i >= 0; i--) {
+      const fecha = new Date(year, month, -i);
+      dias.push({
+        fecha: fecha.toISOString().split('T')[0],
+        esMesActual: false,
+        turnos: obtenerTurnosDelDia(fecha.toISOString().split('T')[0])
+      });
+    }
+    
+    // Días del mes actual
+    for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
+      const fecha = new Date(year, month, dia);
+      dias.push({
+        fecha: fecha.toISOString().split('T')[0],
+        esMesActual: true,
+        esHoy: fecha.toISOString().split('T')[0] === new Date().toISOString().split('T')[0],
+        turnos: obtenerTurnosDelDia(fecha.toISOString().split('T')[0])
+      });
+    }
+    
+    // Días del mes siguiente (para completar la última semana)
+    const ultimoDiaSemana = ultimoDia.getDay();
+    for (let dia = 1; dia < (7 - ultimoDiaSemana); dia++) {
+      const fecha = new Date(year, month + 1, dia);
+      dias.push({
+        fecha: fecha.toISOString().split('T')[0],
+        esMesActual: false,
+        turnos: obtenerTurnosDelDia(fecha.toISOString().split('T')[0])
+      });
+    }
+    
+    return dias;
+  }
+
+  // Función para navegar entre meses
+  function cambiarMes(direccion: "anterior" | "siguiente") {
+    const nuevoMes = new Date(mesActual);
+    if (direccion === "anterior") {
+      nuevoMes.setMonth(nuevoMes.getMonth() - 1);
+    } else {
+      nuevoMes.setMonth(nuevoMes.getMonth() + 1);
+    }
+    setMesActual(nuevoMes);
+  }
+
+  // Función para obtener el color según el tipo de turno
+  function obtenerColorTipo(tipo: string) {
+    switch (tipo) {
+      case "ENTREGA": return "bg-blue-500";
+      case "REPARACION": return "bg-orange-500";
+      case "CONSULTA": return "bg-green-500";
+      default: return "bg-gray-500";
+    }
+  }
+
+  // Función para obtener el icono según el tipo de turno
+  function obtenerIconoTipo(tipo: string) {
+    switch (tipo) {
+      case "ENTREGA": return "📦";
+      case "REPARACION": return "🛠️";
+      case "CONSULTA": return "💬";
+      default: return "📅";
+    }
+  }
 
   function generarTurnosDisponibles() {
-    const turnosOcupados = turnosDelDia.map((t: Turno) => t.hora);
+    const turnosOcupados = obtenerTurnosDelDia(fechaSeleccionada).map((t: Turno) => t.hora);
     return horariosDisponibles.filter(hora => !turnosOcupados.includes(hora));
   }
 
@@ -1424,9 +1509,172 @@ function AgendaTurnosTab({ state, setState, session }: any) {
     }
   }
 
+  // Componente de calendario mensual
+  function CalendarioMensual() {
+    const dias = generarDiasDelMes();
+    const nombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+    const nombreMes = mesActual.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+
+    return (
+      <div className="bg-slate-900 rounded-xl border border-slate-700 p-4">
+        {/* Encabezado del calendario */}
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold capitalize">{nombreMes}</h3>
+          <div className="flex gap-2">
+            <Button tone="slate" onClick={() => cambiarMes("anterior")}>
+              ◀ Anterior
+            </Button>
+            <Button tone="slate" onClick={() => setMesActual(new Date())}>
+              Hoy
+            </Button>
+            <Button tone="slate" onClick={() => cambiarMes("siguiente")}>
+              Siguiente ▶
+            </Button>
+          </div>
+        </div>
+
+        {/* Días de la semana */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {nombresDias.map(dia => (
+            <div key={dia} className="text-center text-sm font-semibold text-slate-400 py-2">
+              {dia}
+            </div>
+          ))}
+        </div>
+
+        {/* Días del mes */}
+        <div className="grid grid-cols-7 gap-1">
+          {dias.map((dia, index) => (
+            <div
+              key={index}
+              className={`min-h-[100px] border border-slate-700 rounded-lg p-2 cursor-pointer transition-all hover:bg-slate-800 ${
+                !dia.esMesActual ? 'bg-slate-900/30 text-slate-500' : 
+                dia.esHoy ? 'bg-emerald-900/20 border-emerald-500' : 'bg-slate-800/30'
+              }`}
+              onClick={() => {
+                setFechaSeleccionada(dia.fecha);
+                setVistaCalendario("dia");
+              }}
+            >
+              <div className={`text-sm font-medium mb-1 ${
+                dia.esHoy ? 'text-emerald-400' : ''
+              }`}>
+                {new Date(dia.fecha).getDate()}
+              </div>
+              
+              {/* Turnos del día */}
+              <div className="space-y-1 max-h-[80px] overflow-y-auto">
+                {dia.turnos.slice(0, 3).map((turno: Turno) => (
+                  <div
+                    key={turno.id}
+                    className={`text-xs p-1 rounded ${obtenerColorTipo(turno.tipo)} text-white truncate`}
+                    title={`${turno.hora} - ${turno.cliente_nombre} (${turno.tipo})`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs">{obtenerIconoTipo(turno.tipo)}</span>
+                      <span className="truncate">{turno.hora} {turno.cliente_nombre.split(' ')[0]}</span>
+                    </div>
+                  </div>
+                ))}
+                {dia.turnos.length > 3 && (
+                  <div className="text-xs text-slate-400 text-center">
+                    +{dia.turnos.length - 3} más
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Vista detallada del día
+  function VistaDiaDetallado() {
+    const turnosDelDia = obtenerTurnosDelDia(fechaSeleccionada);
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">
+            Turnos para {new Date(fechaSeleccionada).toLocaleDateString('es-ES', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </h3>
+          <Button tone="slate" onClick={() => setVistaCalendario("mes")}>
+            ← Volver al calendario
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {horariosDisponibles.map(hora => {
+            const turnoEnHora = turnosDelDia.find((t: Turno) => t.hora === hora);
+            
+            return (
+              <div
+                key={hora}
+                className={`border rounded-lg p-3 ${
+                  turnoEnHora ? 'bg-slate-800/50 border-slate-600' : 'bg-slate-900/30 border-slate-700'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="font-semibold">{hora}</div>
+                  {turnoEnHora ? (
+                    <Chip tone={
+                      turnoEnHora.estado === "PENDIENTE" ? "slate" :
+                      turnoEnHora.estado === "CONFIRMADO" ? "emerald" :
+                      turnoEnHora.estado === "COMPLETADO" ? "blue" : "red"
+                    }>
+                      {turnoEnHora.estado}
+                    </Chip>
+                  ) : (
+                    <Chip tone="slate">Disponible</Chip>
+                  )}
+                </div>
+
+                {turnoEnHora && (
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className={obtenerColorTipo(turnoEnHora.tipo) + " w-3 h-3 rounded-full"}></span>
+                      <span className="font-medium">{turnoEnHora.cliente_nombre}</span>
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      {obtenerIconoTipo(turnoEnHora.tipo)} {turnoEnHora.tipo}
+                    </div>
+                    {turnoEnHora.descripcion && (
+                      <div className="text-sm text-slate-300">
+                        {turnoEnHora.descripcion}
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      <Select
+                        value={turnoEnHora.estado}
+                        onChange={(v) => cambiarEstadoTurno(turnoEnHora.id, v as any)}
+                        options={[
+                          { value: "PENDIENTE", label: "⏳ Pendiente" },
+                          { value: "CONFIRMADO", label: "✅ Confirmado" },
+                          { value: "COMPLETADO", label: "🎉 Completado" },
+                          { value: "CANCELADO", label: "❌ Cancelado" },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto p-4 space-y-4">
-      <Card title="📅 Agenda de Turnos">
+    <div className="max-w-7xl mx-auto p-4 space-y-6">
+      {/* Card para agendar nuevo turno */}
+      <Card title="📅 Agendar Nuevo Turno">
         <div className="grid md:grid-cols-3 gap-4">
           <Input
             label="Fecha"
@@ -1485,58 +1733,87 @@ function AgendaTurnosTab({ state, setState, session }: any) {
         </div>
       </Card>
 
-      {/* Lista de turnos del día */}
-      <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
-        <div className="space-y-3">
-          {turnosDelDia.length === 0 ? (
-            <div className="text-center text-slate-400 py-4">
-              No hay turnos para esta fecha
-            </div>
-          ) : (
-            turnosDelDia
-              .sort((a: Turno, b: Turno) => a.hora.localeCompare(b.hora))
-              .map((turno: Turno) => (
-                <div key={turno.id} className="border border-slate-700 rounded-lg p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-semibold">
-                        {turno.hora} - {turno.cliente_nombre}
-                      </div>
-                      <div className="text-sm text-slate-400">
-                        📞 {turno.cliente_telefono} • 
-                        {turno.tipo === "ENTREGA" ? " 📦 Entrega" : 
-                         turno.tipo === "REPARACION" ? " 🛠️ Reparación" : " 💬 Consulta"}
-                      </div>
-                      {turno.descripcion && (
-                        <div className="text-sm text-slate-300 mt-1">
-                          {turno.descripcion}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <Select
-                        value={turno.estado}
-                        onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
-                        options={[
-                          { value: "PENDIENTE", label: "⏳ Pendiente" },
-                          { value: "CONFIRMADO", label: "✅ Confirmado" },
-                          { value: "COMPLETADO", label: "🎉 Completado" },
-                          { value: "CANCELADO", label: "❌ Cancelado" },
-                        ]}
-                      />
-                      <Button
-                        tone="red"
-                        onClick={() => cambiarEstadoTurno(turno.id, "CANCELADO")}
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))
-          )}
+      {/* Selector de vista */}
+      <Card>
+        <div className="flex gap-2">
+          <Button 
+            tone={vistaCalendario === "mes" ? "emerald" : "slate"}
+            onClick={() => setVistaCalendario("mes")}
+          >
+            📅 Vista Mensual
+          </Button>
+          <Button 
+            tone={vistaCalendario === "dia" ? "emerald" : "slate"}
+            onClick={() => setVistaCalendario("dia")}
+          >
+            📋 Vista del Día
+          </Button>
         </div>
       </Card>
+
+      {/* Calendario o vista detallada */}
+      {vistaCalendario === "mes" ? (
+        <CalendarioMensual />
+      ) : (
+        <Card>
+          <VistaDiaDetallado />
+        </Card>
+      )}
+
+      {/* Resumen de turnos del día seleccionado */}
+      {vistaCalendario === "mes" && (
+        <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
+          <div className="space-y-3">
+            {obtenerTurnosDelDia(fechaSeleccionada).length === 0 ? (
+              <div className="text-center text-slate-400 py-4">
+                No hay turnos para esta fecha
+              </div>
+            ) : (
+              obtenerTurnosDelDia(fechaSeleccionada)
+                .sort((a: Turno, b: Turno) => a.hora.localeCompare(b.hora))
+                .map((turno: Turno) => (
+                  <div key={turno.id} className="border border-slate-700 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-semibold">
+                          {turno.hora} - {turno.cliente_nombre}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          📞 {turno.cliente_telefono} • 
+                          {turno.tipo === "ENTREGA" ? " 📦 Entrega" : 
+                          turno.tipo === "REPARACION" ? " 🛠️ Reparación" : " 💬 Consulta"}
+                        </div>
+                        {turno.descripcion && (
+                          <div className="text-sm text-slate-300 mt-1">
+                            {turno.descripcion}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Select
+                          value={turno.estado}
+                          onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
+                          options={[
+                            { value: "PENDIENTE", label: "⏳ Pendiente" },
+                            { value: "CONFIRMADO", label: "✅ Confirmado" },
+                            { value: "COMPLETADO", label: "🎉 Completado" },
+                            { value: "CANCELADO", label: "❌ Cancelado" },
+                          ]}
+                        />
+                        <Button
+                          tone="red"
+                          onClick={() => cambiarEstadoTurno(turno.id, "CANCELADO")}
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
