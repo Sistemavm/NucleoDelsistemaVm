@@ -521,13 +521,14 @@ function calcularDiasEnStock(producto: Producto): number {
   return diferenciaDias;
 }
 // 1. COMPONENTE DE INVENTARIO DE iPHONES
+// 1. COMPONENTE DE INVENTARIO DE iPHONES
 function ProductosiPhoneTab({ state, setState, session }: any) {
   const [modo, setModo] = useState<"lista" | "nuevo" | "editar">("lista");
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   
   // Estados para nuevo producto
-  const [nombre, setNombre] = useState("");
   const [modelo, setModelo] = useState("");
+  const [capacidad, setCapacidad] = useState(""); // 👈 NUEVO ESTADO
   const [imei, setImei] = useState("");
   const [grado, setGrado] = useState<GradoProducto>("A");
   const [color, setColor] = useState("");
@@ -536,50 +537,59 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
   const [costoReparacion, setCostoReparacion] = useState("");
   const [ubicacion, setUbicacion] = useState<UbicacionProducto>("LOCAL");
   const [descripcion, setDescripcion] = useState("");
-  // En ProductosiPhoneTab, agregar:
-const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
-  // En ProductosiPhoneTab:
-const productosStockBajo = state.products.filter((p: Producto) => 
-  p.estado === "EN STOCK" && 
-  calcularDiasEnStock(p) > 30  // Alertar si lleva más de 30 días
-);
+  
+  // Estados para filtros
+  const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
+  const [filtroModelo, setFiltroModelo] = useState("Todos");
+  const [filtroCapacidad, setFiltroCapacidad] = useState("Todos"); // 👈 NUEVO FILTRO
+  const [filtroGrado, setFiltroGrado] = useState("Todos");
+  const [filtroUbicacion, setFiltroUbicacion] = useState("Todos");
+  const [filtroDiasStock, setFiltroDiasStock] = useState("Todos"); // 👈 NUEVO FILTRO
 
-const modelosiPhone = [
-  // iPhone 8 Series
-  "iPhone 8", "iPhone 8 Plus",
-  
-  // iPhone X Series
-  "iPhone X", "iPhone XS", "iPhone XS Max", "iPhone XR",
-  
-  // iPhone 11 Series
-  "iPhone 11", "iPhone 11 Pro", "iPhone 11 Pro Max",
-  
-  // iPhone 12 Series
-  "iPhone 12", "iPhone 12 mini", "iPhone 12 Pro", "iPhone 12 Pro Max",
-  
-  // iPhone 13 Series
-  "iPhone 13", "iPhone 13 mini", "iPhone 13 Pro", "iPhone 13 Pro Max",
-  
-  // iPhone 14 Series
-  "iPhone 14", "iPhone 14 Plus", "iPhone 14 Pro", "iPhone 14 Pro Max",
-  
-  // iPhone 15 Series
-  "iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro", "iPhone 15 Pro Max",
-  
-  // iPhone 16 Series (futuros modelos)
-  "iPhone 16", "iPhone 16 Pro", "iPhone 16 Pro Max",
-  
-  // iPhone 17 Series (futuros modelos)
-  "iPhone 17", "iPhone 17 Air", "iPhone 17 Pro", "iPhone 17 Pro Max"
-];
+  const productosStockBajo = state.products.filter((p: Producto) => 
+    p.estado === "EN STOCK" && 
+    calcularDiasEnStock(p) > 30
+  );
+
+  const modelosiPhone = [
+    // iPhone 8 Series
+    "iPhone 8", "iPhone 8 Plus",
+    
+    // iPhone X Series
+    "iPhone X", "iPhone XS", "iPhone XS Max", "iPhone XR",
+    
+    // iPhone 11 Series
+    "iPhone 11", "iPhone 11 Pro", "iPhone 11 Pro Max",
+    
+    // iPhone 12 Series
+    "iPhone 12", "iPhone 12 mini", "iPhone 12 Pro", "iPhone 12 Pro Max",
+    
+    // iPhone 13 Series
+    "iPhone 13", "iPhone 13 mini", "iPhone 13 Pro", "iPhone 13 Pro Max",
+    
+    // iPhone 14 Series
+    "iPhone 14", "iPhone 14 Plus", "iPhone 14 Pro", "iPhone 14 Pro Max",
+    
+    // iPhone 15 Series
+    "iPhone 15", "iPhone 15 Plus", "iPhone 15 Pro", "iPhone 15 Pro Max",
+    
+    // iPhone 16 Series (futuros modelos)
+    "iPhone 16", "iPhone 16 Pro", "iPhone 16 Pro Max",
+    
+    // iPhone 17 Series (futuros modelos)
+    "iPhone 17", "iPhone 17 Air", "iPhone 17 Pro", "iPhone 17 Pro Max"
+  ];
+
+  // 👇👇👇 CAPACIDADES DISPONIBLES
+  const capacidades = ["64GB", "128GB", "256GB", "512GB", "1TB"];
 
   const colores = [
     "Negro", "Blanco", "Rojo", "Azul", "Verde", "Rosa", "Morado", "Gold", "Graphite"
   ];
 
   async function agregarProducto() {
-    if (!nombre || !modelo || !imei) {
-      alert("Complete nombre, modelo e IMEI");
+    if (!modelo || !capacidad || !imei) { // 👈 AGREGAR VALIDACIÓN DE CAPACIDAD
+      alert("Complete modelo, capacidad e IMEI");
       return;
     }
 
@@ -590,10 +600,14 @@ const modelosiPhone = [
       return;
     }
 
+    // 👇👇👇 CREAR NOMBRE AUTOMÁTICO CON MODELO + CAPACIDAD
+    const nombreCompleto = `${modelo} ${capacidad}`;
+
     const nuevoProducto: Producto = {
       id: "ip_" + Math.random().toString(36).slice(2, 9),
-      name: nombre,
+      name: nombreCompleto, // 👈 USAR NOMBRE AUTOMÁTICO
       modelo,
+      capacidad, // 👈 AGREGAR CAPACIDAD AL PRODUCTO
       imei,
       grado,
       color,
@@ -615,8 +629,8 @@ const modelosiPhone = [
     }
 
     // Limpiar formulario
-    setNombre("");
     setModelo("");
+    setCapacidad(""); // 👈 LIMPIAR CAPACIDAD
     setImei("");
     setPrecioCompra("");
     setPrecioVenta("");
@@ -662,6 +676,29 @@ const modelosiPhone = [
     .filter((p: Producto) => p.estado === "EN STOCK")
     .reduce((total: number, p: Producto) => total + p.precio_compra + p.costo_reparacion, 0);
 
+  // 👇👇👇 FILTRAR PRODUCTOS CON LOS NUEVOS FILTROS
+  const productosFiltrados = state.products.filter((p: Producto) => {
+    const cumpleEstado = p.estado === filtroEstado;
+    const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
+    const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
+    const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
+    const cumpleUbicacion = filtroUbicacion === "Todos" || p.ubicacion === filtroUbicacion;
+    
+    // 👇👇👇 FILTRAR POR DÍAS EN STOCK
+    let cumpleDiasStock = true;
+    if (filtroDiasStock !== "Todos") {
+      const dias = calcularDiasEnStock(p);
+      switch (filtroDiasStock) {
+        case "7_dias": cumpleDiasStock = dias <= 7; break;
+        case "15_dias": cumpleDiasStock = dias <= 15; break;
+        case "30_dias": cumpleDiasStock = dias > 30; break;
+        case "60_dias": cumpleDiasStock = dias > 60; break;
+      }
+    }
+
+    return cumpleEstado && cumpleModelo && cumpleCapacidad && cumpleGrado && cumpleUbicacion && cumpleDiasStock;
+  });
+
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-4">
       {/* Resumen de capital */}
@@ -684,31 +721,117 @@ const modelosiPhone = [
               </Button>
             }
           >
+            {/* 👇👇👇 NUEVOS FILTROS MEJORADOS */}
+            <div className="grid md:grid-cols-6 gap-3 mb-4">
+              <Select
+                label="Estado"
+                value={filtroEstado}
+                onChange={setFiltroEstado}
+                options={[
+                  { value: "EN STOCK", label: "🟢 EN STOCK" },
+                  { value: "VENDIDO", label: "💰 VENDIDO" },
+                  { value: "EN REPARACION", label: "🛠️ EN REPARACIÓN" },
+                  { value: "INGRESANDO", label: "📥 INGRESANDO" },
+                ]}
+              />
+              <Select
+                label="Modelo"
+                value={filtroModelo}
+                onChange={setFiltroModelo}
+                options={[
+                  { value: "Todos", label: "Todos los modelos" },
+                  ...Array.from(new Set(state.products.map((p: Producto) => p.modelo)))
+                    .filter(m => m) // Filtrar valores nulos
+                    .map(m => ({ value: m, label: m }))
+                ]}
+              />
+              <Select
+                label="Capacidad"
+                value={filtroCapacidad}
+                onChange={setFiltroCapacidad}
+                options={[
+                  { value: "Todos", label: "Todas las capacidades" },
+                  ...Array.from(new Set(state.products.map((p: Producto) => p.capacidad)))
+                    .filter(c => c) // Filtrar valores nulos
+                    .map(c => ({ value: c, label: c }))
+                ]}
+              />
+              <Select
+                label="Grado"
+                value={filtroGrado}
+                onChange={setFiltroGrado}
+                options={[
+                  { value: "Todos", label: "Todos los grados" },
+                  ...Array.from(new Set(state.products.map((p: Producto) => p.grado)))
+                    .map(g => ({ value: g, label: g }))
+                ]}
+              />
+              <Select
+                label="Ubicación"
+                value={filtroUbicacion}
+                onChange={setFiltroUbicacion}
+                options={[
+                  { value: "Todos", label: "Todas las ubicaciones" },
+                  { value: "LOCAL", label: "🏪 LOCAL" },
+                  { value: "DEPOSITO", label: "📦 DEPÓSITO" },
+                  { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
+                ]}
+              />
+              <Select
+                label="Días en Stock"
+                value={filtroDiasStock}
+                onChange={setFiltroDiasStock}
+                options={[
+                  { value: "Todos", label: "Todos" },
+                  { value: "7_dias", label: "≤ 7 días" },
+                  { value: "15_dias", label: "≤ 15 días" },
+                  { value: "30_dias", label: "> 30 días" },
+                  { value: "60_dias", label: "> 60 días" },
+                ]}
+              />
+            </div>
+
+            <div className="flex justify-between items-center mb-3">
+              <Chip tone="emerald">
+                {productosFiltrados.length} productos encontrados
+              </Chip>
+              {filtroDiasStock === "30_dias" || filtroDiasStock === "60_dias" ? (
+                <Chip tone="red">
+                  ⚠️ Productos con mucho tiempo en stock
+                </Chip>
+              ) : null}
+            </div>
+
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="text-left text-slate-400">
                   <tr>
                     <th className="py-2 px-2">Modelo</th>
+                    <th className="py-2 px-2">Capacidad</th>
                     <th className="py-2 px-2">IMEI</th>
                     <th className="py-2 px-2">Grado</th>
                     <th className="py-2 px-2">Color</th>
                     <th className="py-2 px-2">Estado</th>
                     <th className="py-2 px-2">Ubicación</th>
+                    <th className="py-2 px-2">Días Stock</th>
                     <th className="py-2 px-2">Costo Total</th>
                     <th className="py-2 px-2">Precio Venta</th>
-                    <th className="py-2 px-2">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {state.products.map((producto: Producto) => (
+                  {productosFiltrados.map((producto: Producto) => {
+                    const diasEnStock = calcularDiasEnStock(producto);
+                    return (
                     <tr key={producto.id} className={
                       producto.estado === "VENDIDO" ? "bg-green-900/20" :
                       producto.estado === "EN REPARACION" ? "bg-yellow-900/20" :
                       producto.estado === "INGRESANDO" ? "bg-blue-900/20" : ""
                     }>
                       <td className="py-2 px-2">
-                        <div className="font-medium">{producto.name}</div>
-                        <div className="text-xs text-slate-400">{producto.modelo}</div>
+                        <div className="font-medium">{producto.modelo}</div>
+                      </td>
+                      <td className="py-2 px-2 font-semibold">
+                        {producto.capacidad || "N/A"}
                       </td>
                       <td className="py-2 px-2 font-mono text-xs">{producto.imei}</td>
                       <td className="py-2 px-2">
@@ -745,27 +868,21 @@ const modelosiPhone = [
                         />
                       </td>
                       <td className="py-2 px-2">
+                        <span className={
+                          diasEnStock > 30 ? "text-amber-400 font-semibold" :
+                          diasEnStock > 60 ? "text-red-400 font-bold" : "text-slate-300"
+                        }>
+                          {diasEnStock} días
+                        </span>
+                      </td>
+                      <td className="py-2 px-2">
                         {money(producto.precio_compra + producto.costo_reparacion)}
                       </td>
                       <td className="py-2 px-2 font-semibold">
                         {money(producto.precio_venta)}
                       </td>
-                      <td className="py-2 px-2">
-                        <button
-                          onClick={() => {
-                            setProductoEditando(producto);
-                            setModo("editar");
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm mr-2"
-                        >
-                          ✏️
-                        </button>
-                        {producto.estado === "EN STOCK" && (
-                          <Chip tone="emerald">Disponible</Chip>
-                        )}
-                      </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -776,17 +893,25 @@ const modelosiPhone = [
       {modo === "nuevo" && (
         <Card title="➕ Agregar Nuevo iPhone">
           <div className="grid md:grid-cols-2 gap-4">
-            <Input
-              label="Nombre del producto"
-              value={nombre}
-              onChange={setNombre}
-              placeholder="Ej: iPhone 13 128GB"
-            />
+            {/* 👇👇👇 ELIMINADO: Input de nombre */}
             <Select
               label="Modelo"
               value={modelo}
               onChange={setModelo}
-              options={modelosiPhone.map(m => ({ value: m, label: m }))}
+              options={[
+                { value: "", label: "Seleccionar modelo" },
+                ...modelosiPhone.map(m => ({ value: m, label: m }))
+              ]}
+            />
+            {/* 👇👇👇 NUEVO: Selector de capacidad */}
+            <Select
+              label="Capacidad"
+              value={capacidad}
+              onChange={setCapacidad}
+              options={[
+                { value: "", label: "Seleccionar capacidad" },
+                ...capacidades.map(c => ({ value: c, label: c }))
+              ]}
             />
             <Input
               label="IMEI"
