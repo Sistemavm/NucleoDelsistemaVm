@@ -539,7 +539,7 @@ function calcularDiasEnStock(producto: Producto): number {
 }
 // 1. COMPONENTE DE INVENTARIO DE iPHONES
 // 1. COMPONENTE DE INVENTARIO DE iPHONES
-function ProductosiPhoneTab({ state, setState, session }: any) {
+function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   const [modo, setModo] = useState<"lista" | "nuevo" | "editar">("lista");
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   
@@ -1365,7 +1365,7 @@ function VentasiPhoneTab({ state, setState, session }: any) {
   );
 }
 // 3. COMPONENTE DE AGENDA DE TURNOS - VERSIÓN CORREGIDA
-function AgendaTurnosTab({ state, setState, session }: any) {
+function AgendaTurnosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   // 🔥 CORRECCIÓN: Función para manejar fechas consistentemente
   const obtenerFechaLocal = (fecha: Date | string) => {
     const date = new Date(fecha);
@@ -8378,15 +8378,35 @@ export default function Page() {
             )}
 
             {/* 👇👇👇 NUEVAS PESTAÑAS SISTEMA iPHONES - AGREGAR ESTO */}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
-              <VentasiPhoneTab state={state} setState={setState} session={session} />
-            )}
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
+  <VentasiPhoneTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+  />
+)}
             {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Inventario iPhones" && (
-              <ProductosiPhoneTab state={state} setState={setState} session={session} />
-            )}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
-              <AgendaTurnosTab state={state} setState={setState} session={session} />
-            )}
+  <ProductosiPhoneTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
+  <AgendaTurnosTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
             {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
               <ReportesTab state={state} setState={setState} session={session} />
             )}
