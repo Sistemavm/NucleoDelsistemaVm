@@ -966,22 +966,23 @@ setPrecioRevendedor("");
       />
       
       {/* Costo de Reparación - CON CÁLCULO AUTOMÁTICO MEJORADO */}
-      <div className="space-y-2">
-        <NumberInput
-          label="Costo de Reparación"
-          value={costoReparacion}
-          onChange={(valor) => {
-            setCostoReparacion(valor);
-            // Calcular precio de venta sugerido automáticamente
-            const costoTotal = parseNum(precioCompra) + parseNum(valor);
-            const precioVentaSugerido = costoTotal * 1.3; // 30% de ganancia
-            if (parseNum(precioVenta) === 0 || parseNum(precioVenta) < precioVentaSugerido) {
-              setPrecioVenta(String(Math.round(precioVentaSugerido)));
-            }
-          }}
-          placeholder="0"
-        />
-      </div>
+      // Costo de Reparación - CON CÁLCULO AUTOMÁTICO MEJORADO
+<div className="space-y-2">
+  <NumberInput
+    label="Costo de Reparación"
+    value={costoReparacion}
+    onChange={(valor) => {
+      setCostoReparacion(valor);
+      // Calcular precio de venta sugerido automáticamente
+      const costoTotal = parseNum(precioCompra) + parseNum(valor);
+      const precioVentaSugerido = costoTotal * 1.3; // 30% de ganancia
+      if (parseNum(precioConsumidorFinal) === 0 || parseNum(precioConsumidorFinal) < precioVentaSugerido) {
+        setPrecioConsumidorFinal(String(Math.round(precioVentaSugerido)));
+      }
+    }}
+    placeholder="0"
+  />
+</div>
 
       {/* Precio de Venta con sugerencia automática */}
       {/* Precio de Venta con sugerencia automática */}
