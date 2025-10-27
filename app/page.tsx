@@ -7788,17 +7788,26 @@ export default function Page() {
             )}
 
             {/* Vendedor / Admin */}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Facturación" && (
-              <FacturacionTab state={state} setState={setState} session={session} />
-            )}
+           
            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
   <ClientesTab state={state} setState={setState} session={session} /> // 👈 Agregar session aquí
 )}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Productos" && (
-              <ProductosTab state={state} setState={setState} role={session.role} />
-            )}
+            
 {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
   <DeudoresTab state={state} setState={setState} session={session} /> // 👈 AGREGAR session={session}
+)}
+            {/* 👇👇👇 NUEVAS PESTAÑAS SISTEMA iPHONES - AGREGAR ESTO */}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
+  <VentasiPhoneTab state={state} setState={setState} session={session} />
+)}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Inventario iPhones" && (
+  <ProductosiPhoneTab state={state} setState={setState} session={session} />
+)}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
+  <AgendaTurnosTab state={state} setState={setState} session={session} />
+)}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
+  <ReportesTab state={state} setState={setState} session={session} />
 )}
             {/* Cola */}
             {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Cola" && (
