@@ -1567,24 +1567,7 @@ showSuccess("✅ Turno agendado correctamente");
     const nombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
     const nombreMes = mesCalendario.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
-    return (
-      <Card title={`📅 Calendario - ${nombreMes}`}>
-        {/* Controles de navegación */}
-        <div className="flex justify-between items-center mb-4">
-          <Button tone="slate" onClick={() => cambiarMesCalendario("anterior")}>
-            ◀ Mes anterior
-          </Button>
-          <Button tone="slate" onClick={() => {
-            const hoy = obtenerFechaLocal(new Date());
-            setMesCalendario(new Date());
-            setFechaSeleccionada(hoy);
-          }}>
-            Hoy
-          </Button>
-          <Button tone="slate" onClick={() => cambiarMesCalendario("siguiente")}>
-            Mes siguiente ▶
-          </Button>
-        </div>
+   
 
         {/* Días de la semana */}
         <div className="grid grid-cols-7 gap-1 mb-2">
