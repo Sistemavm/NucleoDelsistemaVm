@@ -16,6 +16,7 @@ type Producto = {
   id: string;
   name: string;
   modelo: string;
+  capacidad?: string; // 👈 AGREGAR ESTA LÍNEA
   imei: string;
   grado: GradoProducto;
   estado: EstadoProducto;
