@@ -892,6 +892,9 @@ setPrecioRevendedor("");
                       <td className="py-2 px-2 font-semibold">
                         {money(producto.precio_venta)}
                       </td>
+                      <td className="py-2 px-2 font-semibold">
+          {money(producto.precio_revendedor)}
+        </td>
                     </tr>
                   )})}
                 </tbody>
