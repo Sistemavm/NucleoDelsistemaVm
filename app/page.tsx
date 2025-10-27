@@ -8108,6 +8108,8 @@ async function handleSubmit(e: any) {
   );
 }
 
+// ... código anterior ...
+
 /* ===== Página principal ===== */
 export default function Page() {
   const [state, setState] = useState<any>(seedState());
@@ -8176,29 +8178,30 @@ export default function Page() {
           }
         )
         .subscribe();
-       // 👇👇👇 NUEVA SUSCRIPCIÓN PARA DEBT_PAYMENTS
-    const debtPaymentsSubscription = supabase
-      .channel('debt-payments-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'debt_payments'
-        },
-        async () => {
-          console.log("🔄 Cambios en debt_payments detectados, recargando...");
-          const refreshedState = await loadFromSupabase(seedState());
-          setState(refreshedState);
-        }
-      )
-      .subscribe();
+       
+      // 👇👇👇 NUEVA SUSCRIPCIÓN PARA DEBT_PAYMENTS
+      const debtPaymentsSubscription = supabase
+        .channel('debt-payments-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'debt_payments'
+          },
+          async () => {
+            console.log("🔄 Cambios en debt_payments detectados, recargando...");
+            const refreshedState = await loadFromSupabase(seedState());
+            setState(refreshedState);
+          }
+        )
+        .subscribe();
 
       return () => {
         supabase.removeChannel(budgetSubscription);
         supabase.removeChannel(invoicesSubscription);
-        supabase.removeChannel(pedidosSubscription); // 👈 AGREGAR ESTA LÍNEA
-         supabase.removeChannel(debtPaymentsSubscription);
+        supabase.removeChannel(pedidosSubscription);
+        supabase.removeChannel(debtPaymentsSubscription);
       };
     }
   }, []);
@@ -8217,125 +8220,125 @@ export default function Page() {
     setSession(null);
   }
 
+  /* ===== SISTEMA DE NOTIFICACIONES ===== */
+  function NotificationSystem() {
+    const [notifications, setNotifications] = useState<any[]>([]);
 
- /* ===== SISTEMA DE NOTIFICACIONES ===== */
-function NotificationSystem() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+    // Función para agregar notificación
+    const addNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+      const id = Date.now() + Math.random();
+      const newNotification = { id, message, type, timestamp: Date.now() };
+      
+      setNotifications(prev => [...prev, newNotification]);
+      
+      // Auto-remover después de 5 segundos
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }, 5000);
+    };
 
-  // Función para agregar notificación
-  const addNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
-    const id = Date.now() + Math.random();
-    const newNotification = { id, message, type, timestamp: Date.now() };
-    
-    setNotifications(prev => [...prev, newNotification]);
-    
-    // Auto-remover después de 5 segundos
-    setTimeout(() => {
+    // Remover notificación manualmente
+    const removeNotification = (id: number) => {
       setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 5000);
-  };
+    };
 
-  // Remover notificación manualmente
-  const removeNotification = (id: number) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+    // Context para que cualquier componente pueda usar las notificaciones
+    useEffect(() => {
+      // @ts-ignore
+      window.showNotification = addNotification;
+      // @ts-ignore
+      window.removeNotification = removeNotification;
+    }, []);
 
-  // Context para que cualquier componente pueda usar las notificaciones
-  useEffect(() => {
-    // @ts-ignore
-    window.showNotification = addNotification;
-    // @ts-ignore
-    window.removeNotification = removeNotification;
-  }, []);
+    const getNotificationStyle = (type: string) => {
+      switch (type) {
+        case 'success':
+          return 'bg-emerald-900/80 border-emerald-700 text-emerald-200';
+        case 'error':
+          return 'bg-red-900/80 border-red-700 text-red-200';
+        case 'warning':
+          return 'bg-amber-900/80 border-amber-700 text-amber-200';
+        case 'info':
+          return 'bg-blue-900/80 border-blue-700 text-blue-200';
+        default:
+          return 'bg-slate-900/80 border-slate-700 text-slate-200';
+      }
+    };
 
-  const getNotificationStyle = (type: string) => {
-    switch (type) {
-      case 'success':
-        return 'bg-emerald-900/80 border-emerald-700 text-emerald-200';
-      case 'error':
-        return 'bg-red-900/80 border-red-700 text-red-200';
-      case 'warning':
-        return 'bg-amber-900/80 border-amber-700 text-amber-200';
-      case 'info':
-        return 'bg-blue-900/80 border-blue-700 text-blue-200';
-      default:
-        return 'bg-slate-900/80 border-slate-700 text-slate-200';
+    const getNotificationIcon = (type: string) => {
+      switch (type) {
+        case 'success':
+          return '✅';
+        case 'error':
+          return '❌';
+        case 'warning':
+          return '⚠️';
+        case 'info':
+          return 'ℹ️';
+        default:
+          return '💡';
+      }
+    };
+
+    if (notifications.length === 0) return null;
+
+    return (
+      <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`${getNotificationStyle(notification.type)} border rounded-xl p-4 shadow-lg backdrop-blur-sm animate-in slide-in-from-right-full duration-500`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-lg flex-shrink-0">
+                {getNotificationIcon(notification.type)}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium break-words">
+                  {notification.message}
+                </p>
+              </div>
+              <button
+                onClick={() => removeNotification(notification.id)}
+                className="flex-shrink-0 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Helper functions para usar en cualquier componente
+  function showNotification(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
+    if (typeof window !== 'undefined' && (window as any).showNotification) {
+      (window as any).showNotification(message, type);
+    } else {
+      // Fallback al alert tradicional
+      alert(message);
     }
-  };
+  }
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'success':
-        return '✅';
-      case 'error':
-        return '❌';
-      case 'warning':
-        return '⚠️';
-      case 'info':
-        return 'ℹ️';
-      default:
-        return '💡';
-    }
-  };
+  function showSuccess(message: string) {
+    showNotification(message, 'success');
+  }
 
-  if (notifications.length === 0) return null;
+  function showError(message: string) {
+    showNotification(message, 'error');
+  }
+
+  function showWarning(message: string) {
+    showNotification(message, 'warning');
+  }
+
+  function showInfo(message: string) {
+    showNotification(message, 'info');
+  }
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className={`${getNotificationStyle(notification.type)} border rounded-xl p-4 shadow-lg backdrop-blur-sm animate-in slide-in-from-right-full duration-500`}
-        >
-          <div className="flex items-start gap-3">
-            <span className="text-lg flex-shrink-0">
-              {getNotificationIcon(notification.type)}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium break-words">
-                {notification.message}
-              </p>
-            </div>
-            <button
-              onClick={() => removeNotification(notification.id)}
-              className="flex-shrink-0 text-slate-400 hover:text-slate-200 transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Helper functions para usar en cualquier componente
-function showNotification(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
-  if (typeof window !== 'undefined' && (window as any).showNotification) {
-    (window as any).showNotification(message, type);
-  } else {
-    // Fallback al alert tradicional
-    alert(message);
-  }
-}
-
-function showSuccess(message: string) {
-  showNotification(message, 'success');
-}
-
-function showError(message: string) {
-  showNotification(message, 'error');
-}
-
-function showWarning(message: string) {
-  showNotification(message, 'warning');
-}
-
-function showInfo(message: string) {
-  showNotification(message, 'info');
-}
-
-
+    <>
       {/* App visible (no se imprime) */}
       <div className="min-h-screen bg-emerald-950 text-slate-100 no-print">
         <style>{`::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:#0b1220}::-webkit-scrollbar-thumb{background:#065f46;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#047857}`}</style>
@@ -8366,26 +8369,28 @@ function showInfo(message: string) {
 
             {/* Vendedor / Admin */}
            
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
-  <ClientesTab state={state} setState={setState} session={session} /> // 👈 Agregar session aquí
-)}
+            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
+              <ClientesTab state={state} setState={setState} session={session} />
+            )}
             
-{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
-  <DeudoresTab state={state} setState={setState} session={session} /> // 👈 AGREGAR session={session}
-)}
+            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
+              <DeudoresTab state={state} setState={setState} session={session} />
+            )}
+
             {/* 👇👇👇 NUEVAS PESTAÑAS SISTEMA iPHONES - AGREGAR ESTO */}
-{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
-  <VentasiPhoneTab state={state} setState={setState} session={session} />
-)}
-{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Inventario iPhones" && (
-  <ProductosiPhoneTab state={state} setState={setState} session={session} />
-)}
-{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
-  <AgendaTurnosTab state={state} setState={setState} session={session} />
-)}
-{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
-  <ReportesTab state={state} setState={setState} session={session} />
-)}
+            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
+              <VentasiPhoneTab state={state} setState={setState} session={session} />
+            )}
+            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Inventario iPhones" && (
+              <ProductosiPhoneTab state={state} setState={setState} session={session} />
+            )}
+            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
+              <AgendaTurnosTab state={state} setState={setState} session={session} />
+            )}
+            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
+              <ReportesTab state={state} setState={setState} session={session} />
+            )}
+
             {/* Cola */}
             {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Cola" && (
               <ColaTab state={state} setState={setState} session={session} />
