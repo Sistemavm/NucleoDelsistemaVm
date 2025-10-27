@@ -966,7 +966,6 @@ setPrecioRevendedor("");
       />
       
       {/* Costo de Reparación - CON CÁLCULO AUTOMÁTICO MEJORADO */}
-      // Costo de Reparación - CON CÁLCULO AUTOMÁTICO MEJORADO
 <div className="space-y-2">
   <NumberInput
     label="Costo de Reparación"
