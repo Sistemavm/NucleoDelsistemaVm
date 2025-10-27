@@ -607,14 +607,14 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
 
   async function agregarProducto() {
     if (!modelo || !capacidad || !imei) { // 👈 AGREGAR VALIDACIÓN DE CAPACIDAD
-      alert("Complete modelo, capacidad e IMEI");
+showError("Complete modelo, capacidad e IMEI");
       return;
     }
 
     // Verificar IMEI único
     const imeiExistente = state.products.find((p: Producto) => p.imei === imei);
     if (imeiExistente) {
-      alert("El IMEI ya existe en el sistema");
+showError("El IMEI ya existe en el sistema");
       return;
     }
 
@@ -1452,7 +1452,7 @@ function AgendaTurnosTab({ state, setState, session }: any) {
   // 🔥 CORRECCIÓN: Función para crear turno con fecha consistente
   async function crearTurno() {
     if (!nuevoTurno.cliente_id || !nuevoTurno.hora) {
-      alert("Seleccione cliente y horario");
+showError("Seleccione cliente y horario");
       return;
     }
 
@@ -1503,7 +1503,7 @@ function AgendaTurnosTab({ state, setState, session }: any) {
       descripcion: ""
     });
     
-    alert("✅ Turno agendado correctamente");
+showSuccess("✅ Turno agendado correctamente");
   }
 
   // 🔥 CORRECCIÓN: Función para manejar cambio de fecha en el input
@@ -2295,8 +2295,10 @@ const [alias, setAlias] = useState("");
   }
 
 async function saveAndPrint() {
-  if (!client || !vendor) return alert("Seleccioná cliente y vendedor.");
-  if (items.length === 0) return alert("Agregá productos al carrito.");
+  if (!client || !vendor) return showError("Seleccioná cliente y vendedor.");
+
+  if (items.length === 0) return showError("Agregá productos al carrito.");
+
   
   // ✅ VALIDAR STOCK ANTES DE CONTINUAR
   const validacionStock = validarStockDisponible(state.products, items);
@@ -2310,7 +2312,8 @@ async function saveAndPrint() {
   const transf = parseNum(payTransf);
   const suggestedChange = Math.max(0, cash - Math.max(0, total - transf));
   const change = payChange.trim() === "" ? suggestedChange : Math.max(0, parseNum(payChange));
-  if (change > cash) return alert("El vuelto no puede ser mayor al efectivo entregado.");
+  if (change > cash) return showError("El vuelto no puede ser mayor al efectivo entregado.");
+
 
   const st = clone(state);
   const number = st.meta.invoiceCounter++;
@@ -2687,7 +2690,7 @@ deuda_manual: modoAdmin && parseNum(deudaInicial) > 0
       await supabase.from("clients").insert(newClient);
     }
 
-    alert(`Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'correctamente'}`);
+showSuccess(`👤 Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'correctamente'}`);
   }
 
 // Función para que admin agregue deuda manualmente a cliente existente - CORREGIDA
@@ -3273,7 +3276,7 @@ function ProductosTab({ state, setState, role }: any) {
       await supabase.from("products").delete().eq("id", productoId);
     }
     
-    alert("Producto eliminado correctamente");
+showSuccess("🗑️ Producto eliminado correctamente");
   }
 
   return (
@@ -3540,7 +3543,7 @@ async function eliminarDeudaCliente(clienteId: string) {
     if (!cl) return;
     
     const totalPago = parseNum(cash) + parseNum(transf);
-    if (totalPago <= 0) return alert("Importe inválido.");
+    if (totalPago <= 0) return showError("Importe inválido.");
 
     const st = clone(state);
     const client = st.clients.find((c: any) => c.id === active)!;
@@ -3552,7 +3555,8 @@ async function eliminarDeudaCliente(clienteId: string) {
     console.log(`💳 Pago: ${totalPago}, Deuda real: ${deudaReal}`);
 
     if (totalPago > deudaReal) {
-      return alert(`El pago (${money(totalPago)}) supera la deuda real (${money(deudaReal)})`);
+      return showError(`El pago (${money(totalPago)}) supera la deuda real (${money(deudaReal)})`);
+
     }
 
     // Aplicar el pago PRIMERO a la deuda manual
@@ -4754,7 +4758,7 @@ const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
           <Button tone="slate" onClick={async () => {
             const refreshedState = await loadFromSupabase(seedState());
             setState(refreshedState);
-            alert("Datos actualizados manualmente");
+showInfo("🔄 Datos actualizados manualmente");
           }}>
             Actualizar datos
           </Button>
@@ -5974,7 +5978,7 @@ function GastosDevolucionesTab({ state, setState, session }: any) {
   // ==============================
   async function guardarGasto() {
     if (!detalle.trim()) {
-      alert("El campo 'Detalle' es obligatorio.");
+showError("El campo 'Detalle' es obligatorio.");
       return;
     }
 
@@ -5982,7 +5986,7 @@ function GastosDevolucionesTab({ state, setState, session }: any) {
     const transferenciaFinal = montoTransferencia.trim() === "" ? 0 : parseNum(montoTransferencia);
 
     if (efectivoFinal === 0 && transferenciaFinal === 0) {
-      alert("Debes ingresar al menos un monto en efectivo o transferencia.");
+showError("Debes ingresar al menos un monto en efectivo o transferencia.");
       return;
     }
 
@@ -6003,7 +6007,7 @@ function GastosDevolucionesTab({ state, setState, session }: any) {
 
     if (hasSupabase) await supabase.from("gastos").insert(gasto);
 
-    alert("Gasto guardado correctamente.");
+showSuccess("Gasto guardado correctamente.");
     setDetalle("");
     setMontoEfectivo("");
     setMontoTransferencia("");
@@ -6012,19 +6016,19 @@ function GastosDevolucionesTab({ state, setState, session }: any) {
 
   async function guardarDevolucion() {
   if (!clienteSeleccionado) {
-    alert("Selecciona un cliente antes de guardar la devolución.");
+showError("Selecciona un cliente antes de guardar la devolución.");
     return;
   }
 
   if (productosDevueltos.length === 0) {
-    alert("Debes seleccionar al menos un producto para devolver.");
+showError("Debes seleccionar al menos un producto para devolver.");
     return;
   }
 
   // Intercambio por otro producto - validación
   if (metodoDevolucion === "intercambio_otro") {
     if (!productoNuevoId || parseNum(cantidadNuevo) <= 0) {
-      alert("Debes seleccionar un producto nuevo y la cantidad.");
+showError("Debes seleccionar un producto nuevo y la cantidad.");
       return;
     }
   }
@@ -6530,7 +6534,8 @@ function addItem(p: any) {
 }
 
   async function hacerPedido() {
-    if (items.length === 0) return alert("Agregá productos al pedido.");
+    if (items.length === 0) return showError("Agregá productos al pedido.");
+
     
     const st = clone(state);
     const pedidoId = "ped_" + Math.random().toString(36).slice(2, 9);
@@ -6559,7 +6564,7 @@ function addItem(p: any) {
     setItems([]);
     setObservaciones("");
     
-    alert("✅ Pedido enviado correctamente. Te contactaremos cuando esté listo.");
+showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté listo.");
   }
 
   const total = calcInvoiceTotal(items);
@@ -6776,7 +6781,7 @@ function GestionPedidosTab({ state, setState, session }: any) {
           .eq("id", pedidoId);
       }
 
-      alert(`Pedido ${pedidoId} actualizado a: ${nuevoEstado}`);
+showSuccess(`📦 Pedido actualizado a: ${nuevoEstado}`);
     }
   }
 
