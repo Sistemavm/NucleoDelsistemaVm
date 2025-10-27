@@ -6198,8 +6198,7 @@ ${cli.debt > 0 ? `Se aplicó saldo a favor a la deuda existente. Deuda actual: $
 }
 
 // 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
-function PedidosOnlineTab({ state, setState, session }: any) {
-  const [priceList, setPriceList] = useState("1");
+function PedidosOnlineTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [priceList, setPriceList] = useState("1");
   const [sectionFilter, setSectionFilter] = useState("Todas");
   const [listFilter, setListFilter] = useState("Todas");
   const [query, setQuery] = useState("");
@@ -8071,9 +8070,17 @@ export default function Page() {
             )}
 
             {/* 👇👇👇 NUEVO: Panel de Pedidos Online */}
-            {session.role === "pedido-online" && tab === "Hacer Pedido" && (
-              <PedidosOnlineTab state={state} setState={setState} session={session} />
-            )}
+            {/* 👇👇👇 NUEVO: Panel de Pedidos Online */}
+{session.role === "pedido-online" && tab === "Hacer Pedido" && (
+  <PedidosOnlineTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
 
             {/* Vendedor / Admin */}
            
