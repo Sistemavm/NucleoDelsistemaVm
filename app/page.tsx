@@ -285,6 +285,8 @@ if (clients) {
     out.products = products.map((p: any) => ({
       ...p,
       stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0
+       precio_consumidor_final: p.precio_consumidor_final || p.precio_venta || 0,
+      precio_revendedor: p.precio_revendedor || (p.precio_venta ? p.precio_venta * 0.85 : 0)
     }));
   }
 
@@ -534,7 +536,8 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
   const [grado, setGrado] = useState<GradoProducto>("A");
   const [color, setColor] = useState("");
   const [precioCompra, setPrecioCompra] = useState("");
-  const [precioVenta, setPrecioVenta] = useState("");
+  const [precioConsumidorFinal, setPrecioConsumidorFinal] = useState("");
+  const [precioRevendedor, setPrecioRevendedor] = useState("");
   const [costoReparacion, setCostoReparacion] = useState("");
   const [ubicacion, setUbicacion] = useState<UbicacionProducto>("LOCAL");
   const [descripcion, setDescripcion] = useState("");
@@ -615,7 +618,9 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
       estado: "EN STOCK",
       ubicacion,
       precio_compra: parseNum(precioCompra),
-      precio_venta: parseNum(precioVenta),
+      precio_consumidor_final: parseNum(precioConsumidorFinal),
+      precio_revendedor: parseNum(precioRevendedor),
+      precio_venta: parseNum(precioConsumidorFinal), // Mantener por compatibilidad
       costo_reparacion: parseNum(costoReparacion),
       descripcion: descripcion || undefined,
       fecha_ingreso: todayISO()
@@ -816,7 +821,8 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
                     <th className="py-2 px-2">Ubicación</th>
                     <th className="py-2 px-2">Días Stock</th>
                     <th className="py-2 px-2">Costo Total</th>
-                    <th className="py-2 px-2">Precio Venta</th>
+                    <th className="py-2 px-2">P. Final</th>
+      <th className="py-2 px-2">P. Revendedor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -976,11 +982,18 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
       {/* Precio de Venta con sugerencia automática */}
       <div className="space-y-2">
         <NumberInput
-          label="Precio de Venta"
-          value={precioVenta}
-          onChange={setPrecioVenta}
-          placeholder="0"
-        />
+              label="Precio Consumidor Final"
+              value={precioConsumidorFinal}
+              onChange={setPrecioConsumidorFinal}
+              placeholder="0"
+            />
+            
+            <NumberInput
+              label="Precio Revendedor"
+              value={precioRevendedor}
+              onChange={setPrecioRevendedor}
+              placeholder="0"
+            />
         <div className="text-xs text-slate-400">
           💡 Sugerido: {money(
             (parseNum(precioCompra) + parseNum(costoReparacion)) * 1.3
