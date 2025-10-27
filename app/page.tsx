@@ -230,6 +230,17 @@ async function loadFromSupabase(fallback: any) {
     out.meta.commissionsByDate = commissionsByDate;
   }
   // 👆👆👆 HASTA AQUÍ
+    const { data: turnos, error: turnosErr } = await supabase
+    .from("turnos")
+    .select("*")
+    .order("fecha", { ascending: true })
+    .order("hora", { ascending: true });
+
+  if (turnosErr) {
+    console.error("SELECT turnos:", turnosErr);
+  } else if (turnos) {
+    out.turnos = turnos;
+  }
   // 👇👇👇 AGREGAR AQUÍ - Cargar cash_floats
 const { data: cashFloatsData, error: cashFloatsErr } = await supabase
   .from("cash_floats")
@@ -647,24 +658,28 @@ setPrecioRevendedor("");
     setCostoReparacion("");
     setDescripcion("");
     setModo("lista");
+// 🔥 NOTIFICACIÓN BONITA EN VEZ DE ALERT FEO
+  showSuccess(`✅ Turno agendado correctamente para el ${fechaSeleccionada} a las ${nuevoTurno.hora}`);
+}
 
-    alert("✅ iPhone agregado al inventario");
-  }
+// También en cambiarEstadoTurno:
+async function cambiarEstadoTurno(turnoId: string, nuevoEstado: Turno["estado"]) {
+  const st = clone(state);
+  const turno = st.turnos.find((t: Turno) => t.id === turnoId);
+  if (turno) {
+    turno.estado = nuevoEstado;
+    setState(st);
 
-  function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProducto) {
-    const st = clone(state);
-    const producto = st.products.find((p: Producto) => p.id === productoId);
-    if (producto) {
-      producto.estado = nuevoEstado;
-      setState(st);
-
-      if (hasSupabase) {
-        supabase.from("products")
-          .update({ estado: nuevoEstado })
-          .eq("id", productoId);
-      }
+    if (hasSupabase) {
+      await supabase.from("turnos")
+        .update({ estado: nuevoEstado })
+        .eq("id", turnoId);
     }
+    
+    // 🔥 Notificación de cambio de estado
+    showInfo(`📅 Estado cambiado a: ${nuevoEstado}`);
   }
+}
 
   function cambiarUbicacionProducto(productoId: string, nuevaUbicacion: UbicacionProducto) {
     const st = clone(state);
@@ -1349,18 +1364,27 @@ function VentasiPhoneTab({ state, setState, session }: any) {
     </div>
   );
 }
-// 3. COMPONENTE DE AGENDA DE TURNOS - VERSIÓN CALENDARIO
+// 3. COMPONENTE DE AGENDA DE TURNOS - VERSIÓN CORREGIDA
 function AgendaTurnosTab({ state, setState, session }: any) {
+  // 🔥 CORRECCIÓN: Función para manejar fechas consistentemente
+  const obtenerFechaLocal = (fecha: Date | string) => {
+    const date = new Date(fecha);
+    // Ajustar a medianoche en zona horaria local
+    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+      .toISOString()
+      .split('T')[0];
+  };
+
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
-    const hoy = new Date();
-    return hoy.toISOString().split('T')[0];
+    return obtenerFechaLocal(new Date());
   });
+  
   const [nuevoTurno, setNuevoTurno] = useState<Partial<Turno>>({
     tipo: "ENTREGA",
     estado: "PENDIENTE"
   });
-  const [vistaCalendario, setVistaCalendario] = useState<"mes" | "semana" | "dia">("mes");
-  const [mesActual, setMesActual] = useState(new Date());
+  
+  const [mesCalendario, setMesCalendario] = useState(new Date());
 
   const horariosDisponibles = [
     "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -1368,96 +1392,64 @@ function AgendaTurnosTab({ state, setState, session }: any) {
     "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00"
   ];
 
-  // Obtener todos los turnos
-  const todosLosTurnos = state.turnos || [];
+  // 🔥 CORRECCIÓN: Filtrar turnos usando fecha local consistente
+  const turnosDelDia = (state.turnos || []).filter((t: Turno) => 
+    t.fecha === fechaSeleccionada
+  );
 
-  // Función para obtener turnos de un día específico
-  function obtenerTurnosDelDia(fecha: string) {
-    return todosLosTurnos.filter((t: Turno) => t.fecha === fecha);
-  }
-
-  // Función para generar días del mes
+  // 🔥 CORRECCIÓN: Función para generar días con fechas consistentes
   function generarDiasDelMes() {
-    const year = mesActual.getFullYear();
-    const month = mesActual.getMonth();
+    const year = mesCalendario.getFullYear();
+    const month = mesCalendario.getMonth();
     
     const primerDia = new Date(year, month, 1);
     const ultimoDia = new Date(year, month + 1, 0);
     
     const dias = [];
     
-    // Días del mes anterior (para completar la primera semana)
+    // Días del mes anterior
     const primerDiaSemana = primerDia.getDay();
     for (let i = primerDiaSemana - 1; i >= 0; i--) {
       const fecha = new Date(year, month, -i);
+      const fechaStr = obtenerFechaLocal(fecha);
       dias.push({
-        fecha: fecha.toISOString().split('T')[0],
+        fecha: fechaStr,
         esMesActual: false,
-        turnos: obtenerTurnosDelDia(fecha.toISOString().split('T')[0])
+        turnos: (state.turnos || []).filter((t: Turno) => t.fecha === fechaStr)
       });
     }
     
     // Días del mes actual
     for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
       const fecha = new Date(year, month, dia);
+      const fechaStr = obtenerFechaLocal(fecha);
+      const hoyStr = obtenerFechaLocal(new Date());
+      
       dias.push({
-        fecha: fecha.toISOString().split('T')[0],
+        fecha: fechaStr,
         esMesActual: true,
-        esHoy: fecha.toISOString().split('T')[0] === new Date().toISOString().split('T')[0],
-        turnos: obtenerTurnosDelDia(fecha.toISOString().split('T')[0])
+        esHoy: fechaStr === hoyStr,
+        esSeleccionado: fechaStr === fechaSeleccionada,
+        turnos: (state.turnos || []).filter((t: Turno) => t.fecha === fechaStr)
       });
     }
     
-    // Días del mes siguiente (para completar la última semana)
+    // Días del mes siguiente
     const ultimoDiaSemana = ultimoDia.getDay();
     for (let dia = 1; dia < (7 - ultimoDiaSemana); dia++) {
       const fecha = new Date(year, month + 1, dia);
+      const fechaStr = obtenerFechaLocal(fecha);
       dias.push({
-        fecha: fecha.toISOString().split('T')[0],
+        fecha: fechaStr,
         esMesActual: false,
-        turnos: obtenerTurnosDelDia(fecha.toISOString().split('T')[0])
+        turnos: (state.turnos || []).filter((t: Turno) => t.fecha === fechaStr)
       });
     }
     
     return dias;
   }
 
-  // Función para navegar entre meses
-  function cambiarMes(direccion: "anterior" | "siguiente") {
-    const nuevoMes = new Date(mesActual);
-    if (direccion === "anterior") {
-      nuevoMes.setMonth(nuevoMes.getMonth() - 1);
-    } else {
-      nuevoMes.setMonth(nuevoMes.getMonth() + 1);
-    }
-    setMesActual(nuevoMes);
-  }
-
-  // Función para obtener el color según el tipo de turno
-  function obtenerColorTipo(tipo: string) {
-    switch (tipo) {
-      case "ENTREGA": return "bg-blue-500";
-      case "REPARACION": return "bg-orange-500";
-      case "CONSULTA": return "bg-green-500";
-      default: return "bg-gray-500";
-    }
-  }
-
-  // Función para obtener el icono según el tipo de turno
-  function obtenerIconoTipo(tipo: string) {
-    switch (tipo) {
-      case "ENTREGA": return "📦";
-      case "REPARACION": return "🛠️";
-      case "CONSULTA": return "💬";
-      default: return "📅";
-    }
-  }
-
-  function generarTurnosDisponibles() {
-    const turnosOcupados = obtenerTurnosDelDia(fechaSeleccionada).map((t: Turno) => t.hora);
-    return horariosDisponibles.filter(hora => !turnosOcupados.includes(hora));
-  }
-
+  // 🔥 CORRECCIÓN: Función para crear turno con fecha consistente
   async function crearTurno() {
     if (!nuevoTurno.cliente_id || !nuevoTurno.hora) {
       alert("Seleccione cliente y horario");
@@ -1465,9 +1457,11 @@ function AgendaTurnosTab({ state, setState, session }: any) {
     }
 
     const cliente = state.clients.find((c: Cliente) => c.id === nuevoTurno.cliente_id);
+    
+    // 🔥 IMPORTANTE: Usar la fecha seleccionada directamente (ya está en formato correcto)
     const turno: Turno = {
       id: "turno_" + Math.random().toString(36).slice(2, 9),
-      fecha: fechaSeleccionada,
+      fecha: fechaSeleccionada, // ← Ya está en formato YYYY-MM-DD
       hora: nuevoTurno.hora!,
       cliente_id: nuevoTurno.cliente_id!,
       cliente_nombre: cliente.name,
@@ -1480,18 +1474,76 @@ function AgendaTurnosTab({ state, setState, session }: any) {
       created_at: todayISO()
     };
 
+    console.log("📅 Guardando turno:", {
+      fechaSeleccionada,
+      hora: nuevoTurno.hora,
+      cliente: cliente.name,
+      fechaEnTurno: turno.fecha
+    });
+
     const st = clone(state);
     st.turnos = st.turnos || [];
     st.turnos.push(turno);
     setState(st);
 
     if (hasSupabase) {
-      await supabase.from("turnos").insert(turno);
+      const { data, error } = await supabase.from("turnos").insert(turno);
+      if (error) {
+        console.error("❌ Error al guardar turno en Supabase:", error);
+        alert("Error al guardar el turno en la base de datos");
+        return;
+      }
+      console.log("✅ Turno guardado en Supabase:", data);
     }
 
     // Limpiar formulario
-    setNuevoTurno({ tipo: "ENTREGA", estado: "PENDIENTE" });
+    setNuevoTurno({ 
+      tipo: "ENTREGA", 
+      estado: "PENDIENTE",
+      descripcion: ""
+    });
+    
     alert("✅ Turno agendado correctamente");
+  }
+
+  // 🔥 CORRECCIÓN: Función para manejar cambio de fecha en el input
+  const manejarCambioFecha = (nuevaFecha: string) => {
+    console.log("📅 Cambiando fecha seleccionada:", nuevaFecha);
+    setFechaSeleccionada(nuevaFecha);
+  };
+
+  // Las demás funciones se mantienen igual...
+  function cambiarMesCalendario(direccion: "anterior" | "siguiente") {
+    const nuevoMes = new Date(mesCalendario);
+    if (direccion === "anterior") {
+      nuevoMes.setMonth(nuevoMes.getMonth() - 1);
+    } else {
+      nuevoMes.setMonth(nuevoMes.getMonth() + 1);
+    }
+    setMesCalendario(nuevoMes);
+  }
+
+  function obtenerColorTipo(tipo: string) {
+    switch (tipo) {
+      case "ENTREGA": return "bg-blue-500";
+      case "REPARACION": return "bg-orange-500";
+      case "CONSULTA": return "bg-green-500";
+      default: return "bg-gray-500";
+    }
+  }
+
+  function obtenerIconoTipo(tipo: string) {
+    switch (tipo) {
+      case "ENTREGA": return "📦";
+      case "REPARACION": return "🛠️";
+      case "CONSULTA": return "💬";
+      default: return "📅";
+    }
+  }
+
+  function generarTurnosDisponibles() {
+    const turnosOcupados = turnosDelDia.map((t: Turno) => t.hora);
+    return horariosDisponibles.filter(hora => !turnosOcupados.includes(hora));
   }
 
   async function cambiarEstadoTurno(turnoId: string, nuevoEstado: Turno["estado"]) {
@@ -1509,28 +1561,29 @@ function AgendaTurnosTab({ state, setState, session }: any) {
     }
   }
 
-  // Componente de calendario mensual
-  function CalendarioMensual() {
+  // COMPONENTE DE CALENDARIO VISUAL (se mantiene igual)
+  function CalendarioVisual() {
     const dias = generarDiasDelMes();
     const nombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-    const nombreMes = mesActual.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+    const nombreMes = mesCalendario.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
     return (
-      <div className="bg-slate-900 rounded-xl border border-slate-700 p-4">
-        {/* Encabezado del calendario */}
+      <Card title={`📅 Calendario - ${nombreMes}`}>
+        {/* Controles de navegación */}
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold capitalize">{nombreMes}</h3>
-          <div className="flex gap-2">
-            <Button tone="slate" onClick={() => cambiarMes("anterior")}>
-              ◀ Anterior
-            </Button>
-            <Button tone="slate" onClick={() => setMesActual(new Date())}>
-              Hoy
-            </Button>
-            <Button tone="slate" onClick={() => cambiarMes("siguiente")}>
-              Siguiente ▶
-            </Button>
-          </div>
+          <Button tone="slate" onClick={() => cambiarMesCalendario("anterior")}>
+            ◀ Mes anterior
+          </Button>
+          <Button tone="slate" onClick={() => {
+            const hoy = obtenerFechaLocal(new Date());
+            setMesCalendario(new Date());
+            setFechaSeleccionada(hoy);
+          }}>
+            Hoy
+          </Button>
+          <Button tone="slate" onClick={() => cambiarMesCalendario("siguiente")}>
+            Mes siguiente ▶
+          </Button>
         </div>
 
         {/* Días de la semana */}
@@ -1547,141 +1600,74 @@ function AgendaTurnosTab({ state, setState, session }: any) {
           {dias.map((dia, index) => (
             <div
               key={index}
-              className={`min-h-[100px] border border-slate-700 rounded-lg p-2 cursor-pointer transition-all hover:bg-slate-800 ${
-                !dia.esMesActual ? 'bg-slate-900/30 text-slate-500' : 
-                dia.esHoy ? 'bg-emerald-900/20 border-emerald-500' : 'bg-slate-800/30'
-              }`}
-              onClick={() => {
-                setFechaSeleccionada(dia.fecha);
-                setVistaCalendario("dia");
-              }}
+              className={`min-h-[80px] border rounded-lg p-1 cursor-pointer transition-all ${
+                !dia.esMesActual ? 'bg-slate-900/20 text-slate-500 border-slate-600' : 
+                dia.esSeleccionado ? 'bg-emerald-900/30 border-emerald-500' : 
+                dia.esHoy ? 'bg-blue-900/20 border-blue-500' : 'bg-slate-800/30 border-slate-700'
+              } hover:bg-slate-700/50`}
+              onClick={() => setFechaSeleccionada(dia.fecha)}
             >
-              <div className={`text-sm font-medium mb-1 ${
-                dia.esHoy ? 'text-emerald-400' : ''
+              <div className={`text-xs font-medium text-center ${
+                dia.esSeleccionado ? 'text-emerald-300' : 
+                dia.esHoy ? 'text-blue-300' : ''
               }`}>
                 {new Date(dia.fecha).getDate()}
               </div>
               
-              {/* Turnos del día */}
-              <div className="space-y-1 max-h-[80px] overflow-y-auto">
+              {/* Mini indicadores de turnos */}
+              <div className="flex flex-wrap gap-1 mt-1 justify-center">
                 {dia.turnos.slice(0, 3).map((turno: Turno) => (
                   <div
                     key={turno.id}
-                    className={`text-xs p-1 rounded ${obtenerColorTipo(turno.tipo)} text-white truncate`}
-                    title={`${turno.hora} - ${turno.cliente_nombre} (${turno.tipo})`}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs">{obtenerIconoTipo(turno.tipo)}</span>
-                      <span className="truncate">{turno.hora} {turno.cliente_nombre.split(' ')[0]}</span>
-                    </div>
-                  </div>
+                    className={`w-2 h-2 rounded-full ${obtenerColorTipo(turno.tipo)}`}
+                    title={`${turno.hora} - ${turno.cliente_nombre}`}
+                  />
                 ))}
                 {dia.turnos.length > 3 && (
-                  <div className="text-xs text-slate-400 text-center">
-                    +{dia.turnos.length - 3} más
-                  </div>
+                  <div className="w-2 h-2 rounded-full bg-gray-400" title={`+${dia.turnos.length - 3} más`} />
                 )}
               </div>
+
+              {/* Contador de turnos */}
+              {dia.turnos.length > 0 && (
+                <div className="text-xs text-center mt-1 text-slate-300">
+                  {dia.turnos.length} turno{dia.turnos.length !== 1 ? 's' : ''}
+                </div>
+              )}
             </div>
           ))}
         </div>
-      </div>
-    );
-  }
 
-  // Vista detallada del día
-  function VistaDiaDetallado() {
-    const turnosDelDia = obtenerTurnosDelDia(fechaSeleccionada);
-
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold">
-            Turnos para {new Date(fechaSeleccionada).toLocaleDateString('es-ES', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </h3>
-          <Button tone="slate" onClick={() => setVistaCalendario("mes")}>
-            ← Volver al calendario
-          </Button>
+        {/* Leyenda */}
+        <div className="flex justify-center gap-4 mt-4 text-xs">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+            <span>Entrega</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+            <span>Reparación</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            <span>Consulta</span>
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {horariosDisponibles.map(hora => {
-            const turnoEnHora = turnosDelDia.find((t: Turno) => t.hora === hora);
-            
-            return (
-              <div
-                key={hora}
-                className={`border rounded-lg p-3 ${
-                  turnoEnHora ? 'bg-slate-800/50 border-slate-600' : 'bg-slate-900/30 border-slate-700'
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="font-semibold">{hora}</div>
-                  {turnoEnHora ? (
-                    <Chip tone={
-                      turnoEnHora.estado === "PENDIENTE" ? "slate" :
-                      turnoEnHora.estado === "CONFIRMADO" ? "emerald" :
-                      turnoEnHora.estado === "COMPLETADO" ? "blue" : "red"
-                    }>
-                      {turnoEnHora.estado}
-                    </Chip>
-                  ) : (
-                    <Chip tone="slate">Disponible</Chip>
-                  )}
-                </div>
-
-                {turnoEnHora && (
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className={obtenerColorTipo(turnoEnHora.tipo) + " w-3 h-3 rounded-full"}></span>
-                      <span className="font-medium">{turnoEnHora.cliente_nombre}</span>
-                    </div>
-                    <div className="text-sm text-slate-400">
-                      {obtenerIconoTipo(turnoEnHora.tipo)} {turnoEnHora.tipo}
-                    </div>
-                    {turnoEnHora.descripcion && (
-                      <div className="text-sm text-slate-300">
-                        {turnoEnHora.descripcion}
-                      </div>
-                    )}
-                    <div className="flex gap-2 mt-2">
-                      <Select
-                        value={turnoEnHora.estado}
-                        onChange={(v) => cambiarEstadoTurno(turnoEnHora.id, v as any)}
-                        options={[
-                          { value: "PENDIENTE", label: "⏳ Pendiente" },
-                          { value: "CONFIRMADO", label: "✅ Confirmado" },
-                          { value: "COMPLETADO", label: "🎉 Completado" },
-                          { value: "CANCELADO", label: "❌ Cancelado" },
-                        ]}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 space-y-6">
-      {/* Card para agendar nuevo turno */}
-      <Card title="📅 Agendar Nuevo Turno">
+    <div className="max-w-6xl mx-auto p-4 space-y-4">
+      {/* FORMULARIO PARA AGENDAR TURNOS */}
+      <Card title="📅 Agenda de Turnos">
         <div className="grid md:grid-cols-3 gap-4">
           <Input
             label="Fecha"
             type="date"
             value={fechaSeleccionada}
-            onChange={setFechaSeleccionada}
-            min={new Date().toISOString().split('T')[0]}
+            onChange={manejarCambioFecha} {/* 🔥 Usar la función corregida */}
+            min={obtenerFechaLocal(new Date())}
           />
           <Select
             label="Cliente"
@@ -1733,87 +1719,61 @@ function AgendaTurnosTab({ state, setState, session }: any) {
         </div>
       </Card>
 
-      {/* Selector de vista */}
-      <Card>
-        <div className="flex gap-2">
-          <Button 
-            tone={vistaCalendario === "mes" ? "emerald" : "slate"}
-            onClick={() => setVistaCalendario("mes")}
-          >
-            📅 Vista Mensual
-          </Button>
-          <Button 
-            tone={vistaCalendario === "dia" ? "emerald" : "slate"}
-            onClick={() => setVistaCalendario("dia")}
-          >
-            📋 Vista del Día
-          </Button>
-        </div>
-      </Card>
+      {/* CALENDARIO VISUAL */}
+      <CalendarioVisual />
 
-      {/* Calendario o vista detallada */}
-      {vistaCalendario === "mes" ? (
-        <CalendarioMensual />
-      ) : (
-        <Card>
-          <VistaDiaDetallado />
-        </Card>
-      )}
-
-      {/* Resumen de turnos del día seleccionado */}
-      {vistaCalendario === "mes" && (
-        <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
-          <div className="space-y-3">
-            {obtenerTurnosDelDia(fechaSeleccionada).length === 0 ? (
-              <div className="text-center text-slate-400 py-4">
-                No hay turnos para esta fecha
-              </div>
-            ) : (
-              obtenerTurnosDelDia(fechaSeleccionada)
-                .sort((a: Turno, b: Turno) => a.hora.localeCompare(b.hora))
-                .map((turno: Turno) => (
-                  <div key={turno.id} className="border border-slate-700 rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold">
-                          {turno.hora} - {turno.cliente_nombre}
-                        </div>
-                        <div className="text-sm text-slate-400">
-                          📞 {turno.cliente_telefono} • 
-                          {turno.tipo === "ENTREGA" ? " 📦 Entrega" : 
-                          turno.tipo === "REPARACION" ? " 🛠️ Reparación" : " 💬 Consulta"}
-                        </div>
-                        {turno.descripcion && (
-                          <div className="text-sm text-slate-300 mt-1">
-                            {turno.descripcion}
-                          </div>
-                        )}
+      {/* LISTA DE TURNOS DEL DÍA */}
+      <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
+        <div className="space-y-3">
+          {turnosDelDia.length === 0 ? (
+            <div className="text-center text-slate-400 py-4">
+              No hay turnos para esta fecha
+            </div>
+          ) : (
+            turnosDelDia
+              .sort((a: Turno, b: Turno) => a.hora.localeCompare(b.hora))
+              .map((turno: Turno) => (
+                <div key={turno.id} className="border border-slate-700 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-semibold">
+                        {turno.hora} - {turno.cliente_nombre}
                       </div>
-                      <div className="flex gap-2 items-center">
-                        <Select
-                          value={turno.estado}
-                          onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
-                          options={[
-                            { value: "PENDIENTE", label: "⏳ Pendiente" },
-                            { value: "CONFIRMADO", label: "✅ Confirmado" },
-                            { value: "COMPLETADO", label: "🎉 Completado" },
-                            { value: "CANCELADO", label: "❌ Cancelado" },
-                          ]}
-                        />
-                        <Button
-                          tone="red"
-                          onClick={() => cambiarEstadoTurno(turno.id, "CANCELADO")}
-                        >
-                          ✕
-                        </Button>
+                      <div className="text-sm text-slate-400">
+                        📞 {turno.cliente_telefono} • 
+                        {turno.tipo === "ENTREGA" ? " 📦 Entrega" : 
+                         turno.tipo === "REPARACION" ? " 🛠️ Reparación" : " 💬 Consulta"}
                       </div>
+                      {turno.descripcion && (
+                        <div className="text-sm text-slate-300 mt-1">
+                          {turno.descripcion}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={turno.estado}
+                        onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
+                        options={[
+                          { value: "PENDIENTE", label: "⏳ Pendiente" },
+                          { value: "CONFIRMADO", label: "✅ Confirmado" },
+                          { value: "COMPLETADO", label: "🎉 Completado" },
+                          { value: "CANCELADO", label: "❌ Cancelado" },
+                        ]}
+                      />
+                      <Button
+                        tone="red"
+                        onClick={() => cambiarEstadoTurno(turno.id, "CANCELADO")}
+                      >
+                        ✕
+                      </Button>
                     </div>
                   </div>
-                ))
-            )}
-          </div>
-        </Card>
-      )}
+                </div>
+              ))
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
@@ -8259,6 +8219,122 @@ export default function Page() {
       {/* App visible (no se imprime) */}
 <div className="min-h-screen bg-emerald-950 text-slate-100 no-print">
 <style>{`::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:#0b1220}::-webkit-scrollbar-thumb{background:#065f46;border-radius:8px}::-webkit-scrollbar-thumb:hover{background:#047857}`}</style>
+  /* ===== SISTEMA DE NOTIFICACIONES ===== */
+function NotificationSystem() {
+  const [notifications, setNotifications] = useState<any[]>([]);
+
+  // Función para agregar notificación
+  const addNotification = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    const id = Date.now() + Math.random();
+    const newNotification = { id, message, type, timestamp: Date.now() };
+    
+    setNotifications(prev => [...prev, newNotification]);
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
+  };
+
+  // Remover notificación manualmente
+  const removeNotification = (id: number) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  // Context para que cualquier componente pueda usar las notificaciones
+  useEffect(() => {
+    // @ts-ignore
+    window.showNotification = addNotification;
+    // @ts-ignore
+    window.removeNotification = removeNotification;
+  }, []);
+
+  const getNotificationStyle = (type: string) => {
+    switch (type) {
+      case 'success':
+        return 'bg-emerald-900/80 border-emerald-700 text-emerald-200';
+      case 'error':
+        return 'bg-red-900/80 border-red-700 text-red-200';
+      case 'warning':
+        return 'bg-amber-900/80 border-amber-700 text-amber-200';
+      case 'info':
+        return 'bg-blue-900/80 border-blue-700 text-blue-200';
+      default:
+        return 'bg-slate-900/80 border-slate-700 text-slate-200';
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return '✅';
+      case 'error':
+        return '❌';
+      case 'warning':
+        return '⚠️';
+      case 'info':
+        return 'ℹ️';
+      default:
+        return '💡';
+    }
+  };
+
+  if (notifications.length === 0) return null;
+
+  return (
+    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          className={`${getNotificationStyle(notification.type)} border rounded-xl p-4 shadow-lg backdrop-blur-sm animate-in slide-in-from-right-full duration-500`}
+        >
+          <div className="flex items-start gap-3">
+            <span className="text-lg flex-shrink-0">
+              {getNotificationIcon(notification.type)}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium break-words">
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => removeNotification(notification.id)}
+              className="flex-shrink-0 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Helper functions para usar en cualquier componente
+function showNotification(message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') {
+  if (typeof window !== 'undefined' && (window as any).showNotification) {
+    (window as any).showNotification(message, type);
+  } else {
+    // Fallback al alert tradicional
+    alert(message);
+  }
+}
+
+function showSuccess(message: string) {
+  showNotification(message, 'success');
+}
+
+function showError(message: string) {
+  showNotification(message, 'error');
+}
+
+function showWarning(message: string) {
+  showNotification(message, 'warning');
+}
+
+function showInfo(message: string) {
+  showNotification(message, 'info');
+}
         {!session ? (
           <Login
             onLogin={onLogin}
