@@ -642,7 +642,8 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
     setCapacidad(""); // 👈 LIMPIAR CAPACIDAD
     setImei("");
     setPrecioCompra("");
-    setPrecioVenta("");
+setPrecioConsumidorFinal("");
+setPrecioRevendedor("");
     setCostoReparacion("");
     setDescripcion("");
     setModo("lista");
@@ -983,26 +984,27 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
       </div>
 
       {/* Precio de Venta con sugerencia automática */}
-      <div className="space-y-2">
-        <NumberInput
-              label="Precio Consumidor Final"
-              value={precioConsumidorFinal}
-              onChange={setPrecioConsumidorFinal}
-              placeholder="0"
-            />
-            
-            <NumberInput
-              label="Precio Revendedor"
-              value={precioRevendedor}
-              onChange={setPrecioRevendedor}
-              placeholder="0"
-            />
-        <div className="text-xs text-slate-400">
-          💡 Sugerido: {money(
-            (parseNum(precioCompra) + parseNum(costoReparacion)) * 1.3
-          )} (30% ganancia)
-        </div>
-      </div>
+      {/* Precio de Venta con sugerencia automática */}
+<div className="space-y-2">
+  <NumberInput
+    label="Precio Consumidor Final"
+    value={precioConsumidorFinal}
+    onChange={setPrecioConsumidorFinal}
+    placeholder="0"
+  />
+  
+  <NumberInput
+    label="Precio Revendedor"
+    value={precioRevendedor}
+    onChange={setPrecioRevendedor}
+    placeholder="0"
+  />
+  <div className="text-xs text-slate-400">
+    💡 Sugerido: {money(
+      (parseNum(precioCompra) + parseNum(costoReparacion)) * 1.3
+    )} (30% ganancia)
+  </div>
+</div>
 
       {/* 👇👇👇 TARJETA DE RESUMEN DE COSTOS */}
       <div className="md:col-span-2">
@@ -1027,23 +1029,23 @@ function ProductosiPhoneTab({ state, setState, session }: any) {
           
           {/* Línea de ganancia */}
           <div className="mt-3 pt-3 border-t border-slate-700">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-400">Ganancia estimada:</span>
-              <span className={`font-bold ${
-                (parseNum(precioVenta) - (parseNum(precioCompra) + parseNum(costoReparacion))) > 0 
-                  ? 'text-green-400' 
-                  : 'text-red-400'
-              }`}>
-                {money(parseNum(precioVenta) - (parseNum(precioCompra) + parseNum(costoReparacion)))}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-xs text-slate-500">
-              <span>Margen:</span>
-              <span>
-                {((parseNum(precioVenta) - (parseNum(precioCompra) + parseNum(costoReparacion))) / 
-                 (parseNum(precioCompra) + parseNum(costoReparacion)) * 100).toFixed(1)}%
-              </span>
-            </div>
+           <div className="flex justify-between items-center">
+  <span className="text-sm text-slate-400">Ganancia estimada:</span>
+  <span className={`font-bold ${
+    (parseNum(precioConsumidorFinal) - (parseNum(precioCompra) + parseNum(costoReparacion))) > 0 
+      ? 'text-green-400' 
+      : 'text-red-400'
+  }`}>
+    {money(parseNum(precioConsumidorFinal) - (parseNum(precioCompra) + parseNum(costoReparacion)))}
+  </span>
+</div>
+<div className="flex justify-between items-center text-xs text-slate-500">
+  <span>Margen:</span>
+  <span>
+    {((parseNum(precioConsumidorFinal) - (parseNum(precioCompra) + parseNum(costoReparacion))) / 
+     (parseNum(precioCompra) + parseNum(costoReparacion)) * 100).toFixed(1)}%
+  </span>
+</div>
           </div>
         </div>
       </div>
