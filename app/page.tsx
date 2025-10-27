@@ -2276,7 +2276,7 @@ function ClientePanel({ state, setState, session }: any) {
 
 /* =====================  TABS  ===================== */
 /* Facturación */
-function FacturacionTab({ state, setState, session }: any) {
+function FacturacionTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   
   const [clientId, setClientId] = useState(state.clients[0]?.id || "");
   const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
