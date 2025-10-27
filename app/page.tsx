@@ -2625,8 +2625,7 @@ const toPay = Math.max(0, total - applied);
 }
 
 /* Clientes */
-function ClientesTab({ state, setState, session }: any) {
-  const [name, setName] = useState("");
+function ClientesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [name, setName] = useState("");
   const [number, setNumber] = useState(ensureUniqueNumber(state.clients));
   const [deudaInicial, setDeudaInicial] = useState(""); // 👈 NUEVO ESTADO
   const [saldoFavorInicial, setSaldoFavorInicial] = useState(""); // 👈 NUEVO ESTADO
@@ -3438,8 +3437,7 @@ showSuccess("🗑️ Producto eliminado correctamente");
   );
 }
 
-function DeudoresTab({ state, setState, session }: any) {
-// ✅ FILTRAR MEJORADO: Incluye deuda manual Y deuda de facturas
+function DeudoresTab({ state, setState, session, showError, showSuccess, showInfo }: any) {// ✅ FILTRAR MEJORADO: Incluye deuda manual Y deuda de facturas
 // ✅ FILTRAR: Solo clientes con deuda NETA > 0 (después de aplicar saldo)
 const clients = state.clients.filter((c: any) => {
   if (!c || !c.id) return false;
@@ -3974,8 +3972,7 @@ client_debt_total: Math.max(0, deudaReal - totalPago)
   );
 }
 /* Cola (vendedor/admin): aceptar / cancelar turnos de la hora actual) */
-function ColaTab({ state, setState, session }: any) {
-  const [tickets, setTickets] = useState<any[]>([]);
+function ColaTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Rango de la HORA actual
@@ -4242,8 +4239,7 @@ function VendedoresTab({ state, setState }: any) {
 }
 
             /* Reportes */
-function ReportesTab({ state, setState, session }: any) {
-  // ====== Filtros de fecha ======
+function ReportesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  // ====== Filtros de fecha ======
   const pad2 = (n: number) => String(n).padStart(2, "0");
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
@@ -5536,8 +5532,7 @@ showInfo("🔄 Datos actualizados manualmente");
      
 
 /* Presupuestos */
-function PresupuestosTab({ state, setState, session }: any) {
-  const [clientId, setClientId] = useState(state.clients[0]?.id || "");
+function PresupuestosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [clientId, setClientId] = useState(state.clients[0]?.id || "");
   const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
   const [priceList, setPriceList] = useState("1");
   const [sectionFilter, setSectionFilter] = useState("Todas"); // 👈 NUEVO
@@ -5904,8 +5899,7 @@ async function convertirAFactura(b: any) {
 // En GastosDevolucionesTab, reemplaza el useEffect completo por este:
 
 /* Gastos y Devoluciones */
-function GastosDevolucionesTab({ state, setState, session }: any) {
-  const [productoNuevoId, setProductoNuevoId] = useState(""); // Producto elegido para entregar
+function GastosDevolucionesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [productoNuevoId, setProductoNuevoId] = useState(""); // Producto elegido para entregar
   const [cantidadNuevo, setCantidadNuevo] = useState("");     // Cantidad a entregar
   const [modo, setModo] = useState("Gasto"); // "Gasto" o "Devolución"
   const [tipoGasto, setTipoGasto] = useState("Proveedor");
@@ -6761,8 +6755,7 @@ showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté lis
 }
 
 // 👇👇👇 NUEVO COMPONENTE: Gestión de Pedidos (para admin/vendedores)
-function GestionPedidosTab({ state, setState, session }: any) {
-  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+function GestionPedidosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
 
   const pedidosFiltrados = state.pedidos.filter((pedido: Pedido) => {
     if (filtroEstado === "todos") return true;
@@ -8387,13 +8380,26 @@ export default function Page() {
 
             {/* Vendedor / Admin */}
            
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
-              <ClientesTab state={state} setState={setState} session={session} />
-            )}
-            
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
-              <DeudoresTab state={state} setState={setState} session={session} />
-            )}
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
+  <ClientesTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
+  <DeudoresTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
 
             {/* 👇👇👇 NUEVAS PESTAÑAS SISTEMA iPHONES - AGREGAR ESTO */}
            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
@@ -8425,30 +8431,72 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
-              <ReportesTab state={state} setState={setState} session={session} />
-            )}
-
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
+  <ReportesTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
             {/* Cola */}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Cola" && (
-              <ColaTab state={state} setState={setState} session={session} />
-            )}
+            
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Cola" && (
+  <ColaTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
             {session.role === "admin" && session.role !== "pedido-online" && tab === "Vendedores" && (
               <VendedoresTab state={state} setState={setState} />
             )}
-            {session.role === "admin" && session.role !== "pedido-online" && tab === "Reportes" && (
-              <ReportesTab state={state} setState={setState} session={session} />
-            )}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Presupuestos" && (
-              <PresupuestosTab state={state} setState={setState} session={session} />
-            )}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Gastos y Devoluciones" && (
-              <GastosDevolucionesTab state={state} setState={setState} session={session} />
-            )}
+           {session.role === "admin" && session.role !== "pedido-online" && tab === "Reportes" && (
+  <ReportesTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Presupuestos" && (
+  <PresupuestosTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
+           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Gastos y Devoluciones" && (
+  <GastosDevolucionesTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
             {/* 👇👇👇 NUEVA PESTAÑA: Gestión de Pedidos Online */}
             {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Pedidos Online" && (
-              <GestionPedidosTab state={state} setState={setState} session={session} />
-            )}
+  <GestionPedidosTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
 
             <div className="fixed bottom-3 right-3 text-[10px] text-slate-500 select-none">
               {hasSupabase ? "Supabase activo" : "Datos en navegador"}
