@@ -512,7 +512,14 @@ function SubirComprobante({ tipo, id, session, onComprobanteSubido }: {
   );
 }
 /* ===== NUEVOS COMPONENTES PARA SISTEMA iPHONES ===== */
-
+// Agregar esta función antes del componente ProductosiPhoneTab
+function calcularDiasEnStock(producto: Producto): number {
+  const fechaIngreso = new Date(producto.fecha_ingreso);
+  const hoy = new Date();
+  const diferenciaTiempo = hoy.getTime() - fechaIngreso.getTime();
+  const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 3600 * 24));
+  return diferenciaDias;
+}
 // 1. COMPONENTE DE INVENTARIO DE iPHONES
 function ProductosiPhoneTab({ state, setState, session }: any) {
   const [modo, setModo] = useState<"lista" | "nuevo" | "editar">("lista");
