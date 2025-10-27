@@ -284,7 +284,7 @@ if (clients) {
   if (products) {
     out.products = products.map((p: any) => ({
       ...p,
-      stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0
+      stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0,
        precio_consumidor_final: p.precio_consumidor_final || p.precio_venta || 0,
       precio_revendedor: p.precio_revendedor || (p.precio_venta ? p.precio_venta * 0.85 : 0)
     }));
