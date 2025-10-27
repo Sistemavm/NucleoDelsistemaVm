@@ -659,7 +659,8 @@ setPrecioRevendedor("");
     setDescripcion("");
     setModo("lista");
 // 🔥 NOTIFICACIÓN BONITA EN VEZ DE ALERT FEO
-  showSuccess(`✅ Turno agendado correctamente para el ${fechaSeleccionada} a las ${nuevoTurno.hora}`);
+// 🔥 NOTIFICACIÓN BONITA EN VEZ DE ALERT FEO
+showSuccess(`✅ iPhone ${modelo} ${capacidad} agregado correctamente al inventario`);
 }
 
 // También en cambiarEstadoTurno:
