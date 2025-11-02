@@ -2748,6 +2748,7 @@ showSuccess(`👤 Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'cor
   }
 
 // Función para que admin agregue deuda manualmente a cliente existente - CORREGIDA
+// ✅ FUNCIÓN CORREGIDA - agregarDeudaManual
 async function agregarDeudaManual(clienteId: string) {
   const deuda = prompt("Ingrese el monto de deuda a agregar:", "0");
   if (deuda === null) return;
@@ -2761,40 +2762,65 @@ async function agregarDeudaManual(clienteId: string) {
   if (cliente) {
     const deudaAnterior = parseNum(cliente.debt);
     
-    // ✅ CORRECCIÓN: SIMPLEMENTE SUMAR LA DEUDA SIN COMPENSAR
+    // ✅ CORRECCIÓN: Sumar la deuda
     cliente.debt = deudaAnterior + montoDeuda;
-// Solo marcar como deuda manual si realmente se está agregando deuda manualmente
-cliente.deuda_manual = montoDeuda > 0;    
+    
+    // ✅ CORRECCIÓN: Solo marcar como manual si realmente se agrega deuda
+    if (montoDeuda > 0) {
+      cliente.deuda_manual = true;
+    }
+    
     setState(st);
 
+    // ✅ CORRECCIÓN MEJORADA: Guardar en Supabase con mejor manejo de errores
     if (hasSupabase) {
       try {
-        const { error } = await supabase
+        console.log("💾 Guardando deuda manual en Supabase...", {
+          clienteId,
+          deudaAnterior,
+          nuevaDeuda: cliente.debt,
+          deuda_manual: cliente.deuda_manual
+        });
+
+        const { data, error } = await supabase
           .from("clients")
           .update({ 
             debt: cliente.debt,
-            deuda_manual: true 
+            deuda_manual: cliente.deuda_manual
           })
-          .eq("id", clienteId);
+          .eq("id", clienteId)
+          .select(); // ✅ Agregar .select() para verificar
 
         if (error) {
-          console.error("❌ Error al guardar deuda manual:", error);
-          alert("Error al guardar la deuda en la base de datos.");
-          // Recargar para evitar inconsistencias
+          console.error("❌ Error Supabase al guardar deuda:", error);
+          alert(`Error al guardar la deuda en la base de datos: ${error.message}`);
+          
+          // ✅ RECARGAR DATOS para evitar inconsistencias
           const refreshedState = await loadFromSupabase(seedState());
           setState(refreshedState);
           return;
         }
+
+        console.log("✅ Deuda manual guardada en Supabase:", data);
         
-        console.log("✅ Deuda manual guardada en Supabase");
+        // ✅ ACTUALIZAR INMEDIATAMENTE el estado local con los datos de Supabase
+        setTimeout(async () => {
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }, 500);
+
       } catch (error) {
         console.error("💥 Error crítico:", error);
-        alert("Error al guardar la deuda.");
+        alert("Error de conexión con la base de datos.");
+        
+        // Recargar para evitar inconsistencias
+        const refreshedState = await loadFromSupabase(seedState());
+        setState(refreshedState);
         return;
       }
     }
 
-    alert(`Deuda agregada: ${money(deudaAnterior)} → ${money(cliente.debt)}`);
+    alert(`✅ Deuda agregada correctamente\n${money(deudaAnterior)} → ${money(cliente.debt)}`);
   }
 }
  // Función para que admin ajuste saldo a favor manualmente
