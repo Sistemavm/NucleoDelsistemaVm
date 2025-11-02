@@ -6397,1832 +6397,1164 @@ function nextPaint() {
 
 
 /* ===== Área de impresión ===== */
+/* ===== Área de impresión ===== */
 function PrintArea({ state }: any) {
   const [inv, setInv] = useState<any | null>(null);
   const [ticket, setTicket] = useState<any | null>(null);
 
- useEffect(() => {
-  const hInv = (e: any) => {
-    setTicket(null);
-    setInv(e.detail);
-  };
-  const hTic = (e: any) => {
-    setInv(null);
-    setTicket(e.detail);
-  };
-  const hDev = (e: any) => {
-    setInv(null);
-    setTicket(null);
-    setInv({ ...e.detail, type: "Devolucion" });
-  };
-  
-  window.addEventListener("print-invoice", hInv);
-  window.addEventListener("print-ticket", hTic);
-  window.addEventListener("print-devolucion", hDev);
-  
-  return () => {
-    window.removeEventListener("print-invoice", hInv);
-    window.removeEventListener("print-ticket", hTic);
-    window.removeEventListener("print-devolucion", hDev);
-  };
-}, []);
+  useEffect(() => {
+    const hInv = (e: any) => {
+      setTicket(null);
+      setInv(e.detail);
+    };
+    const hTic = (e: any) => {
+      setInv(null);
+      setTicket(e.detail);
+    };
+    const hDev = (e: any) => {
+      setInv(null);
+      setTicket(null);
+      setInv({ ...e.detail, type: "Devolucion" });
+    };
+    
+    window.addEventListener("print-invoice", hInv);
+    window.addEventListener("print-ticket", hTic);
+    window.addEventListener("print-devolucion", hDev);
+    
+    return () => {
+      window.removeEventListener("print-invoice", hInv);
+      window.removeEventListener("print-ticket", hTic);
+      window.removeEventListener("print-devolucion", hDev);
+    };
+  }, []);
 
   if (!inv && !ticket) return null;
-// ==== PLANTILLA: REPORTE MEJORADO ====
-if (inv?.type === "Reporte") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  // PRIMERO verificamos los reportes específicos (SOLO los 4 que quieres específicos)
-  if (inv?.subtipo === "inventario") {
-    return (
-      <div className="only-print print-area p-14">
-        <div className="max-w-[780px] mx-auto text-black">
-          <div className="flex items-start justify-between">
-            <div>
-              <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-                REPORTE DE INVENTARIO - iPHONES
-              </div>
-              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-            </div>
-            <div className="text-right text-sm">
-              <div><b>Período:</b> {inv.periodo}</div>
-              <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-            </div>
-          </div>
 
-          <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+  // ==== 1. PRIMERO LOS 4 REPORTES ESPECÍFICOS ====
+  if (inv?.type === "Reporte") {
+    const fmt = (n: number) => money(parseNum(n));
 
-          {/* RESUMEN INVENTARIO */}
-          <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '20px', color: '#2563eb' }}>{inv.resumen.totalProductos}</div>
-              <div style={{ fontWeight: 600 }}>PRODUCTOS EN STOCK</div>
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '20px', color: '#d97706' }}>{fmt(inv.resumen.capitalInvertido)}</div>
-              <div style={{ fontWeight: 600 }}>CAPITAL INVERTIDO</div>
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{fmt(inv.resumen.valorVentaTotal)}</div>
-              <div style={{ fontWeight: 600 }}>VALOR DE VENTA</div>
-            </div>
-          </div>
-
-          {/* STOCK POR MODELO */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>📦 STOCK POR MODELO Y CAPACIDAD</div>
-          
-          <table className="print-table text-sm" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Modelo</th>
-                <th style={{ textAlign: 'center' }}>Stock</th>
-                <th style={{ textAlign: 'right' }}>Valor Inventario</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(inv.metricas.stockPorModeloGB)
-                .sort(([,a]: any, [,b]: any) => b - a)
-                .slice(0, 15)
-                .map(([modelo, cantidad]: any) => (
-                  <tr key={modelo}>
-                    <td>{modelo}</td>
-                    <td style={{ textAlign: 'center' }}>{cantidad} unidades</td>
-                    <td style={{ textAlign: 'right' }}>
-                      {fmt(inv.productosStock
-                        .filter((p: any) => `${p.modelo} ${p.capacidad}` === modelo)
-                        .reduce((sum: number, p: any) => sum + p.precio_compra + p.costo_reparacion, 0)
-                      )}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-
-          {/* PRODUCTOS CON MÁS TIEMPO */}
-          {inv.metricas.productosViejos.length > 0 && (
-            <>
-              <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ PRODUCTOS CON MÁS DE 30 DÍAS EN STOCK</div>
-              
-              <table className="print-table text-sm" style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left' }}>Producto</th>
-                    <th style={{ textAlign: 'center' }}>Días</th>
-                    <th style={{ textAlign: 'right' }}>Costo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inv.metricas.productosViejos.slice(0, 10).map((producto: any) => (
-                    <tr key={producto.id}>
-                      <td>{producto.name}</td>
-                      <td style={{ textAlign: 'center', color: producto.diasEnStock > 60 ? '#dc2626' : '#d97706' }}>
-                        {producto.diasEnStock} días
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        {fmt(producto.precio_compra + producto.costo_reparacion)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-
-          <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (inv?.subtipo === "rentabilidad") {
-    return (
-      <div className="only-print print-area p-14">
-        <div className="max-w-[780px] mx-auto text-black">
-          <div className="flex items-start justify-between">
-            <div>
-              <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-                REPORTE DE RENTABILIDAD - iPHONES
-              </div>
-              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-            </div>
-            <div className="text-right text-sm">
-              <div><b>Período:</b> {inv.periodo}</div>
-              <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-            </div>
-          </div>
-
-          <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
-
-          {/* RESUMEN RENTABILIDAD */}
-          <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
-            <div>
-              <div style={{ 
-                fontWeight: 700, 
-                fontSize: '20px', 
-                color: inv.resumen.margenGananciaPromedio >= 20 ? '#059669' : 
-                       inv.resumen.margenGananciaPromedio >= 10 ? '#d97706' : '#dc2626' 
-              }}>
-                {inv.resumen.margenGananciaPromedio.toFixed(1)}%
-              </div>
-              <div style={{ fontWeight: 600 }}>MARGEN PROMEDIO</div>
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>
-                {fmt(inv.resumen.gananciaTotal)}
-              </div>
-              <div style={{ fontWeight: 600 }}>GANANCIA TOTAL</div>
-            </div>
-            <div>
-              <div style={{ 
-                fontWeight: 700, 
-                fontSize: '20px', 
-                color: inv.resumen.roiInventario >= 50 ? '#059669' : 
-                       inv.resumen.roiInventario >= 20 ? '#d97706' : '#dc2626' 
-              }}>
-                {inv.resumen.roiInventario.toFixed(1)}%
-              </div>
-              <div style={{ fontWeight: 600 }}>ROI INVENTARIO</div>
-            </div>
-          </div>
-
-          {/* RENTABILIDAD POR MODELO */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>💰 RENTABILIDAD POR MODELO</div>
-          
-          <table className="print-table text-sm" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Modelo</th>
-                <th style={{ textAlign: 'right' }}>Ventas</th>
-                <th style={{ textAlign: 'right' }}>Ganancia</th>
-                <th style={{ textAlign: 'center' }}>Margen</th>
-                <th style={{ textAlign: 'center' }}>Unidades</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(inv.metricas.rentabilidadPorModeloGB)
-                .sort(([,a]: any, [,b]: any) => b.ganancia - a.ganancia)
-                .slice(0, 12)
-                .map(([modelo, datos]: any) => (
-                  <tr key={modelo}>
-                    <td>{modelo}</td>
-                    <td style={{ textAlign: 'right' }}>{fmt(datos.ventas)}</td>
-                    <td style={{ textAlign: 'right' }}>{fmt(datos.ganancia)}</td>
-                    <td style={{ 
-                      textAlign: 'center',
-                      color: (datos.ganancia / datos.ventas * 100) >= 20 ? '#059669' : 
-                             (datos.ganancia / datos.ventas * 100) >= 10 ? '#d97706' : '#dc2626',
-                      fontWeight: 600
-                    }}>
-                      {((datos.ganancia / datos.ventas) * 100).toFixed(1)}%
-                    </td>
-                    <td style={{ textAlign: 'center' }}>{datos.unidades}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-
-          <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (inv?.subtipo === "tendencias") {
-    return (
-      <div className="only-print print-area p-14">
-        <div className="max-w-[780px] mx-auto text-black">
-          <div className="flex items-start justify-between">
-            <div>
-              <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-                REPORTE DE TENDENCIAS - iPHONES
-              </div>
-              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-            </div>
-            <div className="text-right text-sm">
-              <div><b>Período:</b> {inv.periodo}</div>
-              <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-            </div>
-          </div>
-
-          <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
-
-          {/* TENDENCIAS MENSUALES */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>📈 TENDENCIAS MENSUALES</div>
-          
-          <table className="print-table text-sm" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Mes</th>
-                <th style={{ textAlign: 'right' }}>Ventas</th>
-                <th style={{ textAlign: 'center' }}>Crecimiento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inv.metricas.crecimientoMensual.map((mes: any, index: number) => (
-                <tr key={mes.mes}>
-                  <td>{mes.mes}</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(mes.ventas)}</td>
-                  <td style={{ 
-                    textAlign: 'center',
-                    color: mes.crecimiento >= 0 ? '#059669' : '#dc2626',
-                    fontWeight: 600
-                  }}>
-                    {mes.crecimiento >= 0 ? '↗' : '↘'} {Math.abs(mes.crecimiento)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* DÍAS CON MÁS VENTAS */}
-          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 DÍAS CON MÁS VENTAS</div>
-          
-          <table className="print-table text-sm" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Fecha</th>
-                <th style={{ textAlign: 'right' }}>Ventas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inv.metricas.diasConMasVentas.map(([dia, monto]: any) => (
-                <tr key={dia}>
-                  <td>{new Date(dia).toLocaleDateString('es-AR')}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(monto)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (inv?.subtipo === "abc") {
-    return (
-      <div className="only-print print-area p-14">
-        <div className="max-w-[780px] mx-auto text-black">
-          <div className="flex items-start justify-between">
-            <div>
-              <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-                ANÁLISIS ABC - CLASIFICACIÓN DE INVENTARIO
-              </div>
-              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-            </div>
-            <div className="text-right text-sm">
-              <div><b>Período:</b> {inv.periodo}</div>
-              <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-            </div>
-          </div>
-
-          <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
-
-          {/* RESUMEN CATEGORÍAS ABC */}
-          <div className="grid grid-cols-3 gap-4 text-center mb-6">
-            <div className="p-4 bg-red-900/10 border-2 border-red-700 rounded-lg">
-              <div style={{ fontWeight: 700, fontSize: '24px', color: '#dc2626' }}>A</div>
-              <div style={{ fontWeight: 600 }}>ALTA PRIORIDAD</div>
-              <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaA} productos</div>
-              <div style={{ fontSize: '12px', color: '#666' }}>80% del valor</div>
-            </div>
-            <div className="p-4 bg-amber-900/10 border-2 border-amber-700 rounded-lg">
-              <div style={{ fontWeight: 700, fontSize: '24px', color: '#d97706' }}>B</div>
-              <div style={{ fontWeight: 600 }}>MEDIA PRIORIDAD</div>
-              <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaB} productos</div>
-              <div style={{ fontSize: '12px', color: '#666' }}>15% del valor</div>
-            </div>
-            <div className="p-4 bg-green-900/10 border-2 border-green-700 rounded-lg">
-              <div style={{ fontWeight: 700, fontSize: '24px', color: '#059669' }}>C</div>
-              <div style={{ fontWeight: 600 }}>BAJA PRIORIDAD</div>
-              <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaC} productos</div>
-              <div style={{ fontSize: '12px', color: '#666' }}>5% del valor</div>
-            </div>
-          </div>
-
-          {/* DETALLE PRODUCTOS CATEGORÍA A */}
-          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>🔴 PRODUCTOS CATEGORÍA A (ALTA PRIORIDAD)</div>
-          
-          <table className="print-table text-sm" style={{ width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Producto</th>
-                <th style={{ textAlign: 'center' }}>Ranking</th>
-                <th style={{ textAlign: 'right' }}>Valor Inventario</th>
-                <th style={{ textAlign: 'center' }}>Rotación</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inv.analisisABC
-                .filter((p: any) => p.categoria === 'A')
-                .slice(0, 15)
-                .map((producto: any) => (
-                  <tr key={producto.id}>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{producto.name}</div>
-                      <div style={{ fontSize: '10px', color: '#666' }}>
-                        {producto.modelo} {producto.capacidad} • {producto.grado}
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>#{producto.ranking}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(producto.valorInventario)}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span style={{ 
-                        color: producto.rotacion > 0 ? '#059669' : '#dc2626',
-                        fontWeight: 600
-                      }}>
-                        {producto.rotacion}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-
-          <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-        </div>
-      </div>
-    );
-  }
-
-  // "ventas" Y cualquier otro caso usa el reporte COMPLETO
-  const rangoStr = (() => {
-    const s = new Date(inv?.rango?.start || Date.now());
-    const e = new Date(inv?.rango?.end || Date.now());
-    const toDate = (d: Date) => d.toLocaleString("es-AR");
-    return `${toDate(s)}  —  ${toDate(e)}`;
-  })();
-
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1 }}>REPORTE COMPLETO</div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right">
-            <div><b>Período:</b> {rangoStr}</div>
-            <div><b>Tipo:</b> {inv.periodo}</div>
-            <div><b>Fecha:</b> {new Date().toLocaleString("es-AR")}</div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
-
-        {/* RESUMEN PRINCIPAL MEJORADO */}
-        <div className="grid grid-cols-4 gap-3 text-sm mb-4">
-          <div>
-            <div style={{ fontWeight: 700 }}>Ventas totales</div>
-            <div>{fmt(inv.resumen.ventas)}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Deuda del día</div>
-            <div style={{ color: "#f59e0b", fontWeight: 700 }}>{fmt(inv.resumen.deudaDelDia)}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Efectivo neto</div>
-            <div>{fmt(inv.resumen.efectivoNeto)}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Transferencias</div>
-            <div>{fmt(inv.resumen.transferencias)}</div>
-          </div>
-        </div>
-
-        {/* 👇👇👇 SECCIÓN: DEUDA DEL DÍA */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>📋 Facturas con Deuda del Día</div>
-        
-        {inv.deudaDelDiaDetalle && inv.deudaDelDiaDetalle.length > 0 ? (
-          <table className="print-table text-sm">
-            <thead>
-              <tr>
-                <th style={{ width: "10%" }}>Factura</th>
-                <th style={{ width: "25%" }}>Cliente</th>
-                <th style={{ width: "20%" }}>Total</th>
-                <th style={{ width: "20%" }}>Pagado</th>
-                <th style={{ width: "25%" }}>Debe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inv.deudaDelDiaDetalle.map((f: any, i: number) => {
-                const total = parseNum(f.total);
-                const pagos = parseNum(f?.payments?.cash || 0) + 
-                             parseNum(f?.payments?.transfer || 0) + 
-                             parseNum(f?.payments?.saldo_aplicado || 0);
-                const debe = total - pagos;
-                
-                return (
-                  <tr key={f.id}>
-                    <td style={{ textAlign: "right" }}>#{pad(f.number)}</td>
-                    <td>{f.client_name}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(total)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(pagos)}</td>
-                    <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>
-                      {fmt(debe)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <div className="text-sm text-slate-500 p-2">No hay facturas con deuda pendiente en el día</div>
-        )}
-
-        {/* 👇👇👇 SECCIÓN: DEUDORES ACTIVOS */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>👥 Deudores Activos</div>
-        
-        {inv.deudoresActivos && inv.deudoresActivos.length > 0 ? (
-          inv.deudoresActivos.map((deudor: any, idx: number) => (
-            <div key={deudor.id} style={{ border: "1px solid #000", marginBottom: 12, padding: 10, pageBreakInside: 'avoid' }}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div style={{ fontWeight: 700 }}>{deudor.name} (N° {deudor.number})</div>
-                  <div style={{ fontSize: 11 }}>
-                    Deuda bruta: {fmt(deudor.deuda_bruta)} • Saldo favor: {fmt(deudor.saldo_favor)} • Facturas: {deudor.cantidad_facturas}
-                  </div>
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#f59e0b" }}>
-                  {fmt(deudor.deuda_neta)}
-                </div>
-              </div>
-
-              {/* DETALLE POR FACTURA (igual que en DeudoresTab) */}
-              {deudor.detalle_facturas.map((deuda: any, factIdx: number) => (
-                <div key={factIdx} style={{ marginBottom: 8, padding: 6, border: "1px dashed #ccc" }}>
-                  <div className="flex justify-between text-sm">
-                    <span>Factura #{pad(deuda.factura_numero)}</span>
-                    <span style={{ fontWeight: 600, color: "#f59e0b" }}>
-                      {fmt(deuda.monto_debe)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 10, color: "#666" }}>
-                    Fecha: {new Date(deuda.fecha).toLocaleDateString("es-AR")} • 
-                    Total: {fmt(deuda.monto_total)} • 
-                    Pagado: {fmt(deuda.monto_pagado)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))
-        ) : (
-          <div className="text-sm text-slate-500 p-2">No hay deudores activos</div>
-        )}
-
-        {/* 👇👇👇 SECCIÓN: PAGOS DE DEUDORES CON DETALLE */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>💳 Pagos de Deudores Registrados</div>
-        
-        {inv.pagosDeudoresDetallados && inv.pagosDeudoresDetallados.length > 0 ? (
-          inv.pagosDeudoresDetallados.map((pago: any, idx: number) => (
-            <div key={pago.pago_id} style={{ border: "1px solid #000", marginBottom: 12, padding: 10, pageBreakInside: 'avoid' }}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div style={{ fontWeight: 700 }}>{pago.cliente}</div>
-                  <div style={{ fontSize: 11 }}>
-                    {new Date(pago.fecha_pago).toLocaleString("es-AR")} • 
-                    Efectivo: {fmt(pago.efectivo)} • 
-                    Transferencia: {fmt(pago.transferencia)}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, color: "#10b981" }}>Pagado: {fmt(pago.total_pagado)}</div>
-                  <div style={{ fontSize: 11 }}>
-                    Deuda: {fmt(pago.deuda_antes_pago)} → {fmt(pago.deuda_despues_pago)}
-                  </div>
-                </div>
-              </div>
-
-              {/* DETALLE DE APLICACIÓN DEL PAGO */}
-              {pago.aplicaciones && pago.aplicaciones.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Aplicado a:</div>
-                  {pago.aplicaciones.map((app: any, appIdx: number) => (
-                    <div key={appIdx} style={{ fontSize: 10, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Factura #{pad(app.factura_numero)}:</span>
-                      <span>{fmt(app.monto_aplicado)} (Deuda: {fmt(app.deuda_antes)} → {fmt(app.deuda_despues)})</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <div className="text-sm text-slate-500 p-2">No hay pagos de deudores en el período</div>
-        )}
-
-        {/* SECCIÓN: VENTAS */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Ventas del período</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ width: "8%" }}>#</th>
-              <th>Cliente</th>
-              <th>Vendedor</th>
-              <th style={{ width: "14%" }}>Total</th>
-              <th style={{ width: "14%" }}>Efectivo</th>
-              <th style={{ width: "14%" }}>Transf.</th>
-              <th style={{ width: "12%" }}>Vuelto</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.ventas || []).map((f: any, i: number) => {
-              const c = parseNum(f?.payments?.cash || 0);
-              const t = parseNum(f?.payments?.transfer || 0);
-              const vu = parseNum(f?.payments?.change || 0);
-              return (
-                <tr key={f.id}>
-                  <td style={{ textAlign: "right" }}>{String(f.number || i + 1).padStart(4, "0")}</td>
-                  <td>{f.client_name}</td>
-                  <td>{f.vendor_name}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(f.total)}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(c)}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(t)}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(vu)}</td>
-                </tr>
-              );
-            })}
-            {(!inv.ventas || inv.ventas.length === 0) && (
-              <tr><td colSpan={7}>Sin ventas en el período.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* SECCIÓN: GASTOS */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Gastos</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ width: "14%" }}>Fecha</th>
-              <th>Detalle</th>
-              <th style={{ width: "14%" }}>Efectivo</th>
-              <th style={{ width: "14%" }}>Transf.</th>
-              <th style={{ width: "24%" }}>Alias</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.gastos || []).map((g: any, i: number) => (
-              <tr key={g.id || i}>
-                <td>{new Date(g.date_iso).toLocaleString("es-AR")}</td>
-                <td>{g.tipo} — {g.detalle}</td>
-                <td style={{ textAlign: "right" }}>{fmt(g.efectivo)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(g.transferencia)}</td>
-                <td>{g.alias || "—"}</td>
-              </tr>
-            ))}
-            {(!inv.gastos || inv.gastos.length === 0) && (
-              <tr><td colSpan={5}>Sin gastos.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* SECCIÓN: DEVOLUCIONES */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Devoluciones</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ width: "14%" }}>Fecha</th>
-              <th>Cliente</th>
-              <th style={{ width: "14%" }}>Método</th>
-              <th style={{ width: "14%" }}>Efectivo</th>
-              <th style={{ width: "14%" }}>Transf.</th>
-              <th style={{ width: "14%" }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.devoluciones || []).map((d: any, i: number) => (
-              <tr key={d.id || i}>
-                <td>{new Date(d.date_iso).toLocaleString("es-AR")}</td>
-                <td>{d.client_name}</td>
-                <td style={{ textTransform: "capitalize" }}>{d.metodo}</td>
-                <td style={{ textAlign: "right" }}>{fmt(d.efectivo)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(d.transferencia)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(d.total)}</td>
-              </tr>
-            ))}
-            {(!inv.devoluciones || inv.devoluciones.length === 0) && (
-              <tr><td colSpan={6}>Sin devoluciones.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* SECCIÓN: Transferencias por alias (ventas) */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Transferencias por alias (ventas)</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th>Alias</th>
-              <th style={{ width: "18%" }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.transferenciasPorAlias || []).map((a: any, i: number) => (
-              <tr key={a.alias || i}>
-                <td>{a.alias}</td>
-                <td style={{ textAlign: "right" }}>{fmt(a.total)}</td>
-              </tr>
-            ))}
-            {(!inv.transferenciasPorAlias || inv.transferenciasPorAlias.length === 0) && (
-              <tr><td colSpan={2}>Sin transferencias en ventas.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* FINAL: FLUJO DE CAJA (EFECTIVO) */}
-        <div style={{ borderTop: "1px solid #000", margin: "14px 0 8px" }} />
-        <div className="text-center" style={{ fontWeight: 900, fontSize: 24, letterSpacing: 1 }}>
-          FLUJO DE CAJA (EFECTIVO): {fmt(inv.resumen.flujoCajaEfectivo)}
-        </div>
-
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
-  // SI NO es un reporte específico, usa el reporte general (tu reporte actual)
-  const rangoStr = (() => {
-    const s = new Date(inv?.rango?.start || Date.now());
-    const e = new Date(inv?.rango?.end || Date.now());
-    const toDate = (d: Date) => d.toLocaleString("es-AR");
-    return `${toDate(s)}  —  ${toDate(e)}`;
-  })();
-
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1 }}>REPORTE COMPLETO</div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right">
-            <div><b>Período:</b> {rangoStr}</div>
-            <div><b>Tipo:</b> {inv.periodo}</div>
-            <div><b>Fecha:</b> {new Date().toLocaleString("es-AR")}</div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
-
-        {/* RESUMEN PRINCIPAL MEJORADO */}
-        <div className="grid grid-cols-4 gap-3 text-sm mb-4">
-          <div>
-            <div style={{ fontWeight: 700 }}>Ventas totales</div>
-            <div>{fmt(inv.resumen.ventas)}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Deuda del día</div>
-            <div style={{ color: "#f59e0b", fontWeight: 700 }}>{fmt(inv.resumen.deudaDelDia)}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Efectivo neto</div>
-            <div>{fmt(inv.resumen.efectivoNeto)}</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Transferencias</div>
-            <div>{fmt(inv.resumen.transferencias)}</div>
-          </div>
-        </div>
-
-        {/* 👇👇👇 SECCIÓN: DEUDA DEL DÍA */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>📋 Facturas con Deuda del Día</div>
-        
-        {inv.deudaDelDiaDetalle && inv.deudaDelDiaDetalle.length > 0 ? (
-          <table className="print-table text-sm">
-            <thead>
-              <tr>
-                <th style={{ width: "10%" }}>Factura</th>
-                <th style={{ width: "25%" }}>Cliente</th>
-                <th style={{ width: "20%" }}>Total</th>
-                <th style={{ width: "20%" }}>Pagado</th>
-                <th style={{ width: "25%" }}>Debe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inv.deudaDelDiaDetalle.map((f: any, i: number) => {
-                const total = parseNum(f.total);
-                const pagos = parseNum(f?.payments?.cash || 0) + 
-                             parseNum(f?.payments?.transfer || 0) + 
-                             parseNum(f?.payments?.saldo_aplicado || 0);
-                const debe = total - pagos;
-                
-                return (
-                  <tr key={f.id}>
-                    <td style={{ textAlign: "right" }}>#{pad(f.number)}</td>
-                    <td>{f.client_name}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(total)}</td>
-                    <td style={{ textAlign: "right" }}>{fmt(pagos)}</td>
-                    <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>
-                      {fmt(debe)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <div className="text-sm text-slate-500 p-2">No hay facturas con deuda pendiente en el día</div>
-        )}
-        {/* 👇👇👇 SECCIÓN: DEUDORES ACTIVOS */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>👥 Deudores Activos</div>
-        
-        {inv.deudoresActivos && inv.deudoresActivos.length > 0 ? (
-          inv.deudoresActivos.map((deudor: any, idx: number) => (
-            <div key={deudor.id} style={{ border: "1px solid #000", marginBottom: 12, padding: 10, pageBreakInside: 'avoid' }}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div style={{ fontWeight: 700 }}>{deudor.name} (N° {deudor.number})</div>
-                  <div style={{ fontSize: 11 }}>
-                    Deuda bruta: {fmt(deudor.deuda_bruta)} • Saldo favor: {fmt(deudor.saldo_favor)} • Facturas: {deudor.cantidad_facturas}
-                  </div>
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#f59e0b" }}>
-                  {fmt(deudor.deuda_neta)}
-                </div>
-              </div>
-
-              {/* DETALLE POR FACTURA (igual que en DeudoresTab) */}
-              {deudor.detalle_facturas.map((deuda: any, factIdx: number) => (
-                <div key={factIdx} style={{ marginBottom: 8, padding: 6, border: "1px dashed #ccc" }}>
-                  <div className="flex justify-between text-sm">
-                    <span>Factura #{pad(deuda.factura_numero)}</span>
-                    <span style={{ fontWeight: 600, color: "#f59e0b" }}>
-                      {fmt(deuda.monto_debe)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 10, color: "#666" }}>
-                    Fecha: {new Date(deuda.fecha).toLocaleDateString("es-AR")} • 
-                    Total: {fmt(deuda.monto_total)} • 
-                    Pagado: {fmt(deuda.monto_pagado)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))
-        ) : (
-          <div className="text-sm text-slate-500 p-2">No hay deudores activos</div>
-        )}
-
-        {/* 👇👇👇 SECCIÓN: PAGOS DE DEUDORES CON DETALLE */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>💳 Pagos de Deudores Registrados</div>
-        
-        {inv.pagosDeudoresDetallados && inv.pagosDeudoresDetallados.length > 0 ? (
-          inv.pagosDeudoresDetallados.map((pago: any, idx: number) => (
-            <div key={pago.pago_id} style={{ border: "1px solid #000", marginBottom: 12, padding: 10, pageBreakInside: 'avoid' }}>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <div style={{ fontWeight: 700 }}>{pago.cliente}</div>
-                  <div style={{ fontSize: 11 }}>
-                    {new Date(pago.fecha_pago).toLocaleString("es-AR")} • 
-                    Efectivo: {fmt(pago.efectivo)} • 
-                    Transferencia: {fmt(pago.transferencia)}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, color: "#10b981" }}>Pagado: {fmt(pago.total_pagado)}</div>
-                  <div style={{ fontSize: 11 }}>
-                    Deuda: {fmt(pago.deuda_antes_pago)} → {fmt(pago.deuda_despues_pago)}
-                  </div>
-                </div>
-              </div>
-
-              {/* DETALLE DE APLICACIÓN DEL PAGO */}
-              {pago.aplicaciones && pago.aplicaciones.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Aplicado a:</div>
-                  {pago.aplicaciones.map((app: any, appIdx: number) => (
-                    <div key={appIdx} style={{ fontSize: 10, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Factura #{pad(app.factura_numero)}:</span>
-                      <span>{fmt(app.monto_aplicado)} (Deuda: {fmt(app.deuda_antes)} → {fmt(app.deuda_despues)})</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <div className="text-sm text-slate-500 p-2">No hay pagos de deudores en el período</div>
-        )}
-
-        {/* SECCIÓN: VENTAS */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Ventas del período</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ width: "8%" }}>#</th>
-              <th>Cliente</th>
-              <th>Vendedor</th>
-              <th style={{ width: "14%" }}>Total</th>
-              <th style={{ width: "14%" }}>Efectivo</th>
-              <th style={{ width: "14%" }}>Transf.</th>
-              <th style={{ width: "12%" }}>Vuelto</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.ventas || []).map((f: any, i: number) => {
-              const c = parseNum(f?.payments?.cash || 0);
-              const t = parseNum(f?.payments?.transfer || 0);
-              const vu = parseNum(f?.payments?.change || 0);
-              return (
-                <tr key={f.id}>
-                  <td style={{ textAlign: "right" }}>{String(f.number || i + 1).padStart(4, "0")}</td>
-                  <td>{f.client_name}</td>
-                  <td>{f.vendor_name}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(f.total)}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(c)}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(t)}</td>
-                  <td style={{ textAlign: "right" }}>{fmt(vu)}</td>
-                </tr>
-              );
-            })}
-            {(!inv.ventas || inv.ventas.length === 0) && (
-              <tr><td colSpan={7}>Sin ventas en el período.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* SECCIÓN: GASTOS */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Gastos</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ width: "14%" }}>Fecha</th>
-              <th>Detalle</th>
-              <th style={{ width: "14%" }}>Efectivo</th>
-              <th style={{ width: "14%" }}>Transf.</th>
-              <th style={{ width: "24%" }}>Alias</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.gastos || []).map((g: any, i: number) => (
-              <tr key={g.id || i}>
-                <td>{new Date(g.date_iso).toLocaleString("es-AR")}</td>
-                <td>{g.tipo} — {g.detalle}</td>
-                <td style={{ textAlign: "right" }}>{fmt(g.efectivo)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(g.transferencia)}</td>
-                <td>{g.alias || "—"}</td>
-              </tr>
-            ))}
-            {(!inv.gastos || inv.gastos.length === 0) && (
-              <tr><td colSpan={5}>Sin gastos.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* SECCIÓN: DEVOLUCIONES */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Devoluciones</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ width: "14%" }}>Fecha</th>
-              <th>Cliente</th>
-              <th style={{ width: "14%" }}>Método</th>
-              <th style={{ width: "14%" }}>Efectivo</th>
-              <th style={{ width: "14%" }}>Transf.</th>
-              <th style={{ width: "14%" }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.devoluciones || []).map((d: any, i: number) => (
-              <tr key={d.id || i}>
-                <td>{new Date(d.date_iso).toLocaleString("es-AR")}</td>
-                <td>{d.client_name}</td>
-                <td style={{ textTransform: "capitalize" }}>{d.metodo}</td>
-                <td style={{ textAlign: "right" }}>{fmt(d.efectivo)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(d.transferencia)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(d.total)}</td>
-              </tr>
-            ))}
-            {(!inv.devoluciones || inv.devoluciones.length === 0) && (
-              <tr><td colSpan={6}>Sin devoluciones.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* SECCIÓN: Transferencias por alias (ventas) */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Transferencias por alias (ventas)</div>
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th>Alias</th>
-              <th style={{ width: "18%" }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(inv.transferenciasPorAlias || []).map((a: any, i: number) => (
-              <tr key={a.alias || i}>
-                <td>{a.alias}</td>
-                <td style={{ textAlign: "right" }}>{fmt(a.total)}</td>
-              </tr>
-            ))}
-            {(!inv.transferenciasPorAlias || inv.transferenciasPorAlias.length === 0) && (
-              <tr><td colSpan={2}>Sin transferencias en ventas.</td></tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* FINAL: FLUJO DE CAJA (EFECTIVO) */}
-        <div style={{ borderTop: "1px solid #000", margin: "14px 0 8px" }} />
-        <div className="text-center" style={{ fontWeight: 900, fontSize: 24, letterSpacing: 1 }}>
-          FLUJO DE CAJA (EFECTIVO): {fmt(inv.resumen.flujoCajaEfectivo)}
-        </div>
-
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
-// ==== PLANTILLA: DETALLE DE DEUDAS ====
-if (inv?.type === "DetalleDeuda") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1 }}>DETALLE DE DEUDAS</div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right">
-            <div><b>Fecha:</b> {new Date().toLocaleString("es-AR")}</div>
-            <div><b>Cliente:</b> {inv.cliente.name}</div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
-
-        {/* RESUMEN */}
-        <div className="grid grid-cols-3 gap-4 text-sm mb-6" style={{ border: "1px solid #000", padding: 12 }}>
-          <div className="text-center">
-            <div style={{ fontWeight: 700, fontSize: 18 }}>{fmt(inv.deudaTotal)}</div>
-            <div>Deuda Total</div>
-          </div>
-          <div className="text-center">
-            <div style={{ fontWeight: 700, fontSize: 18 }}>{inv.detalleDeudas.length}</div>
-            <div>Facturas Pendientes</div>
-          </div>
-          <div className="text-center">
-            <div style={{ fontWeight: 700, fontSize: 18 }}>{fmt(inv.saldoFavor)}</div>
-            <div>Saldo a Favor</div>
-          </div>
-        </div>
-
-        {/* DETALLE POR FACTURA */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Detalle por Factura</div>
-        
-        {inv.detalleDeudas.map((deuda: any, index: number) => (
-          <div key={index} style={{ border: "1px solid #000", marginBottom: 12, padding: 10 }}>
-            {/* ENCABEZADO FACTURA */}
-            <div className="flex justify-between items-start mb-3">
+    // REPORTE DE INVENTARIO
+    if (inv?.subtipo === "inventario") {
+      return (
+        <div className="only-print print-area p-14">
+          <div className="max-w-[780px] mx-auto text-black">
+            <div className="flex items-start justify-between">
               <div>
-                <div style={{ fontWeight: 700 }}>Factura #{pad(deuda.factura_numero)}</div>
-                <div style={{ fontSize: 11 }}>{new Date(deuda.fecha).toLocaleDateString("es-AR")}</div>
+                <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+                  REPORTE DE INVENTARIO - iPHONES
+                </div>
+                <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
               </div>
-              <div className="text-right">
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#f59e0b" }}>
-                  {fmt(deuda.monto_debe)}
-                </div>
-                <div style={{ fontSize: 11 }}>
-                  Total: {fmt(deuda.monto_total)} • Pagado: {fmt(deuda.monto_pagado)}
-                </div>
+              <div className="text-right text-sm">
+                <div><b>Período:</b> {inv.periodo}</div>
+                <div><b>Generado:</b> {inv.fechaGeneracion}</div>
               </div>
             </div>
 
-            {/* ITEMS */}
-            <table className="print-table text-sm" style={{ width: "100%", marginTop: 8 }}>
+            <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+            {/* RESUMEN INVENTARIO */}
+            <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '20px', color: '#2563eb' }}>{inv.resumen.totalProductos}</div>
+                <div style={{ fontWeight: 600 }}>PRODUCTOS EN STOCK</div>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '20px', color: '#d97706' }}>{fmt(inv.resumen.capitalInvertido)}</div>
+                <div style={{ fontWeight: 600 }}>CAPITAL INVERTIDO</div>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{fmt(inv.resumen.valorVentaTotal)}</div>
+                <div style={{ fontWeight: 600 }}>VALOR DE VENTA</div>
+              </div>
+            </div>
+
+            {/* STOCK POR MODELO */}
+            <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>📦 STOCK POR MODELO Y CAPACIDAD</div>
+            
+            <table className="print-table text-sm" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", width: "60%" }}>Producto</th>
-                  <th style={{ textAlign: "center", width: "15%" }}>Cant.</th>
-                  <th style={{ textAlign: "right", width: "25%" }}>Subtotal</th>
+                  <th style={{ textAlign: 'left' }}>Modelo</th>
+                  <th style={{ textAlign: 'center' }}>Stock</th>
+                  <th style={{ textAlign: 'right' }}>Valor Inventario</th>
                 </tr>
               </thead>
               <tbody>
-                {deuda.items.map((item: any, idx: number) => (
-                  <tr key={idx}>
-                    <td style={{ textAlign: "left" }}>{item.name}</td>
-                    <td style={{ textAlign: "center" }}>{item.qty}</td>
-                    <td style={{ textAlign: "right" }}>
-                      {money(parseNum(item.qty) * parseNum(item.unitPrice))}
-                    </td>
-                  </tr>
-                ))}
+                {Object.entries(inv.metricas.stockPorModeloGB)
+                  .sort(([,a]: any, [,b]: any) => b - a)
+                  .slice(0, 15)
+                  .map(([modelo, cantidad]: any) => (
+                    <tr key={modelo}>
+                      <td>{modelo}</td>
+                      <td style={{ textAlign: 'center' }}>{cantidad} unidades</td>
+                      <td style={{ textAlign: 'right' }}>
+                        {fmt(inv.productosStock
+                          .filter((p: any) => `${p.modelo} ${p.capacidad}` === modelo)
+                          .reduce((sum: number, p: any) => sum + p.precio_compra + p.costo_reparacion, 0)
+                        )}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
-          </div>
-        ))}
 
-        {/* TOTAL FINAL */}
-        <div style={{ borderTop: "2px solid #000", margin: "16px 0 8px", paddingTop: 8 }}>
-          <div className="flex justify-between items-center" style={{ fontWeight: 900, fontSize: 18 }}>
-            <span>DEUDA TOTAL DEL CLIENTE:</span>
-            <span>{fmt(inv.deudaTotal)}</span>
+            {/* PRODUCTOS CON MÁS TIEMPO */}
+            {inv.metricas.productosViejos.length > 0 && (
+              <>
+                <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ PRODUCTOS CON MÁS DE 30 DÍAS EN STOCK</div>
+                
+                <table className="print-table text-sm" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Producto</th>
+                      <th style={{ textAlign: 'center' }}>Días</th>
+                      <th style={{ textAlign: 'right' }}>Costo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inv.metricas.productosViejos.slice(0, 10).map((producto: any) => (
+                      <tr key={producto.id}>
+                        <td>{producto.name}</td>
+                        <td style={{ textAlign: 'center', color: producto.diasEnStock > 60 ? '#dc2626' : '#d97706' }}>
+                          {producto.diasEnStock} días
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {fmt(producto.precio_compra + producto.costo_reparacion)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
+            <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
           </div>
         </div>
+      );
+    }
 
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-  // ==== PLANTILLA: REPORTE DE INVENTARIO ====
-if (inv?.type === "Reporte" && inv?.subtipo === "inventario") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-              REPORTE DE INVENTARIO - iPHONES
+    // REPORTE ANÁLISIS ABC
+    if (inv?.subtipo === "abc") {
+      const fmt = (n: number) => money(parseNum(n));
+      
+      return (
+        <div className="only-print print-area p-14">
+          <div className="max-w-[780px] mx-auto text-black">
+            <div className="flex items-start justify-between">
+              <div>
+                <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+                  ANÁLISIS ABC - CLASIFICACIÓN DE INVENTARIO
+                </div>
+                <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+              </div>
+              <div className="text-right text-sm">
+                <div><b>Período:</b> {inv.periodo}</div>
+                <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+              </div>
             </div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right text-sm">
-            <div><b>Período:</b> {inv.periodo}</div>
-            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-          </div>
-        </div>
 
-        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+            <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
 
-        {/* RESUMEN INVENTARIO */}
-        <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '20px', color: '#2563eb' }}>{inv.resumen.totalProductos}</div>
-            <div style={{ fontWeight: 600 }}>PRODUCTOS EN STOCK</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '20px', color: '#d97706' }}>{fmt(inv.resumen.capitalInvertido)}</div>
-            <div style={{ fontWeight: 600 }}>CAPITAL INVERTIDO</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{fmt(inv.resumen.valorVentaTotal)}</div>
-            <div style={{ fontWeight: 600 }}>VALOR DE VENTA</div>
-          </div>
-        </div>
+            {/* RESUMEN CATEGORÍAS ABC */}
+            <div className="grid grid-cols-3 gap-4 text-center mb-6">
+              <div className="p-4 bg-red-900/10 border-2 border-red-700 rounded-lg">
+                <div style={{ fontWeight: 700, fontSize: '24px', color: '#dc2626' }}>A</div>
+                <div style={{ fontWeight: 600 }}>ALTA PRIORIDAD</div>
+                <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaA} productos</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>80% del valor</div>
+              </div>
+              <div className="p-4 bg-amber-900/10 border-2 border-amber-700 rounded-lg">
+                <div style={{ fontWeight: 700, fontSize: '24px', color: '#d97706' }}>B</div>
+                <div style={{ fontWeight: 600 }}>MEDIA PRIORIDAD</div>
+                <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaB} productos</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>15% del valor</div>
+              </div>
+              <div className="p-4 bg-green-900/10 border-2 border-green-700 rounded-lg">
+                <div style={{ fontWeight: 700, fontSize: '24px', color: '#059669' }}>C</div>
+                <div style={{ fontWeight: 600 }}>BAJA PRIORIDAD</div>
+                <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaC} productos</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>5% del valor</div>
+              </div>
+            </div>
 
-        {/* STOCK POR MODELO */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>📦 STOCK POR MODELO Y CAPACIDAD</div>
-        
-        <table className="print-table text-sm" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Modelo</th>
-              <th style={{ textAlign: 'center' }}>Stock</th>
-              <th style={{ textAlign: 'right' }}>Valor Inventario</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(inv.metricas.stockPorModeloGB)
-              .sort(([,a]: any, [,b]: any) => b - a)
-              .slice(0, 15)
-              .map(([modelo, cantidad]: any) => (
-                <tr key={modelo}>
-                  <td>{modelo}</td>
-                  <td style={{ textAlign: 'center' }}>{cantidad} unidades</td>
-                  <td style={{ textAlign: 'right' }}>
-                    {fmt(inv.productosStock
-                      .filter((p: any) => `${p.modelo} ${p.capacidad}` === modelo)
-                      .reduce((sum: number, p: any) => sum + p.precio_compra + p.costo_reparacion, 0)
-                    )}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-
-        {/* PRODUCTOS CON MÁS TIEMPO */}
-        {inv.metricas.productosViejos.length > 0 && (
-          <>
+            {/* DETALLE PRODUCTOS CATEGORÍA A */}
             <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ PRODUCTOS CON MÁS DE 30 DÍAS EN STOCK</div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>🔴 PRODUCTOS CATEGORÍA A (ALTA PRIORIDAD)</div>
             
             <table className="print-table text-sm" style={{ width: '100%' }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Producto</th>
-                  <th style={{ textAlign: 'center' }}>Días</th>
-                  <th style={{ textAlign: 'right' }}>Costo</th>
+                  <th style={{ textAlign: 'center' }}>Ranking</th>
+                  <th style={{ textAlign: 'right' }}>Valor Inventario</th>
+                  <th style={{ textAlign: 'center' }}>Rotación</th>
                 </tr>
               </thead>
               <tbody>
-                {inv.metricas.productosViejos.slice(0, 10).map((producto: any) => (
-                  <tr key={producto.id}>
-                    <td>{producto.name}</td>
-                    <td style={{ textAlign: 'center', color: producto.diasEnStock > 60 ? '#dc2626' : '#d97706' }}>
-                      {producto.diasEnStock} días
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {fmt(producto.precio_compra + producto.costo_reparacion)}
+                {inv.analisisABC
+                  .filter((p: any) => p.categoria === 'A')
+                  .slice(0, 15)
+                  .map((producto: any) => (
+                    <tr key={producto.id}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{producto.name}</div>
+                        <div style={{ fontSize: '10px', color: '#666' }}>
+                          {producto.modelo} {producto.capacidad} • {producto.grado}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 700 }}>#{producto.ranking}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(producto.valorInventario)}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ 
+                          color: producto.rotacion > 0 ? '#059669' : '#dc2626',
+                          fontWeight: 600
+                        }}>
+                          {producto.rotacion}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+
+            <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // REPORTE DE RENTABILIDAD
+    if (inv?.subtipo === "rentabilidad") {
+      const fmt = (n: number) => money(parseNum(n));
+      
+      return (
+        <div className="only-print print-area p-14">
+          <div className="max-w-[780px] mx-auto text-black">
+            <div className="flex items-start justify-between">
+              <div>
+                <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+                  REPORTE DE RENTABILIDAD - iPHONES
+                </div>
+                <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+              </div>
+              <div className="text-right text-sm">
+                <div><b>Período:</b> {inv.periodo}</div>
+                <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+            {/* RESUMEN RENTABILIDAD */}
+            <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
+              <div>
+                <div style={{ 
+                  fontWeight: 700, 
+                  fontSize: '20px', 
+                  color: inv.resumen.margenGananciaPromedio >= 20 ? '#059669' : 
+                         inv.resumen.margenGananciaPromedio >= 10 ? '#d97706' : '#dc2626' 
+                }}>
+                  {inv.resumen.margenGananciaPromedio.toFixed(1)}%
+                </div>
+                <div style={{ fontWeight: 600 }}>MARGEN PROMEDIO</div>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>
+                  {fmt(inv.resumen.gananciaTotal)}
+                </div>
+                <div style={{ fontWeight: 600 }}>GANANCIA TOTAL</div>
+              </div>
+              <div>
+                <div style={{ 
+                  fontWeight: 700, 
+                  fontSize: '20px', 
+                  color: inv.resumen.roiInventario >= 50 ? '#059669' : 
+                         inv.resumen.roiInventario >= 20 ? '#d97706' : '#dc2626' 
+                }}>
+                  {inv.resumen.roiInventario.toFixed(1)}%
+                </div>
+                <div style={{ fontWeight: 600 }}>ROI INVENTARIO</div>
+              </div>
+            </div>
+
+            {/* RENTABILIDAD POR MODELO */}
+            <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>💰 RENTABILIDAD POR MODELO</div>
+            
+            <table className="print-table text-sm" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Modelo</th>
+                  <th style={{ textAlign: 'right' }}>Ventas</th>
+                  <th style={{ textAlign: 'right' }}>Ganancia</th>
+                  <th style={{ textAlign: 'center' }}>Margen</th>
+                  <th style={{ textAlign: 'center' }}>Unidades</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(inv.metricas.rentabilidadPorModeloGB)
+                  .sort(([,a]: any, [,b]: any) => b.ganancia - a.ganancia)
+                  .slice(0, 12)
+                  .map(([modelo, datos]: any) => (
+                    <tr key={modelo}>
+                      <td>{modelo}</td>
+                      <td style={{ textAlign: 'right' }}>{fmt(datos.ventas)}</td>
+                      <td style={{ textAlign: 'right' }}>{fmt(datos.ganancia)}</td>
+                      <td style={{ 
+                        textAlign: 'center',
+                        color: (datos.ganancia / datos.ventas * 100) >= 20 ? '#059669' : 
+                               (datos.ganancia / datos.ventas * 100) >= 10 ? '#d97706' : '#dc2626',
+                        fontWeight: 600
+                      }}>
+                        {((datos.ganancia / datos.ventas) * 100).toFixed(1)}%
+                      </td>
+                      <td style={{ textAlign: 'center' }}>{datos.unidades}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+
+            <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // REPORTE DE TENDENCIAS
+    if (inv?.subtipo === "tendencias") {
+      const fmt = (n: number) => money(parseNum(n));
+      
+      return (
+        <div className="only-print print-area p-14">
+          <div className="max-w-[780px] mx-auto text-black">
+            <div className="flex items-start justify-between">
+              <div>
+                <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+                  REPORTE DE TENDENCIAS - iPHONES
+                </div>
+                <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+              </div>
+              <div className="text-right text-sm">
+                <div><b>Período:</b> {inv.periodo}</div>
+                <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+            {/* TENDENCIAS MENSUALES */}
+            <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>📈 TENDENCIAS MENSUALES</div>
+            
+            <table className="print-table text-sm" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Mes</th>
+                  <th style={{ textAlign: 'right' }}>Ventas</th>
+                  <th style={{ textAlign: 'center' }}>Crecimiento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.metricas.crecimientoMensual.map((mes: any, index: number) => (
+                  <tr key={mes.mes}>
+                    <td>{mes.mes}</td>
+                    <td style={{ textAlign: 'right' }}>{fmt(mes.ventas)}</td>
+                    <td style={{ 
+                      textAlign: 'center',
+                      color: mes.crecimiento >= 0 ? '#059669' : '#dc2626',
+                      fontWeight: 600
+                    }}>
+                      {mes.crecimiento >= 0 ? '↗' : '↘'} {Math.abs(mes.crecimiento)}%
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </>
-        )}
 
-        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
+            {/* DÍAS CON MÁS VENTAS */}
+            <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 DÍAS CON MÁS VENTAS</div>
+            
+            <table className="print-table text-sm" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Fecha</th>
+                  <th style={{ textAlign: 'right' }}>Ventas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.metricas.diasConMasVentas.map(([dia, monto]: any) => (
+                  <tr key={dia}>
+                    <td>{new Date(dia).toLocaleDateString('es-AR')}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(monto)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-// ==== PLANTILLA: ANÁLISIS ABC ====
-if (inv?.type === "Reporte" && inv?.subtipo === "abc") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-              ANÁLISIS ABC - CLASIFICACIÓN DE INVENTARIO
+            <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==== 2. REPORTE COMPLETO (Ventas y Performance) ====
+    // Este se ejecuta SOLO para "ventas" o cualquier otro subtipo no específico
+    const rangoStr = (() => {
+      const s = new Date(inv?.rango?.start || Date.now());
+      const e = new Date(inv?.rango?.end || Date.now());
+      const toDate = (d: Date) => d.toLocaleString("es-AR");
+      return `${toDate(s)}  —  ${toDate(e)}`;
+    })();
+
+    return (
+      <div className="only-print print-area p-14">
+        <div className="max-w-[780px] mx-auto text-black">
+          <div className="flex items-start justify-between">
+            <div>
+              <div style={{ fontWeight: 800, letterSpacing: 1 }}>REPORTE COMPLETO</div>
+              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
             </div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+            <div className="text-right">
+              <div><b>Período:</b> {rangoStr}</div>
+              <div><b>Tipo:</b> {inv.periodo}</div>
+              <div><b>Fecha:</b> {new Date().toLocaleString("es-AR")}</div>
+            </div>
           </div>
-          <div className="text-right text-sm">
-            <div><b>Período:</b> {inv.periodo}</div>
-            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+
+          <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+          {/* RESUMEN PRINCIPAL MEJORADO */}
+          <div className="grid grid-cols-4 gap-3 text-sm mb-4">
+            <div>
+              <div style={{ fontWeight: 700 }}>Ventas totales</div>
+              <div>{fmt(inv.resumen.ventas)}</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Deuda del día</div>
+              <div style={{ color: "#f59e0b", fontWeight: 700 }}>{fmt(inv.resumen.deudaDelDia)}</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Efectivo neto</div>
+              <div>{fmt(inv.resumen.efectivoNeto)}</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Transferencias</div>
+              <div>{fmt(inv.resumen.transferencias)}</div>
+            </div>
           </div>
+
+          {/* DEUDA DEL DÍA */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>📋 Facturas con Deuda del Día</div>
+          
+          {inv.deudaDelDiaDetalle && inv.deudaDelDiaDetalle.length > 0 ? (
+            <table className="print-table text-sm">
+              <thead>
+                <tr>
+                  <th style={{ width: "10%" }}>Factura</th>
+                  <th style={{ width: "25%" }}>Cliente</th>
+                  <th style={{ width: "20%" }}>Total</th>
+                  <th style={{ width: "20%" }}>Pagado</th>
+                  <th style={{ width: "25%" }}>Debe</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.deudaDelDiaDetalle.map((f: any, i: number) => {
+                  const total = parseNum(f.total);
+                  const pagos = parseNum(f?.payments?.cash || 0) + 
+                               parseNum(f?.payments?.transfer || 0) + 
+                               parseNum(f?.payments?.saldo_aplicado || 0);
+                  const debe = total - pagos;
+                  
+                  return (
+                    <tr key={f.id}>
+                      <td style={{ textAlign: "right" }}>#{pad(f.number)}</td>
+                      <td>{f.client_name}</td>
+                      <td style={{ textAlign: "right" }}>{fmt(total)}</td>
+                      <td style={{ textAlign: "right" }}>{fmt(pagos)}</td>
+                      <td style={{ textAlign: "right", color: "#f59e0b", fontWeight: 600 }}>
+                        {fmt(debe)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-sm text-slate-500 p-2">No hay facturas con deuda pendiente en el día</div>
+          )}
+
+          {/* DEUDORES ACTIVOS */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>👥 Deudores Activos</div>
+          
+          {inv.deudoresActivos && inv.deudoresActivos.length > 0 ? (
+            inv.deudoresActivos.map((deudor: any, idx: number) => (
+              <div key={deudor.id} style={{ border: "1px solid #000", marginBottom: 12, padding: 10, pageBreakInside: 'avoid' }}>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{deudor.name} (N° {deudor.number})</div>
+                    <div style={{ fontSize: 11 }}>
+                      Deuda bruta: {fmt(deudor.deuda_bruta)} • Saldo favor: {fmt(deudor.saldo_favor)} • Facturas: {deudor.cantidad_facturas}
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: "#f59e0b" }}>
+                    {fmt(deudor.deuda_neta)}
+                  </div>
+                </div>
+
+                {/* DETALLE POR FACTURA */}
+                {deudor.detalle_facturas.map((deuda: any, factIdx: number) => (
+                  <div key={factIdx} style={{ marginBottom: 8, padding: 6, border: "1px dashed #ccc" }}>
+                    <div className="flex justify-between text-sm">
+                      <span>Factura #{pad(deuda.factura_numero)}</span>
+                      <span style={{ fontWeight: 600, color: "#f59e0b" }}>
+                        {fmt(deuda.monto_debe)}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#666" }}>
+                      Fecha: {new Date(deuda.fecha).toLocaleDateString("es-AR")} • 
+                      Total: {fmt(deuda.monto_total)} • 
+                      Pagado: {fmt(deuda.monto_pagado)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-slate-500 p-2">No hay deudores activos</div>
+          )}
+
+          {/* PAGOS DE DEUDORES CON DETALLE */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>💳 Pagos de Deudores Registrados</div>
+          
+          {inv.pagosDeudoresDetallados && inv.pagosDeudoresDetallados.length > 0 ? (
+            inv.pagosDeudoresDetallados.map((pago: any, idx: number) => (
+              <div key={pago.pago_id} style={{ border: "1px solid #000", marginBottom: 12, padding: 10, pageBreakInside: 'avoid' }}>
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{pago.cliente}</div>
+                    <div style={{ fontSize: 11 }}>
+                      {new Date(pago.fecha_pago).toLocaleString("es-AR")} • 
+                      Efectivo: {fmt(pago.efectivo)} • 
+                      Transferencia: {fmt(pago.transferencia)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, color: "#10b981" }}>Pagado: {fmt(pago.total_pagado)}</div>
+                    <div style={{ fontSize: 11 }}>
+                      Deuda: {fmt(pago.deuda_antes_pago)} → {fmt(pago.deuda_despues_pago)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* DETALLE DE APLICACIÓN DEL PAGO */}
+                {pago.aplicaciones && pago.aplicaciones.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Aplicado a:</div>
+                    {pago.aplicaciones.map((app: any, appIdx: number) => (
+                      <div key={appIdx} style={{ fontSize: 10, display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Factura #{pad(app.factura_numero)}:</span>
+                        <span>{fmt(app.monto_aplicado)} (Deuda: {fmt(app.deuda_antes)} → {fmt(app.deuda_despues)})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-slate-500 p-2">No hay pagos de deudores en el período</div>
+          )}
+
+          {/* VENTAS */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Ventas del período</div>
+          <table className="print-table text-sm">
+            <thead>
+              <tr>
+                <th style={{ width: "8%" }}>#</th>
+                <th>Cliente</th>
+                <th>Vendedor</th>
+                <th style={{ width: "14%" }}>Total</th>
+                <th style={{ width: "14%" }}>Efectivo</th>
+                <th style={{ width: "14%" }}>Transf.</th>
+                <th style={{ width: "12%" }}>Vuelto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(inv.ventas || []).map((f: any, i: number) => {
+                const c = parseNum(f?.payments?.cash || 0);
+                const t = parseNum(f?.payments?.transfer || 0);
+                const vu = parseNum(f?.payments?.change || 0);
+                return (
+                  <tr key={f.id}>
+                    <td style={{ textAlign: "right" }}>{String(f.number || i + 1).padStart(4, "0")}</td>
+                    <td>{f.client_name}</td>
+                    <td>{f.vendor_name}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(f.total)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(c)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(t)}</td>
+                    <td style={{ textAlign: "right" }}>{fmt(vu)}</td>
+                  </tr>
+                );
+              })}
+              {(!inv.ventas || inv.ventas.length === 0) && (
+                <tr><td colSpan={7}>Sin ventas en el período.</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* GASTOS */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Gastos</div>
+          <table className="print-table text-sm">
+            <thead>
+              <tr>
+                <th style={{ width: "14%" }}>Fecha</th>
+                <th>Detalle</th>
+                <th style={{ width: "14%" }}>Efectivo</th>
+                <th style={{ width: "14%" }}>Transf.</th>
+                <th style={{ width: "24%" }}>Alias</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(inv.gastos || []).map((g: any, i: number) => (
+                <tr key={g.id || i}>
+                  <td>{new Date(g.date_iso).toLocaleString("es-AR")}</td>
+                  <td>{g.tipo} — {g.detalle}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(g.efectivo)}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(g.transferencia)}</td>
+                  <td>{g.alias || "—"}</td>
+                </tr>
+              ))}
+              {(!inv.gastos || inv.gastos.length === 0) && (
+                <tr><td colSpan={5}>Sin gastos.</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* DEVOLUCIONES */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Devoluciones</div>
+          <table className="print-table text-sm">
+            <thead>
+              <tr>
+                <th style={{ width: "14%" }}>Fecha</th>
+                <th>Cliente</th>
+                <th style={{ width: "14%" }}>Método</th>
+                <th style={{ width: "14%" }}>Efectivo</th>
+                <th style={{ width: "14%" }}>Transf.</th>
+                <th style={{ width: "14%" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(inv.devoluciones || []).map((d: any, i: number) => (
+                <tr key={d.id || i}>
+                  <td>{new Date(d.date_iso).toLocaleString("es-AR")}</td>
+                  <td>{d.client_name}</td>
+                  <td style={{ textTransform: "capitalize" }}>{d.metodo}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(d.efectivo)}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(d.transferencia)}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(d.total)}</td>
+                </tr>
+              ))}
+              {(!inv.devoluciones || inv.devoluciones.length === 0) && (
+                <tr><td colSpan={6}>Sin devoluciones.</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* TRANSFERENCIAS POR ALIAS */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Transferencias por alias (ventas)</div>
+          <table className="print-table text-sm">
+            <thead>
+              <tr>
+                <th>Alias</th>
+                <th style={{ width: "18%" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(inv.transferenciasPorAlias || []).map((a: any, i: number) => (
+                <tr key={a.alias || i}>
+                  <td>{a.alias}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(a.total)}</td>
+                </tr>
+              ))}
+              {(!inv.transferenciasPorAlias || inv.transferenciasPorAlias.length === 0) && (
+                <tr><td colSpan={2}>Sin transferencias en ventas.</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* FLUJO DE CAJA */}
+          <div style={{ borderTop: "1px solid #000", margin: "14px 0 8px" }} />
+          <div className="text-center" style={{ fontWeight: 900, fontSize: 24, letterSpacing: 1 }}>
+            FLUJO DE CAJA (EFECTIVO): {fmt(inv.resumen.flujoCajaEfectivo)}
+          </div>
+
+          <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
         </div>
+      </div>
+    );
+  }
 
-        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+  // ==== 3. DETALLE DE DEUDAS ====
+  if (inv?.type === "DetalleDeuda") {
+    const fmt = (n: number) => money(parseNum(n));
+    
+    return (
+      <div className="only-print print-area p-14">
+        <div className="max-w-[780px] mx-auto text-black">
+          <div className="flex items-start justify-between">
+            <div>
+              <div style={{ fontWeight: 800, letterSpacing: 1 }}>DETALLE DE DEUDAS</div>
+              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+            </div>
+            <div className="text-right">
+              <div><b>Fecha:</b> {new Date().toLocaleString("es-AR")}</div>
+              <div><b>Cliente:</b> {inv.cliente.name}</div>
+            </div>
+          </div>
 
-        {/* RESUMEN CATEGORÍAS ABC */}
-        <div className="grid grid-cols-3 gap-4 text-center mb-6">
-          <div className="p-4 bg-red-900/10 border-2 border-red-700 rounded-lg">
-            <div style={{ fontWeight: 700, fontSize: '24px', color: '#dc2626' }}>A</div>
-            <div style={{ fontWeight: 600 }}>ALTA PRIORIDAD</div>
-            <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaA} productos</div>
-            <div style={{ fontSize: '12px', color: '#666' }}>80% del valor</div>
+          <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+          {/* RESUMEN */}
+          <div className="grid grid-cols-3 gap-4 text-sm mb-6" style={{ border: "1px solid #000", padding: 12 }}>
+            <div className="text-center">
+              <div style={{ fontWeight: 700, fontSize: 18 }}>{fmt(inv.deudaTotal)}</div>
+              <div>Deuda Total</div>
+            </div>
+            <div className="text-center">
+              <div style={{ fontWeight: 700, fontSize: 18 }}>{inv.detalleDeudas.length}</div>
+              <div>Facturas Pendientes</div>
+            </div>
+            <div className="text-center">
+              <div style={{ fontWeight: 700, fontSize: 18 }}>{fmt(inv.saldoFavor)}</div>
+              <div>Saldo a Favor</div>
+            </div>
           </div>
-          <div className="p-4 bg-amber-900/10 border-2 border-amber-700 rounded-lg">
-            <div style={{ fontWeight: 700, fontSize: '24px', color: '#d97706' }}>B</div>
-            <div style={{ fontWeight: 600 }}>MEDIA PRIORIDAD</div>
-            <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaB} productos</div>
-            <div style={{ fontSize: '12px', color: '#666' }}>15% del valor</div>
+
+          {/* DETALLE POR FACTURA */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Detalle por Factura</div>
+          
+          {inv.detalleDeudas.map((deuda: any, index: number) => (
+            <div key={index} style={{ border: "1px solid #000", marginBottom: 12, padding: 10 }}>
+              {/* ENCABEZADO FACTURA */}
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div style={{ fontWeight: 700 }}>Factura #{pad(deuda.factura_numero)}</div>
+                  <div style={{ fontSize: 11 }}>{new Date(deuda.fecha).toLocaleDateString("es-AR")}</div>
+                </div>
+                <div className="text-right">
+                  <div style={{ fontWeight: 700, fontSize: 16, color: "#f59e0b" }}>
+                    {fmt(deuda.monto_debe)}
+                  </div>
+                  <div style={{ fontSize: 11 }}>
+                    Total: {fmt(deuda.monto_total)} • Pagado: {fmt(deuda.monto_pagado)}
+                  </div>
+                </div>
+              </div>
+
+              {/* ITEMS */}
+              <table className="print-table text-sm" style={{ width: "100%", marginTop: 8 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", width: "60%" }}>Producto</th>
+                    <th style={{ textAlign: "center", width: "15%" }}>Cant.</th>
+                    <th style={{ textAlign: "right", width: "25%" }}>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deuda.items.map((item: any, idx: number) => (
+                    <tr key={idx}>
+                      <td style={{ textAlign: "left" }}>{item.name}</td>
+                      <td style={{ textAlign: "center" }}>{item.qty}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {money(parseNum(item.qty) * parseNum(item.unitPrice))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+
+          {/* TOTAL FINAL */}
+          <div style={{ borderTop: "2px solid #000", margin: "16px 0 8px", paddingTop: 8 }}>
+            <div className="flex justify-between items-center" style={{ fontWeight: 900, fontSize: 18 }}>
+              <span>DEUDA TOTAL DEL CLIENTE:</span>
+              <span>{fmt(inv.deudaTotal)}</span>
+            </div>
           </div>
-          <div className="p-4 bg-green-900/10 border-2 border-green-700 rounded-lg">
-            <div style={{ fontWeight: 700, fontSize: '24px', color: '#059669' }}>C</div>
-            <div style={{ fontWeight: 600 }}>BAJA PRIORIDAD</div>
-            <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaC} productos</div>
-            <div style={{ fontSize: '12px', color: '#666' }}>5% del valor</div>
-          </div>
+
+          <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
         </div>
+      </div>
+    );
+  }
 
-        {/* DETALLE PRODUCTOS CATEGORÍA A */}
-        <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>🔴 PRODUCTOS CATEGORÍA A (ALTA PRIORIDAD)</div>
-        
-        <table className="print-table text-sm" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Producto</th>
-              <th style={{ textAlign: 'center' }}>Ranking</th>
-              <th style={{ textAlign: 'right' }}>Valor Inventario</th>
-              <th style={{ textAlign: 'center' }}>Rotación</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inv.analisisABC
-              .filter((p: any) => p.categoria === 'A')
-              .slice(0, 15)
-              .map((producto: any) => (
-                <tr key={producto.id}>
+  // ==== 4. DEVOLUCIÓN ====
+  if (inv?.type === "Devolucion") {
+    const fmt = (n: number) => money(parseNum(n));
+    
+    return (
+      <div className="only-print print-area p-14">
+        <div className="max-w-[780px] mx-auto text-black">
+          <div className="flex items-start justify-between">
+            <div>
+              <div style={{ fontWeight: 800, letterSpacing: 1 }}>COMPROBANTE DE DEVOLUCIÓN</div>
+              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+            </div>
+            <div className="text-right">
+              <div><b>Fecha:</b> {new Date(inv.date_iso).toLocaleString("es-AR")}</div>
+              <div><b>N° Comprobante:</b> {inv.id}</div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <div style={{ fontWeight: 700 }}>Cliente</div>
+              <div>{inv.client_name}</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Método de Devolución</div>
+              <div className="capitalize">{inv.metodo}</div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Productos Devueltos</div>
+          
+          <table className="print-table text-sm">
+            <thead>
+              <tr>
+                <th style={{ width: "6%" }}>#</th>
+                <th>Descripción</th>
+                <th style={{ width: "12%" }}>Cant. Dev.</th>
+                <th style={{ width: "18%" }}>Precio Unit.</th>
+                <th style={{ width: "18%" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inv.items.map((it: any, i: number) => (
+                <tr key={i}>
+                  <td style={{ textAlign: "right" }}>{i + 1}</td>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{producto.name}</div>
-                    <div style={{ fontSize: '10px', color: '#666' }}>
-                      {producto.modelo} {producto.capacidad} • {producto.grado}
+                    {it.name}
+                    <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
+                      {it.section || "General"}
                     </div>
                   </td>
-                  <td style={{ textAlign: 'center', fontWeight: 700 }}>#{producto.ranking}</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(producto.valorInventario)}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span style={{ 
-                      color: producto.rotacion > 0 ? '#059669' : '#dc2626',
-                      fontWeight: 600
-                    }}>
-                      {producto.rotacion}
-                    </span>
+                  <td style={{ textAlign: "right" }}>{parseNum(it.qtyDevuelta)}</td>
+                  <td style={{ textAlign: "right" }}>{money(parseNum(it.unitPrice))}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {money(parseNum(it.qtyDevuelta) * parseNum(it.unitPrice))}
                   </td>
                 </tr>
               ))}
-          </tbody>
-        </table>
-
-        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
-// ==== PLANTILLA: REPORTE DE RENTABILIDAD ====
-if (inv?.type === "Reporte" && inv?.subtipo === "rentabilidad") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-              REPORTE DE RENTABILIDAD - iPHONES
-            </div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right text-sm">
-            <div><b>Período:</b> {inv.periodo}</div>
-            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
-
-        {/* RESUMEN RENTABILIDAD */}
-        <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
-          <div>
-            <div style={{ 
-              fontWeight: 700, 
-              fontSize: '20px', 
-              color: inv.resumen.margenGananciaPromedio >= 20 ? '#059669' : 
-                     inv.resumen.margenGananciaPromedio >= 10 ? '#d97706' : '#dc2626' 
-            }}>
-              {inv.resumen.margenGananciaPromedio.toFixed(1)}%
-            </div>
-            <div style={{ fontWeight: 600 }}>MARGEN PROMEDIO</div>
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>
-              {fmt(inv.resumen.gananciaTotal)}
-            </div>
-            <div style={{ fontWeight: 600 }}>GANANCIA TOTAL</div>
-          </div>
-          <div>
-            <div style={{ 
-              fontWeight: 700, 
-              fontSize: '20px', 
-              color: inv.resumen.roiInventario >= 50 ? '#059669' : 
-                     inv.resumen.roiInventario >= 20 ? '#d97706' : '#dc2626' 
-            }}>
-              {inv.resumen.roiInventario.toFixed(1)}%
-            </div>
-            <div style={{ fontWeight: 600 }}>ROI INVENTARIO</div>
-          </div>
-        </div>
-
-        {/* RENTABILIDAD POR MODELO */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>💰 RENTABILIDAD POR MODELO</div>
-        
-        <table className="print-table text-sm" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Modelo</th>
-              <th style={{ textAlign: 'right' }}>Ventas</th>
-              <th style={{ textAlign: 'right' }}>Ganancia</th>
-              <th style={{ textAlign: 'center' }}>Margen</th>
-              <th style={{ textAlign: 'center' }}>Unidades</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(inv.metricas.rentabilidadPorModeloGB)
-              .sort(([,a]: any, [,b]: any) => b.ganancia - a.ganancia)
-              .slice(0, 12)
-              .map(([modelo, datos]: any) => (
-                <tr key={modelo}>
-                  <td>{modelo}</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(datos.ventas)}</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(datos.ganancia)}</td>
-                  <td style={{ 
-                    textAlign: 'center',
-                    color: (datos.ganancia / datos.ventas * 100) >= 20 ? '#059669' : 
-                           (datos.ganancia / datos.ventas * 100) >= 10 ? '#d97706' : '#dc2626',
-                    fontWeight: 600
-                  }}>
-                    {((datos.ganancia / datos.ventas) * 100).toFixed(1)}%
-                  </td>
-                  <td style={{ textAlign: 'center' }}>{datos.unidades}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-
-        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
-// ==== PLANTILLA: REPORTE DE TENDENCIAS ====
-if (inv?.type === "Reporte" && inv?.subtipo === "tendencias") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-              REPORTE DE TENDENCIAS - iPHONES
-            </div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right text-sm">
-            <div><b>Período:</b> {inv.periodo}</div>
-            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
-
-        {/* TENDENCIAS MENSUALES */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>📈 TENDENCIAS MENSUALES</div>
-        
-        <table className="print-table text-sm" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Mes</th>
-              <th style={{ textAlign: 'right' }}>Ventas</th>
-              <th style={{ textAlign: 'center' }}>Crecimiento</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inv.metricas.crecimientoMensual.map((mes: any, index: number) => (
-              <tr key={mes.mes}>
-                <td>{mes.mes}</td>
-                <td style={{ textAlign: 'right' }}>{fmt(mes.ventas)}</td>
-                <td style={{ 
-                  textAlign: 'center',
-                  color: mes.crecimiento >= 0 ? '#059669' : '#dc2626',
-                  fontWeight: 600
-                }}>
-                  {mes.crecimiento >= 0 ? '↗' : '↘'} {Math.abs(mes.crecimiento)}%
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
+                  Total Devolución
                 </td>
+                <td style={{ textAlign: "right", fontWeight: 700 }}>{money(inv.total)}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </tfoot>
+          </table>
 
-        {/* DÍAS CON MÁS VENTAS */}
-        <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 DÍAS CON MÁS VENTAS</div>
-        
-        <table className="print-table text-sm" style={{ width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left' }}>Fecha</th>
-              <th style={{ textAlign: 'right' }}>Ventas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inv.metricas.diasConMasVentas.map(([dia, monto]: any) => (
-              <tr key={dia}>
-                <td>{new Date(dia).toLocaleDateString('es-AR')}</td>
-                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(monto)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          {/* Información de pagos/diferencias */}
+          {(inv.efectivo > 0 || inv.transferencia > 0 || inv.extra_pago_total > 0) && (
+            <>
+              <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+              <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Detalles de Pago</div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {inv.efectivo > 0 && (
+                  <div>
+                    <div>Efectivo Devuelto:</div>
+                    <div style={{ fontWeight: 600 }}>{money(inv.efectivo)}</div>
+                  </div>
+                )}
+                {inv.transferencia > 0 && (
+                  <div>
+                    <div>Transferencia Devuelta:</div>
+                    <div style={{ fontWeight: 600 }}>{money(inv.transferencia)}</div>
+                  </div>
+                )}
+                {inv.extra_pago_efectivo > 0 && (
+                  <div>
+                    <div>Pago Diferencia (Efectivo):</div>
+                    <div style={{ fontWeight: 600 }}>{money(inv.extra_pago_efectivo)}</div>
+                  </div>
+                )}
+                {inv.extra_pago_transferencia > 0 && (
+                  <div>
+                    <div>Pago Diferencia (Transferencia):</div>
+                    <div style={{ fontWeight: 600 }}>{money(inv.extra_pago_transferencia)}</div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
-        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+          {/* Información específica por método */}
+          {inv.metodo === "saldo" && (
+            <div className="mt-4 p-3 bg-slate-100 rounded text-sm">
+              <div style={{ fontWeight: 700 }}>Acreditado como Saldo a Favor</div>
+              <div>El monto de {money(inv.total)} ha sido acreditado al saldo a favor del cliente.</div>
+            </div>
+          )}
+
+          {inv.metodo === "intercambio_otro" && inv.extra_pago_total > 0 && (
+            <div className="mt-4 p-3 bg-slate-100 rounded text-sm">
+              <div style={{ fontWeight: 700 }}>Diferencia Pagada</div>
+              <div>El cliente abonó {money(inv.extra_pago_total)} por la diferencia del intercambio.</div>
+            </div>
+          )}
+
+          <div className="mt-6 text-center text-sm">
+            <div style={{ fontWeight: 700 }}>¡Gracias por su confianza!</div>
+            <div>Para consultas o reclamos, presente este comprobante</div>
+          </div>
+
+          <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-// ==== PLANTILLA: COMPROBANTE DE DEVOLUCIÓN ====
-if (inv?.type === "Devolucion") {
-  const fmt = (n: number) => money(parseNum(n));
-  
+  // ==== 5. TICKET ====
+  if (ticket) {
+    return (
+      <div className="only-print print-area p-14">
+        <div className="max-w-[520px] mx-auto text-black">
+          <div className="text-center">
+            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: 20 }}>TICKET DE TURNO</div>
+            <div style={{ marginTop: 2, fontSize: 12 }}>VM-ELECTRONICA</div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+          <div className="text-sm space-y-1">
+            <div>
+              <b>Código:</b> {ticket.id}
+            </div>
+            <div>
+              <b>Cliente:</b> {ticket.client_name} (N° {ticket.client_number})
+            </div>
+            <div>
+              <b>Acción:</b> {ticket.action}
+            </div>
+            <div>
+              <b>Fecha:</b> {new Date(ticket.date_iso).toLocaleString("es-AR")}
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+          <div className="text-sm" style={{ lineHeight: 1.35 }}>
+            POR FAVOR ESPERE A VER SU NÚMERO EN PANTALLA PARA INGRESAR A HACER SU PEDIDO
+            O GESTIONAR SU DEVOLUCIÓN.
+          </div>
+
+          <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==== 6. FACTURA (default) ====
+  const paidCash = parseNum(inv?.payments?.cash || 0);
+  const paidTransf = parseNum(inv?.payments?.transfer || 0);
+  const change = parseNum(inv?.payments?.change || 0);
+  const paid   = paidCash + paidTransf;
+  const net    = Math.max(0, paid - change);
+  const balance = Math.max(0, parseNum(inv.total) - net);
+  const fullyPaid = balance <= 0.009;
+
+  const clientDebtTotal = (() => {
+    if (inv?.client_id) {
+      const cliente = state.clients.find((c: any) => c.id === inv.client_id);
+      if (cliente) {
+        const detalleDeudas = calcularDetalleDeudas(state, inv.client_id);
+        return calcularDeudaTotal(detalleDeudas, cliente);
+      }
+    }
+    return parseNum(inv?.client_debt_total ?? 0);
+  })();
+
   return (
     <div className="only-print print-area p-14">
       <div className="max-w-[780px] mx-auto text-black">
         <div className="flex items-start justify-between">
-          <div>
-            <div style={{ fontWeight: 800, letterSpacing: 1 }}>COMPROBANTE DE DEVOLUCIÓN</div>
-            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-          </div>
-          <div className="text-right">
-            <div><b>Fecha:</b> {new Date(inv.date_iso).toLocaleString("es-AR")}</div>
-            <div><b>N° Comprobante:</b> {inv.id}</div>
+          <div className="flex items-center gap-4">
+            <img 
+              src="/logo.png" 
+              alt="iPhone Store" 
+              className="h-20 w-20 rounded-sm"
+              style={{ 
+                filter: 'brightness(0) invert(0)'
+              }}
+            />
+            <div>
+              <div style={{ 
+                fontWeight: 800, 
+                letterSpacing: 1, 
+                fontSize: '18px',
+                marginBottom: '2px'
+              }}>
+                {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+        <div style={{ borderTop: "1px solid #000", margin: "10px 0 6px" }} />
 
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
             <div style={{ fontWeight: 700 }}>Cliente</div>
             <div>{inv.client_name}</div>
           </div>
-          <div>
-            <div style={{ fontWeight: 700 }}>Método de Devolución</div>
-            <div className="capitalize">{inv.metodo}</div>
+          <div className="text-right">
+            <div>
+              <b>Factura Nº:</b> {pad(inv.number)}
+            </div>
+            <div>
+              <b>Fecha:</b> {new Date(inv.date_iso).toLocaleDateString("es-AR")}
+            </div>
+            <div>
+              <b>Estado del pago:</b> {fullyPaid ? "Pagado" : "Pendiente"}
+            </div>
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Productos Devueltos</div>
-        
-        <table className="print-table text-sm">
+        <table className="print-table text-sm" style={{ marginTop: 10 }}>
           <thead>
             <tr>
               <th style={{ width: "6%" }}>#</th>
-              <th>Descripción</th>
-              <th style={{ width: "12%" }}>Cant. Dev.</th>
-              <th style={{ width: "18%" }}>Precio Unit.</th>
+              <th>Descripción de artículo</th>
+              <th style={{ width: "12%" }}>Cantidad</th>
+              <th style={{ width: "18%" }}>Precio</th>
               <th style={{ width: "18%" }}>Total</th>
             </tr>
           </thead>
           <tbody>
-          {inv.items.map((it: any, i: number) => (
-  <tr key={i}>
-    <td style={{ textAlign: "right" }}>{i + 1}</td>
-    
-    <td>
-      {it.name}
-      {/* 👇 AQUÍ ESTÁ EL CAMBIO - Agregar la sección */}
-      <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
-        {it.section || "General"}
-      </div>
-    </td>
-    
-    <td style={{ textAlign: "right" }}>{parseNum(it.qtyDevuelta)}</td>
-    <td style={{ textAlign: "right" }}>{money(parseNum(it.unitPrice))}</td>
-    <td style={{ textAlign: "right" }}>
-      {money(parseNum(it.qtyDevuelta) * parseNum(it.unitPrice))}
-    </td>
+            {inv.items.map((it: any, i: number) => (
+              <tr key={i}>
+                <td style={{ textAlign: "right" }}>{i + 1}</td>
+                <td>
+                  {it.name}
+                  <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
+                    {it.section || "General"}
+                  </div>
+                </td>
+                <td style={{ textAlign: "right" }}>{parseNum(it.qty)}</td>
+                <td style={{ textAlign: "right" }}>{money(parseNum(it.unitPrice))}</td>
+                <td style={{ textAlign: "right" }}>
+                  {money(parseNum(it.qty) * parseNum(it.unitPrice))}
+                </td>
               </tr>
             ))}
           </tbody>
+
           <tfoot>
             <tr>
               <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
-                Total Devolución
+                Total
               </td>
               <td style={{ textAlign: "right", fontWeight: 700 }}>{money(inv.total)}</td>
             </tr>
+
+            {typeof inv?.payments?.saldo_aplicado === "number" &&
+              inv.payments.saldo_aplicado > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "right" }}>
+                      Saldo a favor aplicado
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {money(parseNum(inv.payments.saldo_aplicado))}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
+                      Total luego de saldo
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 700 }}>
+                      {money(
+                        parseNum(
+                          inv.total_after_credit ??
+                            (inv.total - inv.payments.saldo_aplicado)
+                        )
+                      )}
+                    </td>
+                  </tr>
+                </>
+              )}
           </tfoot>
         </table>
 
-        {/* Información de pagos/diferencias */}
-        {(inv.efectivo > 0 || inv.transferencia > 0 || inv.extra_pago_total > 0) && (
-          <>
-            <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-            <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Detalles de Pago</div>
-            
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {inv.efectivo > 0 && (
-                <div>
-                  <div>Efectivo Devuelto:</div>
-                  <div style={{ fontWeight: 600 }}>{money(inv.efectivo)}</div>
-                </div>
-              )}
-              {inv.transferencia > 0 && (
-                <div>
-                  <div>Transferencia Devuelta:</div>
-                  <div style={{ fontWeight: 600 }}>{money(inv.transferencia)}</div>
-                </div>
-              )}
-              {inv.extra_pago_efectivo > 0 && (
-                <div>
-                  <div>Pago Diferencia (Efectivo):</div>
-                  <div style={{ fontWeight: 600 }}>{money(inv.extra_pago_efectivo)}</div>
-                </div>
-              )}
-              {inv.extra_pago_transferencia > 0 && (
-                <div>
-                  <div>Pago Diferencia (Transferencia):</div>
-                  <div style={{ fontWeight: 600 }}>{money(inv.extra_pago_transferencia)}</div>
-                </div>
-              )}
+        <div className="grid grid-cols-2 gap-2 text-sm" style={{ marginTop: 8 }}>
+          <div />
+          <div>
+            <div>
+              <b>Método de pago:</b>
             </div>
-          </>
-        )}
-
-        {/* Información específica por método */}
-        {inv.metodo === "saldo" && (
-          <div className="mt-4 p-3 bg-slate-100 rounded text-sm">
-            <div style={{ fontWeight: 700 }}>Acreditado como Saldo a Favor</div>
-            <div>El monto de {money(inv.total)} ha sido acreditado al saldo a favor del cliente.</div>
-          </div>
-        )}
-
-        {inv.metodo === "intercambio_otro" && inv.extra_pago_total > 0 && (
-          <div className="mt-4 p-3 bg-slate-100 rounded text-sm">
-            <div style={{ fontWeight: 700 }}>Diferencia Pagada</div>
-            <div>El cliente abonó {money(inv.extra_pago_total)} por la diferencia del intercambio.</div>
-          </div>
-        )}
-
-        <div className="mt-6 text-center text-sm">
-          <div style={{ fontWeight: 700 }}>¡Gracias por su confianza!</div>
-          <div>Para consultas o reclamos, presente este comprobante</div>
-        </div>
-
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
-// ==== PLANTILLA: TICKET ====
-if (ticket) {
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[520px] mx-auto text-black">
-        <div className="text-center">
-          <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: 20 }}>TICKET DE TURNO</div>
-          <div style={{ marginTop: 2, fontSize: 12 }}>VM-ELECTRONICA</div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
-
-        <div className="text-sm space-y-1">
-          <div>
-            <b>Código:</b> {ticket.id}
-          </div>
-          <div>
-            <b>Cliente:</b> {ticket.client_name} (N° {ticket.client_number})
-          </div>
-          <div>
-            <b>Acción:</b> {ticket.action}
-          </div>
-          <div>
-            <b>Fecha:</b> {new Date(ticket.date_iso).toLocaleString("es-AR")}
-          </div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
-
-        <div className="text-sm" style={{ lineHeight: 1.35 }}>
-          POR FAVOR ESPERE A VER SU NÚMERO EN PANTALLA PARA INGRESAR A HACER SU PEDIDO
-          O GESTIONAR SU DEVOLUCIÓN.
-        </div>
-
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
-// ==== PLANTILLA: FACTURA ====
-const paidCash = parseNum(inv?.payments?.cash || 0);
-const paidTransf = parseNum(inv?.payments?.transfer || 0);
-const change = parseNum(inv?.payments?.change || 0);
-const paid   = paidCash + paidTransf;                   // lo que entregó
-const net    = Math.max(0, paid - change);              // lo que aplica
-const balance = Math.max(0, parseNum(inv.total) - net);
-const fullyPaid = balance <= 0.009;
-
-const clientDebtTotal = (() => {
-  if (inv?.client_id) {
-    const cliente = state.clients.find((c: any) => c.id === inv.client_id);
-    if (cliente) {
-      const detalleDeudas = calcularDetalleDeudas(state, inv.client_id);
-      return calcularDeudaTotal(detalleDeudas, cliente);
-    }
-  }
-  return parseNum(inv?.client_debt_total ?? 0);
-})();
-
-return (
-  <div className="only-print print-area p-14">
-    <div className="max-w-[780px] mx-auto text-black">
-    <div className="flex items-start justify-between">
-  <div className="flex items-center gap-4">
-    {/* LOGO - limpio sin borde */}
-    <img 
-      src="/logo.png" 
-      alt="iPhone Store" 
-      className="h-20 w-20 rounded-sm"
-      style={{ 
-        filter: 'brightness(0) invert(0)' // Solo para que sea negro en impresión
-      }}
-    />
-    <div>
-      <div style={{ 
-        fontWeight: 800, 
-        letterSpacing: 1, 
-        fontSize: '18px',
-        marginBottom: '2px'
-      }}>
-        {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
-      </div>
-    </div>
-  </div>
-</div>
-
-      <div style={{ borderTop: "1px solid #000", margin: "10px 0 6px" }} />
-
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <div style={{ fontWeight: 700 }}>Cliente</div>
-          <div>{inv.client_name}</div>
-        </div>
-        <div className="text-right">
-          <div>
-            <b>Factura Nº:</b> {pad(inv.number)}
-          </div>
-          <div>
-            <b>Fecha:</b> {new Date(inv.date_iso).toLocaleDateString("es-AR")}
-          </div>
-          <div>
-            <b>Estado del pago:</b> {fullyPaid ? "Pagado" : "Pendiente"}
-          </div>
-        </div>
-      </div>
-
-      <table className="print-table text-sm" style={{ marginTop: 10 }}>
-        <thead>
-          <tr>
-            <th style={{ width: "6%" }}>#</th>
-            <th>Descripción de artículo</th>
-            <th style={{ width: "12%" }}>Cantidad</th>
-            <th style={{ width: "18%" }}>Precio</th>
-            <th style={{ width: "18%" }}>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-        {inv.items.map((it: any, i: number) => (
-          <tr key={i}>
-            <td style={{ textAlign: "right" }}>{i + 1}</td>
-            
-            <td>
-              {it.name}
-              {/* 👇 AQUÍ ESTÁ EL CAMBIO - Agregar la sección */}
-              <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
-                {it.section || "General"}
-              </div>
-            </td>
-            
-            <td style={{ textAlign: "right" }}>{parseNum(it.qty)}</td>
-            <td style={{ textAlign: "right" }}>{money(parseNum(it.unitPrice))}</td>
-            <td style={{ textAlign: "right" }}>
-              {money(parseNum(it.qty) * parseNum(it.unitPrice))}
-            </td>
-          </tr>
-        ))}
-        </tbody>
-
-        {/* ===== tfoot corregido (un solo tfoot, sin anidar) ===== */}
-        <tfoot>
-          <tr>
-            <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
-              Total
-            </td>
-            <td style={{ textAlign: "right", fontWeight: 700 }}>{money(inv.total)}</td>
-          </tr>
-
-          {/* debajo de la fila Total */}
-          {typeof inv?.payments?.saldo_aplicado === "number" &&
-            inv.payments.saldo_aplicado > 0 && (
-              <>
-                <tr>
-                  <td colSpan={4} style={{ textAlign: "right" }}>
-                    Saldo a favor aplicado
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    {money(parseNum(inv.payments.saldo_aplicado))}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
-                    Total luego de saldo
-                  </td>
-                  <td style={{ textAlign: "right", fontWeight: 700 }}>
-                    {money(
-                      parseNum(
-                        inv.total_after_credit ??
-                          (inv.total - inv.payments.saldo_aplicado)
-                      )
-                    )}
-                  </td>
-                </tr>
-              </>
+            <div>CONTADO: {money(paidCash)}</div>
+            <div>TRANSFERENCIA: {money(paidTransf)}</div>
+            {inv?.payments?.change ? (
+              <div>VUELTO: {money(parseNum(inv.payments.change))}</div>
+            ) : null}
+            {inv?.payments?.alias && (
+              <div>Alias/CVU destino: {inv.payments.alias}</div>
             )}
-        </tfoot>
-      </table>
+            <div style={{ marginTop: 6 }}>
+              <b>Cantidad pagada:</b> {money(paid)}
+            </div>
 
-      <div className="grid grid-cols-2 gap-2 text-sm" style={{ marginTop: 8 }}>
-        <div />
-        <div>
-          <div>
-            <b>Método de pago:</b>
-          </div>
-          <div>CONTADO: {money(paidCash)}</div>
-          <div>TRANSFERENCIA: {money(paidTransf)}</div>
-          {inv?.payments?.change ? (
-            <div>VUELTO: {money(parseNum(inv.payments.change))}</div>
-          ) : null}
-          {inv?.payments?.alias && (
-            <div>Alias/CVU destino: {inv.payments.alias}</div>
-          )}
-          <div style={{ marginTop: 6 }}>
-            <b>Cantidad pagada:</b> {money(paid)}
-          </div>
-
-          <div>
-            <b>Cantidad adeudada:</b> {money(balance)}
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <b>Total adeudado como cliente:</b> {money(clientDebtTotal)}
+            <div>
+              <b>Cantidad adeudada:</b> {money(balance)}
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <b>Total adeudado como cliente:</b> {money(clientDebtTotal)}
+            </div>
           </div>
         </div>
+
+        {fullyPaid && (
+          <div
+            style={{
+              position: "fixed",
+              top: "55%",
+              left: "50%",
+              transform: "translate(-50%, -50%) rotate(-20deg)",
+              fontSize: 64,
+              fontWeight: 900,
+              letterSpacing: 4,
+              opacity: 0.08,
+            }}
+          >
+            PAGADO
+          </div>
+        )}
+
+        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
       </div>
-
-      {fullyPaid && (
-        <div
-          style={{
-            position: "fixed",
-            top: "55%",
-            left: "50%",
-            transform: "translate(-50%, -50%) rotate(-20deg)",
-            fontSize: 64,
-            fontWeight: 900,
-            letterSpacing: 4,
-            opacity: 0.08,
-          }}
-        >
-          PAGADO
-        </div>
-      )}
-
-      <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
     </div>
-  </div>
-);
+  );
 }
 
 function Login({ onLogin, vendors, adminKey, clients }: any) {
@@ -8232,29 +7564,28 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
   const [loading, setLoading] = useState(false);
 
   const APP_TITLE = "Sistema de Gestión y Facturación — By Tobias Carrizo";
-async function handleSubmit(e: any) {
-  e.preventDefault();
-  setLoading(true);
 
-  try {
-    // ✅ SIEMPRE usar el login local, aunque tenga Supabase
-    console.log('🔐 Intentando login con:', { role, email });
+  async function handleSubmit(e: any) {
+    e.preventDefault();
+    setLoading(true);
 
-    if (hasSupabase) {
-      // Solo verificar conexión, pero NO usar auth de Supabase
-      console.log('✅ Conectado a Supabase, usando login local');
+    try {
+      console.log('🔐 Intentando login con:', { role, email });
+
+      if (hasSupabase) {
+        console.log('✅ Conectado a Supabase, usando login local');
+      }
+
+      // 🔥 EJECUTAR SIEMPRE EL LOGIN LOCAL
+      handleLocalLogin();
+      
+    } catch (error) {
+      console.error('💥 Error en login:', error);
+      alert('Error al iniciar sesión');
+    } finally {
+      setLoading(false);
     }
-
-    // 🔥 EJECUTAR SIEMPRE EL LOGIN LOCAL
-    handleLocalLogin();
-    
-  } catch (error) {
-    console.error('💥 Error en login:', error);
-    alert('Error al iniciar sesión');
-  } finally {
-    setLoading(false);
   }
-}
 
   // Función de login local (backup)
   function handleLocalLogin() {
@@ -8306,83 +7637,80 @@ async function handleSubmit(e: any) {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center p-6">
-      <div className="max-w-md w-full space-y-5">
-        <div className="text-center">
-          <h1 className="text-xl font-bold">{APP_TITLE}</h1>
-          <p className="text-slate-400 text-sm">
-            {hasSupabase ? "Conectado a Supabase" : "Datos en navegador"}
-          </p>
-          {hasSupabase && (
-            <p className="text-emerald-400 text-xs mt-1">
-              ✅ Autenticación real activa
-            </p>
-          )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">VM-ELECTRONICA</h1>
+          <p className="text-gray-600 mt-2">Sistema de Gestión</p>
         </div>
 
-        <Card title="Ingreso">
-          <form className="space-y-3" onSubmit={handleSubmit}>
-          {/* SIEMPRE mostrar el login local */}
-<Select
-  label="Rol"
-  value={role}
-  onChange={setRole}
-  options={[
-    { value: "vendedor", label: "Vendedor" },
-    { value: "admin", label: "Admin" },
-    { value: "cliente", label: "Cliente - Panel Presencial" },
-    { value: "pedido-online", label: "Hacer Pedido Online" },
-  ]}
-/>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Rol
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="vendedor">Vendedor</option>
+              <option value="admin">Administrador</option>
+              <option value="cliente">Cliente</option>
+              <option value="pedido-online">Pedido Online</option>
+            </select>
+          </div>
 
-{role === "vendedor" && (
-  <>
-    <Input
-      label="Vendedor (nombre o ID)"
-      value={email}
-      onChange={setEmail}
-      placeholder="Ej: Tobi o v1"
-    />
-    <Input
-      label="Clave"
-      value={password}
-      onChange={setPassword}
-      placeholder="Clave asignada"
-      type="password"
-    />
-  </>
-)}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {role === "admin" ? "Usuario" : 
+               role === "vendedor" ? "Email o ID" : 
+               "Número de Cliente"}
+            </label>
+            <input
+              type={role === "cliente" || role === "pedido-online" ? "number" : "text"}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={
+                role === "admin" ? "admin" : 
+                role === "vendedor" ? "email o ID" : 
+                "número de cliente"
+              }
+              required
+            />
+          </div>
 
-{role === "admin" && (
-  <Input
-    label="Clave admin"
-    value={password}
-    onChange={setPassword}
-    placeholder="Clave de administrador"
-    type="password"
-  />
-)}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {role === "cliente" || role === "pedido-online" ? "DNI" : "Contraseña"}
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={role === "cliente" || role === "pedido-online" ? "DNI" : "contraseña"}
+              required
+            />
+          </div>
 
-{(role === "cliente" || role === "pedido-online") && (
-  <Input
-    label="N° de cliente"
-    value={email}
-    onChange={setEmail}
-    placeholder="Ej: 1001"
-  />
-)}
-            <div className="flex items-center justify-end">
-              <Button type="submit" disabled={loading}>
-                {loading ? "Iniciando sesión..." : "Entrar"}
-              </Button>
-            </div>
-          </form>
-        </Card>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+          </button>
+        </form>
+
+        <div className="mt-8 text-center text-xs text-gray-500">
+          {APP_TITLE}
+        </div>
       </div>
     </div>
   );
 }
-
 // ... código anterior ...
 
 /* ===== Página principal ===== */
