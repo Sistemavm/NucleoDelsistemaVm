@@ -4001,149 +4001,128 @@ function VendedoresTab({ state, setState }: any) {
 }
 
             /* Reportes */
-function ReportesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  // ====== Filtros de fecha ======
-  const pad2 = (n: number) => String(n).padStart(2, "0");
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-  const thisMonthStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}`;
+function ReportesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
+  const [fechaInicio, setFechaInicio] = useState(() => {
+    const date = new Date();
+    date.setDate(1); // Primer día del mes
+    return date.toISOString().split('T')[0];
+  });
+  const [fechaFin, setFechaFin] = useState(() => {
+    const date = new Date();
+    return date.toISOString().split('T')[0];
+  });
+  const [tipoReporte, setTipoReporte] = useState<"ventas" | "inventario" | "rentabilidad" | "tendencias" | "abc">("ventas");
 
-  const [periodo, setPeriodo] = useState<"dia" | "mes" | "anio">("dia");
-  const [dia, setDia] = useState<string>(todayStr);
-  const [mes, setMes] = useState<string>(thisMonthStr);
-  const [anio, setAnio] = useState<string>(String(today.getFullYear()));
-  const [gabiInitial, setGabiInitial] = useState("");
-  const [gabiSpent, setGabiSpent] = useState("");
+  // Filtrar ventas de iPhones en el rango de fechas
+  const ventasiPhone = state.invoices.filter((v: any) => {
+    if (v.tipo !== "Venta") return false;
+    
+    const fechaVenta = new Date(v.date_iso).toISOString().split('T')[0];
+    return fechaVenta >= fechaInicio && fechaVenta <= fechaFin;
+  });
 
-  // --- helpers para vuelto por día ---
-  const diaClave = dia; // YYYY-MM-DD del selector
-  const cashFloatByDate = (state?.meta?.cashFloatByDate ?? {}) as Record<string, number>;
-  const cashFloatTarget = periodo === "dia" ? parseNum(cashFloatByDate[diaClave] ?? 0) : 0;
-  async function setCashFloatForDay(nuevo: number) {
-    const st = clone(state);
-    st.meta.cashFloatDate = st.meta.cashFloatDate || {};
-    st.meta.cashFloatDate[diaClave] = nuevo;
-    setState(st);
+  // Productos en stock
+  const productosStock = state.products.filter((p: Producto) => p.estado === "EN STOCK");
 
-    if (hasSupabase) {
-      await supabase
-        .from("cash_floats")
-        .upsert(
-          { day: diaClave, amount: nuevo, updated_: "app" },
-          { onConflict: "day" }
-        );
-    } else {
-      await saveCountersSupabase?.(st.meta);
-    }
+  // 🔥 NUEVO: Análisis ABC de inventario
+  function calcularAnalisisABC() {
+    const productosConValor = productosStock.map((p: Producto) => ({
+      ...p,
+      valorInventario: (p.precio_compra + p.costo_reparacion) * 1, // Asumiendo 1 unidad por producto
+      rotacion: calcularRotacionProducto(p.id)
+    }));
+
+    // Ordenar por valor de inventario descendente
+    productosConValor.sort((a, b) => b.valorInventario - a.valorInventario);
+
+    // Calcular ABC
+    let totalValor = productosConValor.reduce((sum, p) => sum + p.valorInventario, 0);
+    let acumulado = 0;
+    
+    return productosConValor.map((p, index) => {
+      acumulado += p.valorInventario;
+      const porcentajeAcumulado = (acumulado / totalValor) * 100;
+      
+      let categoria = 'C';
+      if (porcentajeAcumulado <= 80) categoria = 'A';
+      else if (porcentajeAcumulado <= 95) categoria = 'B';
+      
+      return {
+        ...p,
+        categoria,
+        porcentajeAcumulado,
+        ranking: index + 1
+      };
+    });
   }
 
-  // --- helpers para comisiones por día ---
-  const commissionsDate = (state?.meta?.commissionsDate ?? {}) as Record<string, number>;
-  const commissionTarget =
-    periodo === "dia" ? parseNum(commissionsDate[diaClave] ?? 0) : 0;
-
-  async function setCommissionForDay(nuevo: number) {
-    const st = clone(state);
-    st.meta.commissionsDate = st.meta.commissionsDate || {};
-    st.meta.commissionsDate[diaClave] = nuevo;
-    setState(st);
-
-    if (hasSupabase) {
-      await supabase
-        .from("commissions")
-        .upsert(
-          { day: diaClave, amount: nuevo, updated_: "app" },
-          { onConflict: "day" }
-        );
-    } else {
-      await saveCountersSupabase?.(st.meta);
-    }
+  // 🔥 NUEVO: Calcular rotación de producto
+  function calcularRotacionProducto(productId: string) {
+    const ventasProducto = ventasiPhone.filter(v => 
+      v.items.some((item: any) => item.productId === productId)
+    ).length;
+    
+    return ventasProducto;
   }
 
-  // Función para guardar fondos iniciales de Gabi
-  async function setGabiFundsForDay(nuevo: number) {
-    const st = clone(state);
-    st.meta.gabiFundsDate = st.meta.gabiFundsDate || {};
-    st.meta.gabiFundsDate[diaClave] = nuevo;
-    setState(st);
+  // 🔥 NUEVO: Análisis de tendencias temporales
+  function analizarTendencias() {
+    const ventasPorDia: any = {};
+    const ventasPorMes: any = {};
+    
+    ventasiPhone.forEach(venta => {
+      const fecha = new Date(venta.date_iso);
+      const dia = fecha.toISOString().split('T')[0];
+      const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Por día
+      ventasPorDia[dia] = (ventasPorDia[dia] || 0) + venta.total;
+      
+      // Por mes
+      ventasPorMes[mes] = (ventasPorMes[mes] || 0) + venta.total;
+    });
 
-    if (hasSupabase) {
-      await supabase
-        .from("gabi_funds")
-        .upsert(
-          { 
-            id: `gabi_${diaClave}`,
-            day: diaClave, 
-            initial_amount: nuevo,
-            updated_at: todayISO()
-          },
-          { onConflict: "day" }
-        );
+    // Calcular crecimiento mensual
+    const meses = Object.keys(ventasPorMes).sort();
+    const crecimientoMensual = [];
+    
+    for (let i = 1; i < meses.length; i++) {
+      const mesActual = ventasPorMes[meses[i]] || 0;
+      const mesAnterior = ventasPorMes[meses[i-1]] || 0;
+      const crecimiento = mesAnterior > 0 ? ((mesActual - mesAnterior) / mesAnterior) * 100 : 0;
+      
+      crecimientoMensual.push({
+        mes: meses[i],
+        ventas: mesActual,
+        crecimiento: parseFloat(crecimiento.toFixed(1))
+      });
     }
+
+    return {
+      ventasPorDia,
+      ventasPorMes,
+      crecimientoMensual,
+      diasConMasVentas: Object.entries(ventasPorDia)
+        .sort(([,a]: any, [,b]: any) => b - a)
+        .slice(0, 5)
+    };
   }
 
-  // Función para actualizar gastos de Gabi
-  async function updateGabiSpentForDay(gastado: number) {
-    if (!hasSupabase) return;
-
-    const { data: existing } = await supabase
-      .from("gabi_funds")
-      .select("*")
-      .eq("day", diaClave)
-      .single();
-
-    if (existing) {
-      const remaining = parseNum(existing.initial_amount) - gastado;
-      await supabase
-        .from("gabi_funds")
-        .update({
-          spent_amount: gastado,
-          remaining_amount: remaining,
-          updated_at: todayISO()
-        })
-        .eq("day", diaClave);
-    }
-  }
-
-  // Rango según período
-  function rangoActual() {
-    let start = new Date(0);
-    let end = new Date();
-    if (periodo === "dia") {
-      const d = new Date(`${dia}T00:00:00`);
-      start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-    } else if (periodo === "mes") {
-      const [yStr, mStr] = mes.split("-");
-      const y = parseInt(yStr || String(today.getFullYear()), 10);
-      const m = (parseInt(mStr || String(today.getMonth() + 1), 10) - 1) as number;
-      start = new Date(y, m, 1, 0, 0, 0, 0);
-      end = new Date(y, m + 1, 0, 23, 59, 59, 999);
-    } else {
-      const y = parseInt(anio || String(today.getFullYear()), 10);
-      start = new Date(y, 0, 1, 0, 0, 0, 0);
-      end = new Date(y, 11, 31, 23, 59, 59, 999);
-    }
-    return { start: start.getTime(), end: end.getTime() };
-  }
-  const { start, end } = rangoActual();
-
-  // ===== MÉTRICAS ESPECÍFICAS PARA iPHONES =====
-  const ventasiPhone = state.invoices.filter((v: any) => 
-    v.tipo === "Venta" && v.items.some((item: any) => 
-      item.modelo && item.modelo.includes("iPhone")
-    )
-  );
-
-  const metricasiPhone = {
+  // Métricas principales de VENTAS - MEJORADO con GB
+  const metricasVentas = {
     totalVentas: ventasiPhone.reduce((sum: number, v: any) => sum + v.total, 0),
     totalUnidades: ventasiPhone.reduce((sum: number, v: any) => sum + v.items.length, 0),
     gananciaTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.ganancia, 0),
+    costoTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.costo_total, 0),
+    comisionesTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.comisiones_total, 0),
+    ticketPromedio: 0,
     
-    // Por modelo de iPhone
-    ventasPorModelo: ventasiPhone.reduce((acc: any, v: any) => {
+    // 🔥 MEJORADO: Por modelo + capacidad (GB)
+    ventasPorModeloGB: ventasiPhone.reduce((acc: any, v: any) => {
       v.items.forEach((item: any) => {
-        if (item.modelo) {
-          acc[item.modelo] = (acc[item.modelo] || 0) + 1;
+        if (item.modelo && item.capacidad) {
+          const key = `${item.modelo} ${item.capacidad}`;
+          acc[key] = (acc[key] || 0) + 1;
         }
       });
       return acc;
@@ -4157,1137 +4136,523 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
         }
       });
       return acc;
+    }, {}),
+
+    // Por vendedor
+    ventasPorVendedor: ventasiPhone.reduce((acc: any, v: any) => {
+      const vendedor = v.vendedor_nombre || "Sin asignar";
+      acc[vendedor] = (acc[vendedor] || { ventas: 0, unidades: 0, comisiones: 0 });
+      acc[vendedor].ventas += v.total;
+      acc[vendedor].unidades += v.items.length;
+      acc[vendedor].comisiones += v.comisiones_total;
+      return acc;
+    }, {}),
+
+    // 🔥 NUEVO: Por color
+    ventasPorColor: ventasiPhone.reduce((acc: any, v: any) => {
+      v.items.forEach((item: any) => {
+        if (item.color) {
+          acc[item.color] = (acc[item.color] || 0) + 1;
+        }
+      });
+      return acc;
     }, {})
   };
 
-  // ===== NUEVO: estados para listados traídos por rango =====
-  const [docsEnRango, setDocsEnRango] = useState<any[]>([]);
-  const [devolucionesPeriodo, setDevolucionesPeriodo] = useState<any[]>([]);
-  const [cargandoListados, setCargandoListados] = useState(false);
+  // Calcular ticket promedio
+  metricasVentas.ticketPromedio = metricasVentas.totalUnidades > 0 
+    ? metricasVentas.totalVentas / metricasVentas.totalUnidades 
+    : 0;
 
-  // ===== NUEVO: mismos límites pero en ISO para consultar a Supabase =====
-  function rangoActualISO() {
-    const { start, end } = rangoActual();
-    return { isoStart: new Date(start).toISOString(), isoEnd: new Date(end).toISOString() };
-  }
+  // Métricas de INVENTARIO - MEJORADO con GB
+  const metricasInventario = {
+    totalProductos: productosStock.length,
+    capitalInvertido: productosStock.reduce((sum: number, p: Producto) => 
+      sum + p.precio_compra + p.costo_reparacion, 0),
+    valorVentaTotal: productosStock.reduce((sum: number, p: Producto) => 
+      sum + p.precio_venta, 0),
+    
+    // 🔥 MEJORADO: Stock por modelo + capacidad
+    stockPorModeloGB: productosStock.reduce((acc: any, p: Producto) => {
+      const key = `${p.modelo} ${p.capacidad || 'N/A'}`;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {}),
 
-  // ===== NUEVO: traer facturas y devoluciones por rango, con fallback local =====
-  useEffect(() => {
-    const { isoStart, isoEnd } = rangoActualISO();
+    // Por ubicación
+    stockPorUbicacion: productosStock.reduce((acc: any, p: Producto) => {
+      acc[p.ubicacion] = (acc[p.ubicacion] || 0) + 1;
+      return acc;
+    }, {}),
 
-    async function fetchListados() {
-      setCargandoListados(true);
+    // Por grado en stock
+    stockPorGrado: productosStock.reduce((acc: any, p: Producto) => {
+      acc[p.grado] = (acc[p.grado] || 0) + 1;
+      return acc;
+    }, {}),
 
-      if (hasSupabase) {
-        // FACTURAS
-        const { data: inv, error: e1 } = await supabase
-          .from("invoices")
-          .select("*")
-          .gte("date_iso", isoStart)
-          .lte("date_iso", isoEnd)
-          .order("date_iso", { ascending: false });
-        if (e1) { console.error("SELECT invoices (rango):", e1); alert("No pude leer facturas del período."); }
+    // Productos con más tiempo en stock
+    productosViejos: productosStock
+      .map((p: Producto) => ({
+        ...p,
+        diasEnStock: calcularDiasEnStock(p)
+      }))
+      .filter(p => p.diasEnStock > 30)
+      .sort((a, b) => b.diasEnStock - a.diasEnStock)
+      .slice(0, 10),
 
-        // DEVOLUCIONES
-        const { data: dev, error: e2 } = await supabase
-          .from("devoluciones")
-          .select("*")
-          .gte("date_iso", isoStart)
-          .lte("date_iso", isoEnd)
-          .order("date_iso", { ascending: false });
-        if (e2) { console.error("SELECT devoluciones (rango):", e2); alert("No pude leer devoluciones del período."); }
+    // 🔥 NUEVO: Análisis ABC
+    analisisABC: calcularAnalisisABC()
+  };
 
-        // GASTOS
-        const { data: gastosData, error: e3 } = await supabase
-          .from("gastos")
-          .select("*")
-          .gte("date_iso", isoStart)
-          .lte("date_iso", isoEnd)
-          .order("date_iso", { ascending: false });
-        if (e3) { console.error("SELECT gastos (rango):", e3); alert("No pude leer gastos del período."); }
-
-        setDocsEnRango(inv || []);
-        setDevolucionesPeriodo(dev || []);
-        
-        // Actualizar el estado global con los gastos del período
-        if (gastosData) {
-          const st = clone(state);
-          st.gastos = gastosData;
-          setState(st);
+  // Métricas de RENTABILIDAD
+  const metricasRentabilidad = {
+    margenGananciaPromedio: metricasVentas.totalVentas > 0 
+      ? (metricasVentas.gananciaTotal / metricasVentas.totalVentas) * 100 
+      : 0,
+    
+    // Rentabilidad por modelo + GB
+    rentabilidadPorModeloGB: ventasiPhone.reduce((acc: any, v: any) => {
+      v.items.forEach((item: any) => {
+        if (item.modelo && item.capacidad) {
+          const key = `${item.modelo} ${item.capacidad}`;
+          acc[key] = acc[key] || { ventas: 0, ganancia: 0, unidades: 0 };
+          acc[key].ventas += item.precio_venta;
+          acc[key].ganancia += (item.precio_venta - item.costo_reparacion);
+          acc[key].unidades += 1;
         }
-      } else {
-        // Fallback local si no hay Supabase
-        const docs = (state.invoices || []).filter((f:any) => {
-          const t = new Date(f.date_iso).getTime();
-          return t >= start && t <= end;
-        });
-        const devs = (state.devoluciones || []).filter((d:any) => {
-          const t = new Date(d.date_iso).getTime();
-          return t >= start && t <= end;
-        });
-        setDocsEnRango(docs);
-        setDevolucionesPeriodo(devs);
-      }
+      });
+      return acc;
+    }, {}),
 
-      setCargandoListados(false);
-    }
+    // ROI del inventario
+    roiInventario: metricasInventario.capitalInvertido > 0
+      ? (metricasVentas.gananciaTotal / metricasInventario.capitalInvertido) * 100
+      : 0,
 
-    fetchListados();
-  }, [periodo, dia, mes, anio, state.meta?.lastSavedInvoiceId, state.gastos?.length]);
-
-  // ✅ Ahora sí: comisiones del período usando start/end
-  const commissionsPeriodo = Object.entries(commissionsDate).reduce((sum, [k, v]) => {
-    const t = new Date(`${k}T00:00:00`).getTime();
-    return t >= start && t <= end ? sum + parseNum(v) : sum;
-  }, 0);
-
-  // Ventas (solo Facturas)
-  const invoices = docsEnRango.filter((f: any) => f.type === "Factura");
-  const totalVentas = invoices.reduce((s: number, f: any) => s + parseNum(f.total), 0);
-
-  // 👇👇👇 PAGOS DE DEUDORES - AHORA desde debt_payments
-  const pagosDeudores = (state.debt_payments || []).filter((p: any) => {
-    const pagoDate = new Date(p.date_iso).getTime();
-    return pagoDate >= start && pagoDate <= end;
-  });
-
-  // 👇👇👇 CÁLCULOS DE PAGOS PARA INCLUIR RECIBOS - ACTUALIZADO
-  const totalVuelto = docsEnRango.reduce((s: number, f: any) => s + parseNum(f?.payments?.change || 0), 0);
-  const totalEfectivo = docsEnRango.reduce((s: number, f: any) => s + parseNum(f?.payments?.cash || 0), 0);
-  const totalEfectivoNeto = totalEfectivo - totalVuelto;
-  const totalTransf = docsEnRango.reduce((s: number, f: any) => s + parseNum(f?.payments?.transfer || 0), 0);
-
-  // 👇👇👇 CÁLCULO ESPECÍFICO PARA PAGOS DE DEUDORES - ACTUALIZADO
-  const totalPagosDeudores = pagosDeudores.reduce((s: number, p: any) => {
-    const efectivo = parseNum(p?.cash_amount || p?.payments?.cash || 0);
-    const transferencia = parseNum(p?.transfer_amount || p?.payments?.transfer || 0);
-    return s + efectivo + transferencia;
-  }, 0);
-
-  const cantidadPagos = pagosDeudores.length;
-
-  // 👇👇👇 EFECTIVO DE PAGOS DE DEUDORES (PARA FLUJO DE CAJA) - ACTUALIZADO
-  const efectivoPagosDeudores = pagosDeudores.reduce((s: number, p: any) => 
-    s + parseNum(p?.cash_amount || p?.payments?.cash || 0), 0);
-  
-  // 👇👇👇 TRANSFERENCIAS DE PAGOS DE DEUDORES - NUEVO
-  const transferenciasPagosDeudores = pagosDeudores.reduce((s: number, p: any) => 
-    s + parseNum(p?.transfer_amount || p?.payments?.transfer || 0), 0);
-
-  // Vuelto restante para el día (solo aplica si periodo === "dia")
-  const vueltoRestante = periodo === "dia" ? Math.max(0, cashFloatTarget - totalVuelto) : 0;
-
-  // Ganancia estimada
-  const ganancia = invoices.reduce((s: number, f: any) => s + (parseNum(f.total) - parseNum(f.cost)), 0);
-
-  // GASTOS del período
-  const gastosPeriodo = (state.gastos || []).filter((g: any) => {
-    if (!g || !g.date_iso) return false;
-    const t = new Date(g.date_iso).getTime();
-    return t >= start && t <= end;
-  });
-
-  // Gastos de Gabi del día
-  const gastosGabi = gastosPeriodo.filter((g: any) => g.tipo === "Gabi");
-  const totalGastosGabi = gastosGabi.reduce((s: number, g: any) => s + parseNum(g.efectivo) + parseNum(g.transferencia), 0);
-
-  // Fondos de Gabi
-const gabiFundsDate = (state?.meta?.gabiFundsByDate ?? {}) as Record<string, number>;
-const gabiInitialTarget = periodo === "dia" ? parseNum(gabiFundsDate[diaClave] ?? 0) : 0;
-const fondosGabiRestantes = Math.max(0, gabiInitialTarget - totalGastosGabi);
-
-  const totalGastos = gastosPeriodo.reduce((s: number, g: any) => s + parseNum(g.efectivo) + parseNum(g.transferencia), 0);
-  const totalGastosEfectivo = gastosPeriodo.reduce((s: number, g: any) => s + parseNum(g.efectivo), 0);
-  const totalGastosTransferencia = gastosPeriodo.reduce((s: number, g: any) => s + parseNum(g.transferencia), 0);
-
-  // Transferencias de GASTOS agrupadas por alias
-  const transferenciasPorAlias = (() => {
-    const m: Record<string, number> = {};
-    gastosPeriodo.forEach((g: any) => {
-      const tr = parseNum(g.transferencia);
-      if (tr > 0) {
-        const a = String(g.alias ?? "Sin alias");
-        m[a] = (m[a] ?? 0) + tr;
-      }
-    });
-    return Object.entries(m).map(([alias, total]) => ({ alias, total }));
-  })();
-
-  const devolucionesMontoEfectivo = devolucionesPeriodo.reduce((s: number, d: any) => s + parseNum(d?.efectivo), 0);
-  const devolucionesMontoTransfer = devolucionesPeriodo.reduce((s: number, d: any) => s + parseNum(d?.transferencia), 0);
-  const devolucionesMontoTotal = devolucionesPeriodo.reduce((s: number, d: any) => s + parseNum(d?.total), 0);
-
-  // 👇👇👇 FLUJO DE CAJA CORREGIDO - INCLUYE PAGOS DE DEUDORES
-  const flujoCajaEfectivoFinal =
-    totalEfectivoNeto +                    // Efectivo neto de VENTAS (efectivo - vuelto)
-    efectivoPagosDeudores -                // Efectivo de PAGOS DE DEUDORES (NUEVO)
-    totalGastosEfectivo -                  // Gastos en efectivo
-    devolucionesMontoEfectivo -            // Devoluciones en efectivo
-    commissionsPeriodo +                   // Comisiones pagadas (se restan)
-    vueltoRestante +                       // Vuelto que queda en caja
-    fondosGabiRestantes;                   // Fondos restantes de Gabi que vuelven a caja
-
-  // 👇👇👇 TRANSFERENCIAS TOTALES INCLUYENDO PAGOS DE DEUDORES - NUEVO
-  const transferenciasTotales = totalTransf + transferenciasPagosDeudores;
-  
-  // Agrupados
-  const porVendedor = Object.values(
-    invoices.reduce((acc: any, f: any) => {
-      const k = f.vendor_name || "Sin vendedor";
-      acc[k] = acc[k] || { vendedor: k, total: 0 };
-      acc[k].total += parseNum(f.total);
+    // 🔥 NUEVO: Rentabilidad por grado
+    rentabilidadPorGrado: ventasiPhone.reduce((acc: any, v: any) => {
+      v.items.forEach((item: any) => {
+        if (item.grado) {
+          acc[item.grado] = acc[item.grado] || { ventas: 0, ganancia: 0, unidades: 0 };
+          acc[item.grado].ventas += item.precio_venta;
+          acc[item.grado].ganancia += (item.precio_venta - item.costo_reparacion);
+          acc[item.grado].unidades += 1;
+        }
+      });
       return acc;
     }, {})
-  ).sort((a: any, b: any) => b.total - a.total);
+  };
 
-  const porSeccion = (() => {
-    const m: Record<string, number> = {};
-    invoices.forEach((f: any) =>
-      (f.items || []).forEach((it: any) => {
-        m[it.section] = (m[it.section] || 0) + parseNum(it.qty) * parseNum(it.unitPrice);
-      })
-    );
-    return Object.entries(m).map(([section, total]) => ({ section, total })).sort((a, b) => b.total - a.total);
-  })();
-
-  // Transferencias por alias (ventas + pagos de deudores)
-  const porAlias = (() => {
-    const m: Record<string, number> = {};
-    
-    // Transferencias de ventas
-    docsEnRango.forEach((f: any) => {
-      const tr = parseNum(f?.payments?.transfer);
-      if (tr > 0) {
-        const alias = String(f?.payments?.alias || "Sin alias").trim() || "Sin alias";
-        m[alias] = (m[alias] || 0) + tr;
-      }
-    });
-    
-    // 👇👇👇 AGREGAR TRANSFERENCIAS DE PAGOS DE DEUDORES
-    pagosDeudores.forEach((p: any) => {
-      const tr = parseNum(p?.transfer_amount || p?.payments?.transfer || 0);
-      if (tr > 0) {
-        const alias = String(p?.alias || "Sin alias").trim() || "Sin alias";
-        m[alias] = (m[alias] || 0) + tr;
-      }
-    });
-    
-    return Object.entries(m).map(([alias, total]) => ({ alias, total })).sort((a, b) => b.total - a.total);
-  })();
+  // 🔥 NUEVO: Métricas de TENDENCIAS
+  const metricasTendencias = analizarTendencias();
 
   async function imprimirReporte() {
-    // 👇👇👇 CALCULAR DEUDA DEL DÍA CORRECTAMENTE
-    const deudaDelDia = invoices
-      .filter((f: any) => {
-        const total = parseNum(f.total);
-        const pagos = parseNum(f?.payments?.cash || 0) + 
-                     parseNum(f?.payments?.transfer || 0) + 
-                     parseNum(f?.payments?.saldo_aplicado || 0);
-        return (total - pagos) > 0.01; // Tiene deuda pendiente
-      })
-      .reduce((s: number, f: any) => {
-        const total = parseNum(f.total);
-        const pagos = parseNum(f?.payments?.cash || 0) + 
-                     parseNum(f?.payments?.transfer || 0) + 
-                     parseNum(f?.payments?.saldo_aplicado || 0);
-        return s + (total - pagos);
-      }, 0);
-
-    // 👇👇👇 DEUDORES ACTIVOS CON DETALLE COMPLETO
-    const deudoresActivos = state.clients
-      .filter((c: any) => {
-        const detalleDeudas = calcularDetalleDeudas(state, c.id);
-        const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-        return deudaNeta > 0.01;
-      })
-      .map((c: any) => {
-        const detalleDeudas = calcularDetalleDeudas(state, c.id);
-        const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-        const saldoFavor = parseNum(c.saldo_favor || 0);
-        
-        return {
-          id: c.id,
-          name: c.name,
-          number: c.number,
-          deuda_bruta: parseNum(c.debt),
-          saldo_favor: saldoFavor,
-          deuda_neta: deudaNeta,
-          detalle_facturas: detalleDeudas,
-          cantidad_facturas: detalleDeudas.length
-        };
-      })
-      .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
-
-    // 👇👇👇 PAGOS DE DEUDORES CON DETALLE DE APLICACIÓN
-    const pagosDeudoresDetallados = pagosDeudores.map((pago: any) => {
-      const cliente = state.clients.find((c: any) => c.id === pago.client_id);
-      const detalleDeudasAntes = calcularDetalleDeudas(state, pago.client_id);
-      
-      return {
-        pago_id: pago.id,
-        fecha_pago: pago.date_iso,
-        cliente: pago.client_name,
-        total_pagado: pago.total_amount,
-        efectivo: pago.cash_amount,
-        transferencia: pago.transfer_amount,
-        alias: pago.alias || "",
-        deuda_antes_pago: pago.debt_before,
-        deuda_despues_pago: pago.debt_after,
-        aplicaciones: pago.aplicaciones || [],
-        detalle_deuda_antes: detalleDeudasAntes
-      };
-    });
-
-    const data = {
-      type: "Reporte",
-      periodo,
-      rango: { start, end },
-      
-      // RESUMEN PRINCIPAL
-      resumen: {
-        ventas: totalVentas,
-        deudaDelDia: deudaDelDia,
-        efectivoCobrado: totalEfectivo,
-        vueltoEntregado: totalVuelto,
-        efectivoNeto: totalEfectivoNeto,
-        transferencias: totalTransf,
-        pagosDeudores: totalPagosDeudores,
-        cantidadPagosDeudores: pagosDeudores.length,
-
-        gastosTotal: totalGastos,
-        gastosEfectivo: totalGastosEfectivo,
-        gastosTransfer: totalGastosTransferencia,
-
-        devolucionesCantidad: devolucionesPeriodo.length,
-        devolucionesEfectivo: devolucionesMontoEfectivo,
-        devolucionesTransfer: devolucionesMontoTransfer,
-        devolucionesTotal: devolucionesMontoTotal,
-
-        cashFloatTarget,
-        vueltoRestante,
-        flujoCajaEfectivo: flujoCajaEfectivoFinal,
-        comisionesPeriodo: commissionsPeriodo,
-      },
-
-      // MÉTRICAS iPHONES
-      metricasiPhone: {
-        totalVentas: metricasiPhone.totalVentas,
-        totalUnidades: metricasiPhone.totalUnidades,
-        gananciaTotal: metricasiPhone.gananciaTotal,
-        ventasPorModelo: metricasiPhone.ventasPorModelo,
-        ventasPorGrado: metricasiPhone.ventasPorGrado
-      },
-
-      // DETALLES COMPLETOS
-      ventas: invoices,
-      gastos: gastosPeriodo,
-      devoluciones: devolucionesPeriodo,
-      
-      // 👇👇👇 NUEVAS SECCIONES CON DETALLE
-      deudaDelDiaDetalle: invoices.filter((f: any) => {
-        const total = parseNum(f.total);
-        const pagos = parseNum(f?.payments?.cash || 0) + 
-                     parseNum(f?.payments?.transfer || 0) + 
-                     parseNum(f?.payments?.saldo_aplicado || 0);
-        return (total - pagos) > 0.01;
-      }),
-      
-      deudoresActivos: deudoresActivos,
-      pagosDeudoresDetallados: pagosDeudoresDetallados,
-      
-      porVendedor,
-      porSeccion,
-      transferenciasPorAlias: porAlias,
-      transferGastosPorAlias: transferenciasPorAlias,
+    const reporteData = {
+      type: "ReporteiPhone",
+      tipo: tipoReporte,
+      fechaInicio,
+      fechaFin,
+      metricasVentas,
+      metricasInventario,
+      metricasRentabilidad,
+      metricasTendencias,
+      ventas: ventasiPhone
     };
 
-    window.dispatchEvent(new CustomEvent("print-invoice", { detail: data } as any));
+    window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
     await nextPaint();
     window.print();
   }
 
-  // ===== AQUÍ ESTÁ EL RETURN PRINCIPAL DEL COMPONENTE =====
+  // 🔥 NUEVO: Función para obtener recomendaciones inteligentes
+  function obtenerRecomendaciones() {
+    const recomendaciones = [];
+
+    // Análisis de inventario
+    const productosSinMovimiento = productosStock.filter(p => 
+      calcularRotacionProducto(p.id) === 0 && calcularDiasEnStock(p) > 60
+    );
+
+    if (productosSinMovimiento.length > 0) {
+      recomendaciones.push({
+        tipo: "inventario",
+        titulo: "📦 Productos sin movimiento",
+        mensaje: `${productosSinMovimiento.length} productos tienen más de 60 días sin venderse`,
+        accion: "Considerar promociones o ajustar precios",
+        urgencia: "media"
+      });
+    }
+
+    // Análisis de rentabilidad
+    const productosBajaRentabilidad = Object.entries(metricasRentabilidad.rentabilidadPorModeloGB)
+      .filter(([, datos]: any) => (datos.ganancia / datos.ventas) * 100 < 15)
+      .slice(0, 3);
+
+    if (productosBajaRentabilidad.length > 0) {
+      recomendaciones.push({
+        tipo: "rentabilidad",
+        titulo: "💰 Margenes bajos detectados",
+        mensaje: `${productosBajaRentabilidad.length} modelos tienen margen menor al 15%`,
+        accion: "Revisar precios de compra o aumentar precios de venta",
+        urgencia: "alta"
+      });
+    }
+
+    // Análisis de tendencias
+    if (metricasTendencias.crecimientoMensual.length > 0) {
+      const ultimoCrecimiento = metricasTendencias.crecimientoMensual[metricasTendencias.crecimientoMensual.length - 1];
+      if (ultimoCrecimiento.crecimiento < 0) {
+        recomendaciones.push({
+          tipo: "tendencia",
+          titulo: "📉 Tendencia negativa",
+          mensaje: `Ventas del último mes disminuyeron un ${Math.abs(ultimoCrecimiento.crecimiento)}%`,
+          accion: "Analizar causas y planificar estrategias de recuperación",
+          urgencia: "alta"
+        });
+      }
+    }
+
+    return recomendaciones;
+  }
+
+  const recomendaciones = obtenerRecomendaciones();
+
   return (
-    <div className="max-w-6xl mx-auto p-4 space-y-4">
-      <Card title="Filtros">
-        <div className="grid md:grid-cols-4 gap-3">
+    <div className="max-w-7xl mx-auto p-4 space-y-4">
+      <Card title="📊 Sistema Avanzado de Reportes - iPhones">
+        <div className="grid md:grid-cols-4 gap-4">
           <Select
-            label="Período"
-            value={periodo}
-            onChange={setPeriodo}
+            label="Tipo de Reporte"
+            value={tipoReporte}
+            onChange={setTipoReporte}
             options={[
-              { value: "dia", label: "Día" },
-              { value: "mes", label: "Mes" },
-              { value: "anio", label: "Año" },
+              { value: "ventas", label: "📈 Ventas y Performance" },
+              { value: "inventario", label: "📦 Análisis de Inventario" },
+              { value: "rentabilidad", label: "💰 Rentabilidad y Margenes" },
+              { value: "tendencias", label: "📊 Tendencias y Forecasting" },
+              { value: "abc", label: "🔍 Análisis ABC" },
             ]}
           />
-          {periodo === "dia" && <Input label="Día" type="date" value={dia} onChange={setDia} />}
-          {periodo === "mes" && <Input label="Mes" type="month" value={mes} onChange={setMes} />}
-          {periodo === "anio" && <Input label="Año" type="number" value={anio} onChange={setAnio} />}
-        </div>
-      </Card>
-
-      <Card title="Acciones" actions={
-        <div className="flex gap-2">
-          <Button tone="slate" onClick={async () => {
-            const refreshedState = await loadFromSupabase(seedState());
-            setState(refreshedState);
-showInfo("🔄 Datos actualizados manualmente");
-          }}>
-            Actualizar datos
-          </Button>
-          <Button onClick={imprimirReporte}>Imprimir reporte</Button>
-        </div>
-      }>
-        <div className="text-sm text-slate-400">Genera un reporte imprimible con el rango seleccionado.</div>
-      </Card>
-
-      {/* 👇👇👇 AGREGAR ESTA CARD NUEVA - MÉTRICAS iPHONES */}
-      <Card title="📱 Métricas iPhones">
-        <div className="grid md:grid-cols-4 gap-3">
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Ventas iPhones</div>
-            <div className="text-xl font-bold text-emerald-400">
-              {money(metricasiPhone.totalVentas)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Unidades Vendidas</div>
-            <div className="text-xl font-bold text-blue-400">
-              {metricasiPhone.totalUnidades}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Ganancia iPhones</div>
-            <div className="text-xl font-bold text-green-400">
-              {money(metricasiPhone.gananciaTotal)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 mb-1">Ticket Promedio</div>
-            <div className="text-xl font-bold text-purple-400">
-              {money(metricasiPhone.totalUnidades > 0 ? metricasiPhone.totalVentas / metricasiPhone.totalUnidades : 0)}
-            </div>
-          </div>
-        </div>
-
-        {/* Detalle por modelo y grado */}
-        <div className="grid md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <div className="text-sm font-semibold mb-2">Ventas por Modelo</div>
-            {Object.entries(metricasiPhone.ventasPorModelo)
-              .sort(([,a]: any, [,b]: any) => b - a)
-              .map(([modelo, cantidad]: any) => (
-                <div key={modelo} className="flex justify-between py-1 text-sm">
-                  <span>{modelo}</span>
-                  <span className="font-semibold">{cantidad} unidades</span>
-                </div>
-              ))}
-          </div>
-          <div>
-            <div className="text-sm font-semibold mb-2">Ventas por Grado</div>
-            {Object.entries(metricasiPhone.ventasPorGrado)
-              .sort(([,a]: any, [,b]: any) => b - a)
-              .map(([grado, cantidad]: any) => (
-                <div key={grado} className="flex justify-between py-1 text-sm">
-                  <span>Grado {grado}</span>
-                  <span className="font-semibold">{cantidad} unidades</span>
-                </div>
-              ))}
-          </div>
-        </div>
-      </Card>
-
-      {periodo === "dia" && (
-        <Card
-          title="Vuelto en caja (por día)"
-          actions={
-            <Button onClick={async () => {
-              await setCashFloatForDay(cashFloatTarget);
-              alert("Vuelto del día guardado.");
-            }}>
-              Guardar
+          <Input
+            label="Fecha Inicio"
+            type="date"
+            value={fechaInicio}
+            onChange={setFechaInicio}
+          />
+          <Input
+            label="Fecha Fin"
+            type="date"
+            value={fechaFin}
+            onChange={setFechaFin}
+          />
+          <div className="pt-6">
+            <Button onClick={imprimirReporte}>
+              🖨️ Imprimir Reporte
             </Button>
-          }
-        >
-          <div className="grid md:grid-cols-3 gap-3">
-            <NumberInput
-              label={`Vuelto configurado para ${diaClave}`}
-              value={String(cashFloatTarget)}
-              onChange={(v: any) => {
-                const st = clone(state);
-                st.meta.cashFloatByDate = st.meta.cashFloatByDate || {};
-                st.meta.cashFloatByDate[diaClave] = parseNum(v);
-                setState(st);
-              }}
-              placeholder="Ej: 10000"
-            />
-            <div className="md:col-span-2 grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Vuelto entregado (en el período)</div>
-                <div className="text-xl font-bold">{money(totalVuelto)}</div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 🔥 NUEVO: Panel de Recomendaciones Inteligentes */}
+      {recomendaciones.length > 0 && (
+        <Card title="🤖 Recomendaciones Inteligentes">
+          <div className="space-y-3">
+            {recomendaciones.map((rec, index) => (
+              <div key={index} className={`p-3 border rounded-lg ${
+                rec.urgencia === "alta" ? "border-red-500 bg-red-900/20" : 
+                rec.urgencia === "media" ? "border-amber-500 bg-amber-900/20" : 
+                "border-blue-500 bg-blue-900/20"
+              }`}>
+                <div className="font-semibold">{rec.titulo}</div>
+                <div className="text-sm text-slate-300">{rec.mensaje}</div>
+                <div className="text-sm text-emerald-400 mt-1">💡 {rec.accion}</div>
               </div>
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Vuelto restante</div>
-                <div className="text-xl font-bold">{money(vueltoRestante)}</div>
-              </div>
-            </div>
+            ))}
           </div>
         </Card>
       )}
 
-      {periodo === "dia" && (
-        <Card
-          title="Comisiones (por día)"
-          actions={
-            <Button onClick={async () => {
-              await setCommissionForDay(commissionTarget);
-              alert("Comisiones del día guardadas.");
-            }}>
-              Guardar
-            </Button>
-          }
-        >
-          <div className="grid md:grid-cols-3 gap-3">
-            <NumberInput
-              label={`Comisiones configuradas para ${diaClave}`}
-              value={String(commissionTarget)}
-              onChange={(v: any) => {
-                const st = clone(state);
-                st.meta.commissionsByDate = st.meta.commissionsByDate || {};
-                st.meta.commissionsByDate[diaClave] = parseNum(v);
-                setState(st);
-              }}
-              placeholder="Ej: 5000"
-            />
-            <div className="md:col-span-2 grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Comisiones en el período</div>
-                <div className="text-xl font-bold">{money(commissionsPeriodo)}</div>
+      {/* REPORTE DE VENTAS - MEJORADO */}
+      {tipoReporte === "ventas" && (
+        <>
+          <div className="grid md:grid-cols-4 gap-4">
+            <Card title="💰 Ventas Totales">
+              <div className="text-2xl font-bold text-emerald-400">
+                {money(metricasVentas.totalVentas)}
               </div>
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Impacto en flujo de caja</div>
-                <div className="text-xl font-bold">– {money(commissionsPeriodo)}</div>
+              <div className="text-xs text-slate-400 mt-1">
+                {metricasVentas.totalUnidades} unidades vendidas
               </div>
-            </div>
-          </div>
-        </Card>
-      )}
+            </Card>
 
-      {/* 👇👇👇 AGREGAR ESTA CARD NUEVA - JUSTO DESPUÉS DE LOS FILTROS */}
-      <Card title="💰 Deuda Actual del Día">
-        <div className="text-2xl font-bold text-amber-400">
-          {money(
-            invoices
-              .filter((f: any) => f.status === "No Pagada")
-              .reduce((sum: number, f: any) => sum + parseNum(f.total), 0)
-          )}
-        </div>
-        <div className="text-xs text-slate-400 mt-1">
-          Total adeudado en facturas del día
-        </div>
-      </Card>
-      
-      {/* 👇👇👇 SECCIÓN GABI - AGREGAR JUSTO AQUÍ 👇👇👇 */}
-      {periodo === "dia" && (
-        <Card
-          title="Fondos de Gabi (por día)"
-          actions={
-            <Button onClick={async () => {
-              await setGabiFundsForDay(parseNum(gabiInitial));
-              alert("Fondos de Gabi guardados.");
-            }}>
-              Guardar
-            </Button>
-          }
-        >
-          <div className="grid md:grid-cols-3 gap-3">
-            <NumberInput
-              label={`Dinero dado a Gabi para ${diaClave}`}
-              value={gabiInitial}
-              onChange={setGabiInitial}
-              placeholder="Ej: 50000"
-            />
-            <div className="md:col-span-2 grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Gastos de Gabi registrados</div>
-                <div className="text-xl font-bold">{money(totalGastosGabi)}</div>
+            <Card title="📈 Ganancia Total">
+              <div className="text-2xl font-bold text-green-400">
+                {money(metricasVentas.gananciaTotal)}
               </div>
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Fondos restantes de Gabi</div>
-                <div className="text-xl font-bold">{money(fondosGabiRestantes)}</div>
+              <div className="text-xs text-slate-400 mt-1">
+                Margen: {((metricasVentas.gananciaTotal / metricasVentas.totalVentas) * 100).toFixed(1)}%
               </div>
-            </div>
+            </Card>
+
+            <Card title="🎫 Ticket Promedio">
+              <div className="text-2xl font-bold text-blue-400">
+                {money(metricasVentas.ticketPromedio)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Por unidad vendida
+              </div>
+            </Card>
+
+            <Card title="👥 Comisiones">
+              <div className="text-2xl font-bold text-purple-400">
+                {money(metricasVentas.comisionesTotal)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Total pagado en comisiones
+              </div>
+            </Card>
           </div>
-        </Card>
-      )}
 
-      <div className="grid md:grid-cols-4 gap-3">
-        <Card title="Ventas totales"><div className="text-2xl font-bold">{money(totalVentas)}</div></Card>
-        <Card title="Efectivo (cobrado)">
-          <div className="text-2xl font-bold">{money(totalEfectivo + efectivoPagosDeudores)}</div>
-          <div className="text-xs text-slate-400 mt-1"> Ventas: {money(totalEfectivo)} + Deudores: {money(efectivoPagosDeudores)}
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card title="📱 Ventas por Modelo y Capacidad">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {Object.entries(metricasVentas.ventasPorModeloGB)
+                  .sort(([,a]: any, [,b]: any) => b - a)
+                  .map(([modelo, cantidad]: any) => (
+                    <div key={modelo} className="flex justify-between items-center">
+                      <span className="text-sm">{modelo}</span>
+                      <span className="font-semibold">{cantidad} unidades</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+
+            <Card title="🎨 Ventas por Color">
+              <div className="space-y-2">
+                {Object.entries(metricasVentas.ventasPorColor)
+                  .sort(([,a]: any, [,b]: any) => b - a)
+                  .map(([color, cantidad]: any) => (
+                    <div key={color} className="flex justify-between items-center">
+                      <span className="text-sm">{color}</span>
+                      <span className="font-semibold">{cantidad} unidades</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
           </div>
-        </Card>
-        <Card title="Vuelto entregado">
-          <div className="text-2xl font-bold">{money(totalVuelto)}</div>
-        </Card>
-        <Card title="Transferencias">
-          <div className="text-2xl font-bold">{money(transferenciasTotales)}</div>
-          <div className="text-xs text-slate-400 mt-1">
-            Ventas: {money(totalTransf)} + Deudores: {money(transferenciasPagosDeudores)}
-          </div>
-        </Card>
-        <Card title="Pagos de Deudores">
-          <div className="text-2xl font-bold">{money(totalPagosDeudores)}</div>
-          <div className="text-xs text-slate-400 mt-1">{cantidadPagos} pago(s)</div>
-        </Card>
-      </div>
 
-      {/* === TOP CLIENTES === */}
-      {(() => {
-        const ventasPorCliente = invoices.reduce((acc: any, f: any) => {
-          const clienteId = f.client_id;
-          const clienteNombre = f.client_name;
-          const totalFactura = parseNum(f.total);
-          
-          if (!acc[clienteId]) {
-            acc[clienteId] = {
-              nombre: clienteNombre,
-              total: 0,
-              cantidadFacturas: 0
-            };
-          }
-          
-          acc[clienteId].total += totalFactura;
-          acc[clienteId].cantidadFacturas += 1;
-          
-          return acc;
-        }, {});
-
-        const clientesTop = Object.entries(ventasPorCliente)
-          .map(([id, data]: [string, any]) => ({
-            id,
-            nombre: data.nombre,
-            total: data.total,
-            cantidadFacturas: data.cantidadFacturas
-          }))
-          .sort((a, b) => b.total - a.total)
-          .slice(0, 3); // Top 3 clientes
-
-        return (
-          <div className="grid md:grid-cols-3 gap-3">
-            {/* Top Clientes */}
-            <Card title="🏆 Top Clientes">
-              {clientesTop.length > 0 ? (
-                <div className="space-y-2">
-                  {clientesTop.map((cliente, index) => (
-                    <div key={cliente.id} className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-emerald-600 rounded-full w-5 h-5 flex items-center justify-center">
-                          {index + 1}
-                        </span>
-                        <div className="text-sm truncate max-w-[120px]" title={cliente.nombre}>
-                          {cliente.nombre}
-                        </div>
+          <Card title="👨‍💼 Performance por Vendedor">
+            <div className="space-y-3">
+              {Object.entries(metricasVentas.ventasPorVendedor)
+                .sort(([,a]: any, [,b]: any) => b.ventas - a.ventas)
+                .map(([vendedor, datos]: any) => (
+                  <div key={vendedor} className="flex justify-between items-center p-3 border border-slate-700 rounded-lg">
+                    <div>
+                      <div className="font-semibold">{vendedor}</div>
+                      <div className="text-xs text-slate-400">
+                        {datos.unidades} unidades • Comisiones: {money(datos.comisiones)}
                       </div>
-                      <div className="text-sm font-semibold">
-                        {money(cliente.total)}
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-emerald-400">{money(datos.ventas)}</div>
+                      <div className="text-xs text-slate-400">
+                        Ticket: {money(datos.ventas / datos.unidades)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* REPORTE DE INVENTARIO - MEJORADO */}
+      {tipoReporte === "inventario" && (
+        <>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card title="📦 Total en Stock">
+              <div className="text-2xl font-bold text-blue-400">
+                {metricasInventario.totalProductos}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Productos disponibles
+              </div>
+            </Card>
+
+            <Card title="💵 Capital Invertido">
+              <div className="text-2xl font-bold text-amber-400">
+                {money(metricasInventario.capitalInvertido)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                En compra y reparación
+              </div>
+            </Card>
+
+            <Card title="💰 Valor de Venta Total">
+              <div className="text-2xl font-bold text-emerald-400">
+                {money(metricasInventario.valorVentaTotal)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Potencial de venta
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card title="📱 Stock por Modelo y Capacidad">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {Object.entries(metricasInventario.stockPorModeloGB)
+                  .sort(([,a]: any, [,b]: any) => b - a)
+                  .map(([modelo, cantidad]: any) => (
+                    <div key={modelo} className="flex justify-between items-center">
+                      <span className="text-sm">{modelo}</span>
+                      <span className="font-semibold">{cantidad} unidades</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+
+            <Card title="📊 Rotación de Inventario">
+              <div className="space-y-2">
+                {metricasInventario.analisisABC.slice(0, 10).map((producto: any) => (
+                  <div key={producto.id} className="flex justify-between items-center p-2 border border-slate-700 rounded">
+                    <div>
+                      <div className="text-sm font-medium">{producto.name}</div>
+                      <div className="text-xs text-slate-400">
+                        {producto.modelo} {producto.capacidad} • Rotación: {producto.rotacion}
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded text-xs font-bold ${
+                      producto.categoria === 'A' ? 'bg-red-500' :
+                      producto.categoria === 'B' ? 'bg-amber-500' : 'bg-green-500'
+                    }`}>
+                      {producto.categoria}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          <Card title="⚠️ Productos con Más de 30 Días en Stock">
+            <div className="space-y-2">
+              {metricasInventario.productosViejos.map((producto: any) => (
+                <div key={producto.id} className="flex justify-between items-center p-2 border border-amber-700 rounded">
+                  <div>
+                    <div className="text-sm font-medium">{producto.name}</div>
+                    <div className="text-xs text-slate-400">
+                      {producto.modelo} {producto.capacidad} • {producto.grado} • {producto.ubicacion}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-amber-400 font-semibold">{producto.diasEnStock} días</div>
+                    <div className="text-xs text-slate-400">
+                      Costo: {money(producto.precio_compra + producto.costo_reparacion)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {metricasInventario.productosViejos.length === 0 && (
+                <div className="text-center text-slate-400 py-4">
+                  ✅ No hay productos con más de 30 días en stock
+                </div>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
+
+      {/* 🔥 NUEVO: REPORTE DE TENDENCIAS */}
+      {tipoReporte === "tendencias" && (
+        <>
+          <Card title="📊 Análisis de Tendencias Temporales">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold mb-2">Crecimiento Mensual</h4>
+                <div className="space-y-2">
+                  {metricasTendencias.crecimientoMensual.map((mes: any) => (
+                    <div key={mes.mes} className="flex justify-between items-center p-2 border border-slate-700 rounded">
+                      <span className="text-sm">{mes.mes}</span>
+                      <div className="text-right">
+                        <div className="font-semibold">{money(mes.ventas)}</div>
+                        <div className={`text-xs ${mes.crecimiento >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {mes.crecimiento >= 0 ? '↗' : '↘'} {Math.abs(mes.crecimiento)}%
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-sm text-slate-400">
-                  Sin ventas en el período
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">Días con Más Ventas</h4>
+                <div className="space-y-2">
+                  {metricasTendencias.diasConMasVentas.map(([dia, monto]: any) => (
+                    <div key={dia} className="flex justify-between items-center p-2 border border-slate-700 rounded">
+                      <span className="text-sm">{new Date(dia).toLocaleDateString('es-AR')}</span>
+                      <span className="font-semibold text-emerald-400">{money(monto)}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </Card>
-
-            {/* Las otras dos cards se mantienen igual */}
-            <Card title="Ganancia estimada">
-              <div className="text-2xl font-bold">{money(ganancia)}</div>
-              <div className="text-xs text-slate-400 mt-1">Total - Costos</div>
-            </Card>
-
-            <Card title="Flujo final de caja (efectivo)">
-              <div className="text-2xl font-bold">{money(flujoCajaEfectivoFinal)}</div>
-              <div className="text-xs text-slate-400 mt-1">
-                Efectivo neto - Gastos (ef.) - Devoluciones (ef.) - Comisiones + Vuelto restante + Fondos Gabi restantes + Pago Deudores (ef.)
               </div>
-            </Card>
-          </div>
-        );
-      })()}
-
-      <Card title="Gastos y Devoluciones">
-        <div className="space-y-3 text-sm">
-          <div>Total de gastos: <b>{money(totalGastos)}</b></div>
-          <div>- En efectivo: {money(totalGastosEfectivo)}</div>
-          <div>- En transferencia: {money(totalGastosTransferencia)}</div>
-          {/* 👇👇👇 SECCIÓN GABI EN GASTOS - AGREGAR JUSTO AQUÍ 👇👇👇 */}
-          {periodo === "dia" && (
-            <div className="mt-2 p-2 bg-slate-800/30 rounded">
-              <div className="font-semibold">Fondos de Gabi</div>
-              <div>- Dinero dado: {money(gabiInitialTarget)}</div>
-              <div>- Gastado: {money(totalGastosGabi)}</div>
-              <div>- Restante: <b>{money(fondosGabiRestantes)}</b></div>
             </div>
-          )}
-          {/* 👆👆👆 HASTA AQUÍ 👆👆👆 */}
+          </Card>
+        </>
+      )}
 
-          <h4 className="mt-2 font-semibold">Transferencias por alias</h4>
-          {transferenciasPorAlias.length === 0 ? (
-            <div className="text-slate-400">Sin transferencias registradas.</div>
-          ) : (
-            <ul className="list-disc pl-5">
-              {transferenciasPorAlias.map((t) => (
-                <li key={t.alias}>{t.alias}: {money(t.total)}</li>
+      {/* 🔥 NUEVO: ANÁLISIS ABC */}
+      {tipoReporte === "abc" && (
+        <Card title="🔍 Análisis ABC - Clasificación de Inventario">
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-3 gap-4 text-center">
+              <div className="p-4 bg-red-900/30 border border-red-700 rounded-lg">
+                <div className="text-2xl font-bold text-red-400">A</div>
+                <div className="text-sm">80% del Valor</div>
+                <div className="text-xs text-slate-400">Alta prioridad</div>
+              </div>
+              <div className="p-4 bg-amber-900/30 border border-amber-700 rounded-lg">
+                <div className="text-2xl font-bold text-amber-400">B</div>
+                <div className="text-sm">15% del Valor</div>
+                <div className="text-xs text-slate-400">Media prioridad</div>
+              </div>
+              <div className="p-4 bg-green-900/30 border border-green-700 rounded-lg">
+                <div className="text-2xl font-bold text-green-400">C</div>
+                <div className="text-sm">5% del Valor</div>
+                <div className="text-xs text-slate-400">Baja prioridad</div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {metricasInventario.analisisABC.map((producto: any) => (
+                <div key={producto.id} className={`flex justify-between items-center p-3 border rounded-lg ${
+                  producto.categoria === 'A' ? 'border-red-500 bg-red-900/20' :
+                  producto.categoria === 'B' ? 'border-amber-500 bg-amber-900/20' :
+                  'border-green-500 bg-green-900/20'
+                }`}>
+                  <div className="flex-1">
+                    <div className="font-semibold">{producto.name}</div>
+                    <div className="text-xs text-slate-400">
+                      {producto.modelo} {producto.capacidad} • Valor: {money(producto.valorInventario)} • Rotación: {producto.rotacion}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-lg font-bold ${
+                      producto.categoria === 'A' ? 'text-red-400' :
+                      producto.categoria === 'B' ? 'text-amber-400' : 'text-green-400'
+                    }`}>
+                      {producto.categoria}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Ranking: #{producto.ranking}
+                    </div>
+                  </div>
+                </div>
               ))}
-            </ul>
-          )}
-
-          <h4 className="mt-4 font-semibold">Devoluciones registradas</h4>
-          <div>Cantidad: <b>{devolucionesPeriodo.length}</b></div>
-          <div>- En efectivo: {money(devolucionesMontoEfectivo)}</div>
-          <div>- En transferencia: {money(devolucionesMontoTransfer)}</div>
-          <div>- Monto total: <b>{money(devolucionesMontoTotal)}</b></div>
-        </div>
-        <div className="mt-2">Vuelto entregado en el período: <b>{money(totalVuelto)}</b></div>
-      </Card>
-
-      <Card title="Por vendedor">
-        <div className="grid md:grid-cols-3 gap-3">
-          {porVendedor.map((v: any) => (
-            <div key={v.vendedor} className="rounded-xl border border-slate-800 p-3 flex items-center justify-between">
-              <div className="text-sm font-medium">{v.vendedor}</div>
-              <div className="text-sm">{money(v.total as number)}</div>
             </div>
-          ))}
-          {porVendedor.length === 0 && <div className="text-sm text-slate-400">Sin datos en el período.</div>}
-        </div>
-      </Card>
-
-      <Card title="Por sección">
-        <div className="grid md:grid-cols-3 gap-3">
-          {porSeccion.map((s: any) => (
-            <div key={s.section} className="rounded-xl border border-slate-800 p-3 flex items-center justify-between">
-              <div className="text-sm font-medium">{s.section}</div>
-              <div className="text-sm">{money(s.total as number)}</div>
-            </div>
-          ))}
-          {porSeccion.length === 0 && <div className="text-sm text-slate-400">Sin datos en el período.</div>}
-        </div>
-      </Card>
-
-      <Card title="Transferencias por alias (ventas)">
-        {porAlias.length === 0 ? (
-          <div className="text-sm text-slate-400">Sin transferencias en el período.</div>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-3">
-            {porAlias.map((a: any) => (
-              <div key={a.alias} className="rounded-xl border border-slate-800 p-3 flex items-center justify-between">
-                <div className="text-sm font-medium truncate max-w-[60%]">{a.alias}</div>
-                <div className="text-sm">{money(a.total as number)}</div>
-              </div>
-            ))}
           </div>
-        )}
-      </Card>
-
-      <Card title="Listado de facturas">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-slate-400">
-              <tr>
-                <th className="py-2 pr-3">#</th>
-                <th className="py-2 pr-3">Fecha</th>
-                <th className="py-2 pr-3">Cliente</th>
-                <th className="py-2 pr-3">Vendedor</th>
-                <th className="py-2 pr-3">Total</th>
-                <th className="py-2 pr-3">Efectivo</th>
-                <th className="py-2 pr-3">Transf.</th>
-                <th className="py-2 pr-3">Vuelto</th>
-                <th className="py-2 pr-3">Alias/CVU</th>
-                <th className="py-2 pr-3">Tipo</th>
-                <th className="py-2 pr-3">Estado</th>
-                <th className="py-2 pr-3">Comprobante</th>
-                <th className="py-2 pr-3">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {docsEnRango
-                .slice()
-                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
-                .map((f: any) => {
-                  const cash = parseNum(f?.payments?.cash);
-                  const tr = parseNum(f?.payments?.transfer);
-                  const ch = parseNum(f?.payments?.change);
-                  const alias = (f?.payments?.alias || "").trim() || "—";
-
-                  // Función para ver PDF usando la misma lógica de presupuestos
-                  const viewInvoicePDF = (invoice: any) => {
-                    window.dispatchEvent(new CustomEvent("print-invoice", { detail: { ...invoice, type: "Factura" } } as any));
-                    setTimeout(() => window.print(), 0);
-                  };
-
-                  return (
-                    <tr key={f.id}>
-                      <td className="py-2 pr-3">{pad(f.number || 0)}</td>
-                      <td className="py-2 pr-3">{new Date(f.date_iso).toLocaleString("es-AR")}</td>
-                      <td className="py-2 pr-3">{f.client_name}</td>
-                      <td className="py-2 pr-3">{f.vendor_name}</td>
-                      <td className="py-2 pr-3">{money(parseNum(f.total))}</td>
-                      <td className="py-2 pr-3">{money(cash)}</td>
-                      <td className="py-2 pr-3">{money(tr)}</td>
-                      <td className="py-2 pr-3">{money(ch)}</td>
-                      <td className="py-2 pr-3 truncate max-w-[180px]">{alias}</td>
-                      <td className="py-2 pr-3">{f.type || "—"}</td>
-                      <td className="py-2 pr-3">{f.status || "—"}</td>
-                      <td className="py-2 pr-3">
-                        {/* COMPROBANTE - Solo si tiene transferencia */}
-                        {(parseNum(f?.payments?.transfer) > 0) && (
-                          <div className="flex gap-1 mb-1">
-                            <SubirComprobante 
-                              tipo="factura"
-                              id={f.id}
-                              session={session}
-                              onComprobanteSubido={async () => {
-                                const refreshedState = await loadFromSupabase(seedState());
-                                setState(refreshedState);
-                              }}
-                            />
-                            {f.comprobante_url && (
-                              <a 
-                                href={f.comprobante_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-green-400 hover:text-green-300 text-sm px-2 py-1 border border-green-700 rounded"
-                                title="Ver comprobante"
-                              >
-                                👁️ Ver
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-2 pr-3 space-x-2">
-                        {/* Botón ver PDF */}
-                        <button
-                          onClick={() => viewInvoicePDF(f)}
-                          className="text-blue-500 hover:text-blue-700"
-                          title="Ver PDF"
-                        >
-                          📄
-                        </button>
-
-                        {/* Botón eliminar (solo admin) */}
-                        {session?.role === "admin" && (
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`¿Seguro que deseas eliminar la factura Nº ${pad(f.number)}? Esta acción REVERTIRÁ la deuda del cliente y el stock.`)) return;
-                              
-                              // 1. Encontrar el cliente afectado
-                              const cliente = state.clients.find((c: any) => c.id === f.client_id);
-                              if (!cliente) {
-                                alert("Error: Cliente no encontrado.");
-                                return;
-                              }
-
-                              const st = clone(state);
-                              
-                              // 2. Cálculo PRECISO de la deuda a revertir
-                              const totalFactura = parseNum(f.total);
-                              const pagosEfectivo = parseNum(f?.payments?.cash || 0);
-                              const pagosTransferencia = parseNum(f?.payments?.transfer || 0);
-                              const saldoAplicado = parseNum(f?.payments?.saldo_aplicado || 0);
-                              const totalPagos = pagosEfectivo + pagosTransferencia;
-                              
-                              // La deuda que generó esta factura es el total menos lo que ya pagó y el saldo aplicado
-                              const deudaGeneradaPorFactura = Math.max(0, totalFactura - totalPagos - saldoAplicado);
-                              
-                              // Nueva deuda = deuda actual - deuda que generó esta factura
-                              const deudaActual = parseNum(cliente.debt);
-                              const nuevaDeuda = Math.max(0, deudaActual - deudaGeneradaPorFactura);
-                              
-                              // 3. Restaurar saldo a favor si se usó
-                              const saldoActual = parseNum(cliente.saldo_favor);
-                              const nuevoSaldo = saldoActual + saldoAplicado;
-                              
-                              // 4. Actualizar cliente
-                              cliente.debt = nuevaDeuda;
-                              cliente.saldo_favor = nuevoSaldo;
-                              
-                              // 5. Restaurar stock de productos
-                              f.items.forEach((item: any) => {
-                                const product = st.products.find((p: any) => p.id === item.productId);
-                                if (product) {
-                                  product.stock = parseNum(product.stock) + parseNum(item.qty);
-                                }
-                              });
-
-                              // 6. Eliminar factura del estado local
-                              st.invoices = st.invoices.filter((x: any) => x.id !== f.id);
-                              setState(st);
-                              
-                              // 7. Persistir en Supabase
-                              if (hasSupabase) {
-                                try {
-                                  // Eliminar factura
-                                  await supabase.from("invoices").delete().eq("id", f.id);
-                                  
-                                  // Actualizar cliente
-                                  await supabase.from("clients")
-                                    .update({ 
-                                      debt: nuevaDeuda,
-                                      saldo_favor: nuevoSaldo
-                                    })
-                                    .eq("id", f.client_id);
-                                  
-                                  // Actualizar stock de productos
-                                  for (const item of f.items) {
-                                    const product = st.products.find((p: any) => p.id === item.productId);
-                                    if (product) {
-                                      await supabase.from("products")
-                                        .update({ stock: product.stock })
-                                        .eq("id", item.productId);
-                                    }
-                                  }
-                                  
-                                  alert(`✅ Factura Nº ${pad(f.number)} eliminada.\nDeuda: ${money(deudaActual)} → ${money(nuevaDeuda)}\nStock restaurado.`);
-                                  
-                                } catch (error) {
-                                  console.error("Error al eliminar factura:", error);
-                                  alert("Error al eliminar la factura. Los datos pueden estar inconsistentes.");
-                                  
-                                  // Recargar para evitar inconsistencias
-                                  const refreshedState = await loadFromSupabase(seedState());
-                                  setState(refreshedState);
-                                }
-                              } else {
-                                alert(`✅ Factura Nº ${pad(f.number)} eliminada.\nDeuda: ${money(deudaActual)} → ${money(nuevaDeuda)}\nStock restaurado.`);
-                              }
-                            }}
-                            className="text-red-500 hover:text-red-700"
-                            title="Eliminar"
-                          >
-                            🗑️
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              {docsEnRango.length === 0 && (
-                <tr>
-                  <td className="py-3 text-slate-400" colSpan={13}>
-                    Sin documentos en el período.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card title="Listado de devoluciones">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-slate-400">
-              <tr>
-                <th className="py-2 pr-3">Fecha</th>
-                <th className="py-2 pr-3">Cliente</th>
-                <th className="py-2 pr-3">Método</th>
-                <th className="py-2 pr-3">Efectivo</th>
-                <th className="py-2 pr-3">Transf.</th>
-                <th className="py-2 pr-3">Total</th>
-                <th className="py-2 pr-3">Detalle</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {devolucionesPeriodo
-                .slice()
-                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
-                .map((d: any) => (
-                  <tr key={d.id}>
-                    <td className="py-2 pr-3">{new Date(d.date_iso).toLocaleString("es-AR")}</td>
-                    <td className="py-2 pr-3">{d.client_name}</td>
-                    <td className="py-2 pr-3 capitalize">{d.metodo}</td>
-                    <td className="py-2 pr-3">{money(parseNum(d.efectivo))}</td>
-                    <td className="py-2 pr-3">{money(parseNum(d.transferencia))}</td>
-                    <td className="py-2 pr-3">{money(parseNum(d.total))}</td>
-                    <td className="py-2 pr-3">
-                      {(d.items || []).map((it: any, i: number) => (
-                        <div key={i} className="text-xs">
-                          {it.name} — dev.: {parseNum(it.qtyDevuelta)} × {money(parseNum(it.unitPrice))}
-                        </div>
-                      ))}
-                      {d.metodo === "intercambio_otro" && (
-                        <div className="text-xs text-slate-400 mt-1">
-                          Dif. abonada: ef. {money(parseNum(d.extra_pago_efectivo || 0))} · tr. {money(parseNum(d.extra_pago_transferencia || 0))}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              {devolucionesPeriodo.length === 0 && (
-                <tr>
-                  <td className="py-3 text-slate-400" colSpan={7}>
-                    Sin devoluciones en el período.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card title="Listado de Pagos de Deudores">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-slate-400">
-              <tr>
-                <th className="py-2 pr-3">Fecha y Hora</th>
-                <th className="py-2 pr-3">Cliente</th>
-                <th className="py-2 pr-3">Monto Pagado</th>
-                <th className="py-2 pr-3">Deuda Antes</th>
-                <th className="py-2 pr-3">Deuda Después</th>
-                <th className="py-2 pr-3">Método</th>
-                <th className="py-2 pr-3">Comprobante</th>
-                <th className="py-2 pr-3">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {pagosDeudores
-                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
-                .map((pago: any) => {
-                  const efectivo = parseNum(pago?.cash_amount || pago?.payments?.cash || 0);
-                  const transferencia = parseNum(pago?.transfer_amount || pago?.payments?.transfer || 0);
-                  const montoTotal = efectivo + transferencia;
-                  const metodo = efectivo > 0 && transferencia > 0 
-                    ? "Mixto" 
-                    : efectivo > 0 
-                      ? "Efectivo" 
-                      : "Transferencia";
-
-                  return (
-                    <tr key={pago.id}>
-                      <td className="py-2 pr-3">
-                        {new Date(pago.date_iso).toLocaleString("es-AR")}
-                      </td>
-                      <td className="py-2 pr-3">{pago.client_name}</td>
-                      <td className="py-2 pr-3">
-                        <span className="font-medium text-emerald-400">
-                          {money(montoTotal)}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className="text-amber-400">
-                          {money(parseNum(pago.debt_before))}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className={(() => {
-                          const cliente = state.clients.find((c: any) => c.id === pago.client_id);
-                          if (cliente) {
-                            const detalleDeudas = calcularDetalleDeudas(state, pago.client_id);
-                            const deudaActual = calcularDeudaTotal(detalleDeudas, cliente);
-                            return deudaActual > 0 ? "text-amber-400" : "text-emerald-400";
-                          }
-                          return parseNum(pago.debt_after) > 0 ? "text-amber-400" : "text-emerald-400";
-                        })()}>
-                          {(() => {
-                            const cliente = state.clients.find((c: any) => c.id === pago.client_id);
-                            if (cliente) {
-                              const detalleDeudas = calcularDetalleDeudas(state, pago.client_id);
-                              const deudaActual = calcularDeudaTotal(detalleDeudas, cliente);
-                              return money(deudaActual);
-                            }
-                            return money(parseNum(pago.debt_after));
-                          })()}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <Chip tone={metodo === "Efectivo" ? "emerald" : "slate"}>
-                          {metodo}
-                        </Chip>
-                      </td>
-                      <td className="py-2 pr-3">
-                        {/* COMPROBANTE - Solo si tiene transferencia */}
-                        {(parseNum(pago?.transfer_amount || pago?.payments?.transfer || 0) > 0) && (
-                          <div className="flex gap-1 mb-1">
-                            <SubirComprobante 
-                              tipo="debt_payment"
-                              id={pago.id}
-                              session={session}
-                              onComprobanteSubido={async () => {
-                                const refreshedState = await loadFromSupabase(seedState());
-                                setState(refreshedState);
-                              }}
-                            />
-                            {pago.comprobante_url && (
-                              <a 
-                                href={pago.comprobante_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-green-400 hover:text-green-300 text-sm px-2 py-1 border border-green-700 rounded"
-                                title="Ver comprobante"
-                              >
-                                👁️ Ver
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {/* 👇👇👇 BOTÓN VER RECIBO */}
-                        <button
-                          onClick={() => {
-                            const reciboData = {
-                              ...pago,
-                              type: "Pago de Deuda",
-                              items: [{ 
-                                productId: "pago_deuda", 
-                                name: "Pago de deuda", 
-                                section: "Finanzas", 
-                                qty: 1, 
-                                unitPrice: montoTotal, 
-                                cost: 0 
-                              }],
-                              total: montoTotal,
-                              payments: { 
-                                cash: efectivo, 
-                                transfer: transferencia, 
-                                change: 0,
-                                alias: pago.alias || "",
-                                saldo_aplicado: pago.saldo_aplicado || 0
-                              },
-                              status: "Pagado"
-                            };
-                            window.dispatchEvent(new CustomEvent("print-invoice", { detail: reciboData } as any));
-                            setTimeout(() => window.print(), 0);
-                          }}
-                          className="text-blue-400 hover:text-blue-300 text-sm"
-                          title="Ver Recibo"
-                        >
-                          📄 Ver Recibo
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              {pagosDeudores.length === 0 && (
-                <tr>
-                  <td className="py-3 text-slate-400" colSpan={8}>
-                    No hay pagos registrados en el período.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }
