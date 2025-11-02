@@ -7516,7 +7516,7 @@ if (ticket) {
       <div className="max-w-[520px] mx-auto text-black">
         <div className="text-center">
           <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: 20 }}>TICKET DE TURNO</div>
-          <div style={{ marginTop: 2, fontSize: 12 }}>MITOBICEL</div>
+          <div style={{ marginTop: 2, fontSize: 12 }}>VM-ELECTRONICA</div>
         </div>
 
         <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
@@ -7572,14 +7572,37 @@ const clientDebtTotal = (() => {
 return (
   <div className="only-print print-area p-14">
     <div className="max-w-[780px] mx-auto text-black">
-      <div className="flex items-start justify-between">
-        <div>
-          <div style={{ fontWeight: 800, letterSpacing: 1 }}>
-            {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
-          </div>
-          <div style={{ marginTop: 2 }}>MITOBICEL</div>
-        </div>
+     <div className="flex items-start justify-between">
+  <div className="flex items-center gap-4">
+    {/* LOGO */}
+    <img 
+      src="/logo.png" 
+      alt="iPhone Store" 
+      className="h-20 w-20 rounded-sm"
+      style={{ 
+        filter: 'brightness(0) invert(0)',
+        border: '1px solid #000'
+      }}
+    />
+    <div>
+      <div style={{ 
+        fontWeight: 800, 
+        letterSpacing: 1, 
+        fontSize: '18px',
+        marginBottom: '2px'
+      }}>
+        {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
       </div>
+      <div style={{ 
+        fontSize: '12px', 
+        color: '#666',
+        fontStyle: 'italic'
+      }}>
+        Especialistas en iPhones
+      </div>
+    </div>
+  </div>
+</div>
 
       <div style={{ borderTop: "1px solid #000", margin: "10px 0 6px" }} />
 
