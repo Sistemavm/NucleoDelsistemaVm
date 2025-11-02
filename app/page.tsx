@@ -4036,7 +4036,6 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
     // Ordenar por valor de inventario descendente
     productosConValor.sort((a, b) => b.valorInventario - a.valorInventario);
 
-    // Calcular ABC
     let totalValor = productosConValor.reduce((sum, p) => sum + p.valorInventario, 0);
     let acumulado = 0;
     
@@ -4248,22 +4247,34 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   // 🔥 NUEVO: Métricas de TENDENCIAS
   const metricasTendencias = analizarTendencias();
 
+  // 🔥 CORREGIDO: Función de impresión simplificada y segura
   async function imprimirReporte() {
-    const reporteData = {
-      type: "ReporteiPhone",
-      tipo: tipoReporte,
-      fechaInicio,
-      fechaFin,
-      metricasVentas,
-      metricasInventario,
-      metricasRentabilidad,
-      metricasTendencias,
-      ventas: ventasiPhone
-    };
+    try {
+      // Crear datos básicos para el reporte
+      const reporteData = {
+        type: "Reporte",
+        titulo: `Reporte iPhones - ${tipoReporte}`,
+        fechaInicio,
+        fechaFin,
+        periodo: `${fechaInicio} a ${fechaFin}`,
+        metricas: {
+          ventas: metricasVentas.totalVentas,
+          unidades: metricasVentas.totalUnidades,
+          ganancia: metricasVentas.gananciaTotal
+        }
+      };
 
-    window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
-    await nextPaint();
-    window.print();
+      // Disparar evento de impresión
+      window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
+      
+      // Esperar un momento antes de imprimir
+      await new Promise(resolve => setTimeout(resolve, 100));
+      window.print();
+      
+    } catch (error) {
+      console.error('Error al imprimir:', error);
+      showError('Error al generar el reporte. Intenta nuevamente.');
+    }
   }
 
   // 🔥 NUEVO: Función para obtener recomendaciones inteligentes
@@ -4321,6 +4332,7 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-4">
+      {/* SOLO UNA CARD DE TÍTULO - ELIMINAR LA DUPLICADA */}
       <Card title="📊 Sistema Avanzado de Reportes - iPhones">
         <div className="grid md:grid-cols-4 gap-4">
           <Select
