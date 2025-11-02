@@ -6423,6 +6423,104 @@ function PrintArea({ state }: any) {
 // ==== PLANTILLA: REPORTE MEJORADO ====
 if (inv?.type === "Reporte") {
   const fmt = (n: number) => money(parseNum(n));
+  
+  // PRIMERO verificamos los reportes específicos
+  if (inv?.subtipo === "ventas") {
+    return (
+      <div className="only-print print-area p-14">
+        <div className="max-w-[780px] mx-auto text-black">
+          <div className="flex items-start justify-between">
+            <div>
+              <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+                REPORTE DE VENTAS - iPHONES
+              </div>
+              <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+            </div>
+            <div className="text-right text-sm">
+              <div><b>Período:</b> {inv.periodo}</div>
+              <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+          {/* RESUMEN PRINCIPAL */}
+          <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{fmt(inv.resumen.totalVentas)}</div>
+              <div style={{ fontWeight: 600 }}>VENTAS TOTALES</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{fmt(inv.resumen.gananciaTotal)}</div>
+              <div style={{ fontWeight: 600 }}>GANANCIA TOTAL</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{inv.resumen.totalUnidades}</div>
+              <div style={{ fontWeight: 600 }}>UNIDADES VENDIDAS</div>
+            </div>
+          </div>
+
+          {/* VENTAS POR MODELO */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>📱 VENTAS POR MODELO Y CAPACIDAD</div>
+          
+          <table className="print-table text-sm" style={{ width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Modelo</th>
+                <th style={{ textAlign: 'center' }}>Unidades</th>
+                <th style={{ textAlign: 'right' }}>Porcentaje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(inv.metricas.ventasPorModeloGB)
+                .sort(([,a]: any, [,b]: any) => b - a)
+                .map(([modelo, cantidad]: any, index: number) => (
+                  <tr key={modelo}>
+                    <td>{modelo}</td>
+                    <td style={{ textAlign: 'center' }}>{cantidad}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {((cantidad / inv.resumen.totalUnidades) * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+
+          {/* VENTAS POR VENDEDOR */}
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>👥 PERFORMANCE POR VENDEDOR</div>
+          
+          <table className="print-table text-sm" style={{ width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Vendedor</th>
+                <th style={{ textAlign: 'right' }}>Ventas</th>
+                <th style={{ textAlign: 'center' }}>Unidades</th>
+                <th style={{ textAlign: 'right' }}>Comisiones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(inv.metricas.ventasPorVendedor)
+                .sort(([,a]: any, [,b]: any) => b.ventas - a.ventas)
+                .map(([vendedor, datos]: any) => (
+                  <tr key={vendedor}>
+                    <td>{vendedor}</td>
+                    <td style={{ textAlign: 'right' }}>{fmt(datos.ventas)}</td>
+                    <td style={{ textAlign: 'center' }}>{datos.unidades}</td>
+                    <td style={{ textAlign: 'right' }}>{fmt(datos.comisiones)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+
+          <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // SI NO es un reporte específico, usa el reporte general (tu reporte actual)
   const rangoStr = (() => {
     const s = new Date(inv?.rango?.start || Date.now());
     const e = new Date(inv?.rango?.end || Date.now());
@@ -6507,7 +6605,6 @@ if (inv?.type === "Reporte") {
         ) : (
           <div className="text-sm text-slate-500 p-2">No hay facturas con deuda pendiente en el día</div>
         )}
-
         {/* 👇👇👇 SECCIÓN: DEUDORES ACTIVOS */}
         <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
         <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>👥 Deudores Activos</div>
