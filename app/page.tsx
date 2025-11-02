@@ -4248,34 +4248,53 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   const metricasTendencias = analizarTendencias();
 
   // 🔥 CORREGIDO: Función de impresión simplificada y segura
-  async function imprimirReporte() {
-    try {
-      // Crear datos básicos para el reporte
-      const reporteData = {
-        type: "Reporte",
-        titulo: `Reporte iPhones - ${tipoReporte}`,
-        fechaInicio,
-        fechaFin,
-        periodo: `${fechaInicio} a ${fechaFin}`,
-        metricas: {
-          ventas: metricasVentas.totalVentas,
-          unidades: metricasVentas.totalUnidades,
-          ganancia: metricasVentas.gananciaTotal
-        }
-      };
+// 🔥 VERSIÓN COMPLETA Y ROBUSTA
+async function imprimirReporte() {
+  try {
+    // Preparar datos base
+    const baseData = {
+      type: "Reporte",
+      titulo: `Reporte iPhones - ${tipoReporte}`,
+      fechaInicio,
+      fechaFin,
+      periodo: `${fechaInicio} a ${fechaFin}`,
+      ventas: ventasiPhone || [],
+      gastos: state.gastos || [],
+      devoluciones: state.devoluciones || [],
+      transferenciasPorAlias: [],
+      deudaDelDiaDetalle: [],
+      deudoresActivos: [],
+      pagosDeudoresDetallados: [],
+      resumen: {
+        ventas: metricasVentas.totalVentas,
+        deudaDelDia: 0,
+        efectivoNeto: ventasiPhone.reduce((sum: number, v: any) => 
+          sum + parseNum(v?.payments?.cash || 0), 0),
+        transferencias: ventasiPhone.reduce((sum: number, v: any) => 
+          sum + parseNum(v?.payments?.transfer || 0), 0),
+        flujoCajaEfectivo: 0
+      }
+    };
 
-      // Disparar evento de impresión
-      window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
-      
-      // Esperar un momento antes de imprimir
-      await new Promise(resolve => setTimeout(resolve, 100));
-      window.print();
-      
-    } catch (error) {
-      console.error('Error al imprimir:', error);
-      showError('Error al generar el reporte. Intenta nuevamente.');
-    }
+    console.log("📊 Generando reporte:", baseData);
+
+    // Disparar evento de impresión
+    const printEvent = new CustomEvent("print-invoice", { 
+      detail: baseData 
+    });
+    window.dispatchEvent(printEvent);
+    
+    // Esperar a que React procese el cambio
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Imprimir
+    window.print();
+    
+  } catch (error) {
+    console.error('❌ Error al imprimir:', error);
+    showError(`Error al generar el reporte: ${error.message}`);
   }
+}
 
   // 🔥 NUEVO: Función para obtener recomendaciones inteligentes
   function obtenerRecomendaciones() {
