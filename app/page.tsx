@@ -7619,16 +7619,7 @@ export default function Page() {
             {session.role === "admin" && session.role !== "pedido-online" && tab === "Vendedores" && (
               <VendedoresTab state={state} setState={setState} />
             )}
-           {session.role === "admin" && session.role !== "pedido-online" && tab === "Reportes" && (
-  <ReportesTab 
-    state={state} 
-    setState={setState} 
-    session={session}
-    showError={showError}
-    showSuccess={showSuccess}
-    showInfo={showInfo}
-  />
-)}
+
            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Presupuestos" && (
   <PresupuestosTab 
     state={state} 
