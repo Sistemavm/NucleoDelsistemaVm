@@ -2189,14 +2189,14 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
   return detallePagos.filter(pago => pago.tiene_deuda_pendiente);
 }
 
-function Navbar({ current, setCurrent, role, onLogout }: any) {
+  function Navbar({ current, setCurrent, role, onLogout }: any) {
   const TABS = [
     "Facturacion",
     "Inventario iPhones", 
     "Clientes",
     "Agenda Turnos",
     "Deudores",
-    "Reportes ",
+    "Reportes iPhones",  // ← CAMBIADO: Quitar espacio y poner "Reportes iPhones"
     "Vendedores",
     "Gastos y Devoluciones",
     "Pedidos Online",
@@ -6989,7 +6989,7 @@ if (inv?.type === "Reporte") {
         <div className="flex items-start justify-between">
           <div>
             <div style={{ fontWeight: 800, letterSpacing: 1 }}>REPORTE COMPLETO</div>
-            <div style={{ marginTop: 2 }}>MITOBICEL</div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
           </div>
           <div className="text-right">
             <div><b>Período:</b> {rangoStr}</div>
@@ -7287,7 +7287,7 @@ if (inv?.type === "DetalleDeuda") {
         <div className="flex items-start justify-between">
           <div>
             <div style={{ fontWeight: 800, letterSpacing: 1 }}>DETALLE DE DEUDAS</div>
-            <div style={{ marginTop: 2 }}>MITOBICEL</div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
           </div>
           <div className="text-right">
             <div><b>Fecha:</b> {new Date().toLocaleString("es-AR")}</div>
@@ -7383,7 +7383,7 @@ if (inv?.type === "Devolucion") {
         <div className="flex items-start justify-between">
           <div>
             <div style={{ fontWeight: 800, letterSpacing: 1 }}>COMPROBANTE DE DEVOLUCIÓN</div>
-            <div style={{ marginTop: 2 }}>MITOBICEL</div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
           </div>
           <div className="text-right">
             <div><b>Fecha:</b> {new Date(inv.date_iso).toLocaleString("es-AR")}</div>
@@ -7572,16 +7572,15 @@ const clientDebtTotal = (() => {
 return (
   <div className="only-print print-area p-14">
     <div className="max-w-[780px] mx-auto text-black">
-     <div className="flex items-start justify-between">
+    <div className="flex items-start justify-between">
   <div className="flex items-center gap-4">
-    {/* LOGO */}
+    {/* LOGO - limpio sin borde */}
     <img 
       src="/logo.png" 
       alt="iPhone Store" 
       className="h-20 w-20 rounded-sm"
       style={{ 
-        filter: 'brightness(0) invert(0)',
-        border: '1px solid #000'
+        filter: 'brightness(0) invert(0)' // Solo para que sea negro en impresión
       }}
     />
     <div>
@@ -7592,13 +7591,6 @@ return (
         marginBottom: '2px'
       }}>
         {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
-      </div>
-      <div style={{ 
-        fontSize: '12px', 
-        color: '#666',
-        fontStyle: 'italic'
-      }}>
-        Especialistas en iPhones
       </div>
     </div>
   </div>
@@ -8224,8 +8216,8 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
-  <ReportesTab 
+          {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
+  <ReportesiPhoneTab 
     state={state} 
     setState={setState} 
     session={session}
