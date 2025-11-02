@@ -7587,11 +7587,12 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
     }
   }
 
-  // Función de login local (backup)
+  // Función de login local
   function handleLocalLogin() {
     console.log('🔄 Usando login local');
     
     if (role === "admin") {
+      // Solo verifica la clave del admin, sin usuario
       if (password === adminKey) {
         onLogin({ role: "admin", name: "Admin", id: "admin" });
       } else {
@@ -7614,7 +7615,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
       return;
     }
 
-    // Login local para clientes
+    // Login para cliente y pedido-online - solo con número de cliente
     if (role === "cliente" || role === "pedido-online") {
       const num = parseInt(email, 10);
       if (!num) {
@@ -7637,60 +7638,78 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-purple-500/30">
+        {/* Logo en lugar de texto */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">VM-ELECTRONICA</h1>
-          <p className="text-gray-600 mt-2">Sistema de Gestión</p>
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/logo.png" 
+              alt="iPhone Store" 
+              className="h-20 w-20 rounded-lg"
+            />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Sistema de Gestión</h1>
+          <p className="text-purple-300 text-sm">Seleccione su tipo de acceso</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Rol
+            <label className="block text-sm font-medium text-purple-300 mb-2">
+              Tipo de Acceso
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-3 bg-slate-700 border border-purple-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
             >
-              <option value="vendedor">Vendedor</option>
-              <option value="admin">Administrador</option>
-              <option value="cliente">Cliente</option>
-              <option value="pedido-online">Pedido Online</option>
+              <option value="vendedor" className="bg-slate-700">Vendedor</option>
+              <option value="admin" className="bg-slate-700">Administrador</option>
+              <option value="cliente" className="bg-slate-700">Cliente Presencial</option>
+              <option value="pedido-online" className="bg-slate-700">Pedido Online</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {role === "admin" ? "Usuario" : 
-               role === "vendedor" ? "Email o ID" : 
+            <label className="block text-sm font-medium text-purple-300 mb-2">
+              {role === "admin" ? "Acceso Administrador" : 
+               role === "vendedor" ? "Email o ID de Vendedor" : 
                "Número de Cliente"}
             </label>
             <input
               type={role === "cliente" || role === "pedido-online" ? "number" : "text"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-3 bg-slate-700 border border-purple-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-purple-300/50"
               placeholder={
-                role === "admin" ? "admin" : 
-                role === "vendedor" ? "email o ID" : 
-                "número de cliente"
+                role === "admin" ? "Solo requiere clave" : 
+                role === "vendedor" ? "Ingrese email o ID..." : 
+                "Ingrese su número de cliente..."
               }
-              required
+              required={role !== "admin"}
+              disabled={role === "admin"}
             />
+            {role === "admin" && (
+              <p className="text-xs text-purple-300/70 mt-1">Solo requiere clave de administrador</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {role === "cliente" || role === "pedido-online" ? "DNI" : "Contraseña"}
+            <label className="block text-sm font-medium text-purple-300 mb-2">
+              {role === "admin" ? "Clave de Administrador" :
+               role === "vendedor" ? "Clave de Vendedor" : 
+               "DNI del Cliente"}
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={role === "cliente" || role === "pedido-online" ? "DNI" : "contraseña"}
+              className="w-full px-3 py-3 bg-slate-700 border border-purple-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-purple-300/50"
+              placeholder={
+                role === "admin" ? "Ingrese clave admin..." :
+                role === "vendedor" ? "Ingrese su clave..." : 
+                "Ingrese su DNI..."
+              }
               required
             />
           </div>
@@ -7698,13 +7717,31 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 transition-all duration-200 font-semibold text-lg shadow-lg"
           >
-            {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Iniciando sesión...
+              </div>
+            ) : (
+              "Ingresar al Sistema"
+            )}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-xs text-gray-500">
+        {/* Información de ayuda */}
+        <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-purple-500/30">
+          <h3 className="text-sm font-semibold text-purple-300 mb-2">Información de acceso:</h3>
+          <ul className="text-xs text-purple-200/80 space-y-1">
+            <li>• <span className="text-white">Admin:</span> Solo requiere clave</li>
+            <li>• <span className="text-white">Vendedor:</span> Email/ID + Clave</li>
+            <li>• <span className="text-white">Cliente:</span> Número + DNI</li>
+            <li>• <span className="text-white">Pedido Online:</span> Número + DNI</li>
+          </ul>
+        </div>
+
+        <div className="mt-8 text-center text-xs text-purple-300/60">
           {APP_TITLE}
         </div>
       </div>
