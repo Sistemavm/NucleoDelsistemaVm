@@ -7646,7 +7646,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
             <img 
               src="/logo.png" 
               alt="iPhone Store" 
-              className="h-28 w-28 rounded-lg"  {/* Cambiado de h-20 w-20 a h-28 w-28 */}
+              className="h-28 w-28 rounded-lg"
             />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Sistema de Gestión</h1>
@@ -7747,7 +7747,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
       </div>
     </div>
   );
-  }
+}
 // ... código anterior ...
 
 /* ===== Página principal ===== */
