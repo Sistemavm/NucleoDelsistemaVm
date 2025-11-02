@@ -7638,30 +7638,30 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-purple-500/30">
-        {/* Logo en lugar de texto */}
+    <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-green-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-emerald-500/30">
+        {/* Logo agrandado */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <img 
               src="/logo.png" 
               alt="iPhone Store" 
-              className="h-20 w-20 rounded-lg"
+              className="h-28 w-28 rounded-lg"  {/* Cambiado de h-20 w-20 a h-28 w-28 */}
             />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Sistema de Gestión</h1>
-          <p className="text-purple-300 text-sm">Seleccione su tipo de acceso</p>
+          <p className="text-emerald-300 text-sm">Seleccione su tipo de acceso</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-purple-300 mb-2">
+            <label className="block text-sm font-medium text-emerald-300 mb-2">
               Tipo de Acceso
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-3 bg-slate-700 border border-purple-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+              className="w-full px-3 py-3 bg-slate-700 border border-emerald-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-white"
             >
               <option value="vendedor" className="bg-slate-700">Vendedor</option>
               <option value="admin" className="bg-slate-700">Administrador</option>
@@ -7671,7 +7671,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-purple-300 mb-2">
+            <label className="block text-sm font-medium text-emerald-300 mb-2">
               {role === "admin" ? "Acceso Administrador" : 
                role === "vendedor" ? "Email o ID de Vendedor" : 
                "Número de Cliente"}
@@ -7680,7 +7680,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
               type={role === "cliente" || role === "pedido-online" ? "number" : "text"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-3 bg-slate-700 border border-purple-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-purple-300/50"
+              className="w-full px-3 py-3 bg-slate-700 border border-emerald-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-white placeholder-emerald-300/50"
               placeholder={
                 role === "admin" ? "Solo requiere clave" : 
                 role === "vendedor" ? "Ingrese email o ID..." : 
@@ -7690,12 +7690,12 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
               disabled={role === "admin"}
             />
             {role === "admin" && (
-              <p className="text-xs text-purple-300/70 mt-1">Solo requiere clave de administrador</p>
+              <p className="text-xs text-emerald-300/70 mt-1">Solo requiere clave de administrador</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-purple-300 mb-2">
+            <label className="block text-sm font-medium text-emerald-300 mb-2">
               {role === "admin" ? "Clave de Administrador" :
                role === "vendedor" ? "Clave de Vendedor" : 
                "DNI del Cliente"}
@@ -7704,7 +7704,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-3 bg-slate-700 border border-purple-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-purple-300/50"
+              className="w-full px-3 py-3 bg-slate-700 border border-emerald-500/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-white placeholder-emerald-300/50"
               placeholder={
                 role === "admin" ? "Ingrese clave admin..." :
                 role === "vendedor" ? "Ingrese su clave..." : 
@@ -7717,7 +7717,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 transition-all duration-200 font-semibold text-lg shadow-lg"
+            className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 px-4 rounded-lg hover:from-emerald-700 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 transition-all duration-200 font-semibold text-lg shadow-lg"
           >
             {loading ? (
               <div className="flex items-center justify-center">
@@ -7731,9 +7731,9 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
         </form>
 
         {/* Información de ayuda */}
-        <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-purple-500/30">
-          <h3 className="text-sm font-semibold text-purple-300 mb-2">Información de acceso:</h3>
-          <ul className="text-xs text-purple-200/80 space-y-1">
+        <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-emerald-500/30">
+          <h3 className="text-sm font-semibold text-emerald-300 mb-2">Información de acceso:</h3>
+          <ul className="text-xs text-emerald-200/80 space-y-1">
             <li>• <span className="text-white">Admin:</span> Solo requiere clave</li>
             <li>• <span className="text-white">Vendedor:</span> Email/ID + Clave</li>
             <li>• <span className="text-white">Cliente:</span> Número + DNI</li>
@@ -7741,13 +7741,12 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
           </ul>
         </div>
 
-        <div className="mt-8 text-center text-xs text-purple-300/60">
+        <div className="mt-8 text-center text-xs text-emerald-300/60">
           {APP_TITLE}
         </div>
       </div>
     </div>
   );
-}
 // ... código anterior ...
 
 /* ===== Página principal ===== */
