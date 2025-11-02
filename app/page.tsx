@@ -7637,18 +7637,18 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
     }
   }
 
-  return (
+   return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-green-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-emerald-500/30">
         {/* Logo agrandado */}
         <div className="text-center mb-8">
-        <div className="flex justify-center mb-6">
-  <img 
-    src="/logo.png" 
-    alt="iPhone Store" 
-    className="h-40 w-40 rounded-lg"  {/* Cambiado a h-40 w-40 (más del doble del tamaño original) */}
-  />
-</div>
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/logo.png" 
+              alt="iPhone Store" 
+              className="h-40 w-40 rounded-lg"
+            />
+          </div>
           <h1 className="text-2xl font-bold text-white mb-2">Sistema de Gestión</h1>
           <p className="text-emerald-300 text-sm">Seleccione su tipo de acceso</p>
         </div>
