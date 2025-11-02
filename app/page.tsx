@@ -4249,50 +4249,100 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
 
   // 🔥 CORREGIDO: Función de impresión simplificada y segura
 // 🔥 VERSIÓN COMPLETA Y ROBUSTA
+// 🔥 FUNCIÓN MEJORADA: Reportes separados por tipo
 async function imprimirReporte() {
   try {
-    // Preparar datos base
-    const baseData = {
+    let reporteData: any = {
       type: "Reporte",
-      titulo: `Reporte iPhones - ${tipoReporte}`,
+      subtipo: tipoReporte, // 👈 NUEVO: identificar el tipo específico
+      titulo: `Reporte iPhones - ${tipoReporte.toUpperCase()}`,
       fechaInicio,
       fechaFin,
       periodo: `${fechaInicio} a ${fechaFin}`,
-      ventas: ventasiPhone || [],
-      gastos: state.gastos || [],
-      devoluciones: state.devoluciones || [],
-      transferenciasPorAlias: [],
-      deudaDelDiaDetalle: [],
-      deudoresActivos: [],
-      pagosDeudoresDetallados: [],
-      resumen: {
-        ventas: metricasVentas.totalVentas,
-        deudaDelDia: 0,
-        efectivoNeto: ventasiPhone.reduce((sum: number, v: any) => 
-          sum + parseNum(v?.payments?.cash || 0), 0),
-        transferencias: ventasiPhone.reduce((sum: number, v: any) => 
-          sum + parseNum(v?.payments?.transfer || 0), 0),
-        flujoCajaEfectivo: 0
-      }
+      fechaGeneracion: new Date().toLocaleString("es-AR")
     };
 
-    console.log("📊 Generando reporte:", baseData);
+    // 👇👇👇 DATOS ESPECÍFICOS POR TIPO DE REPORTE
+    switch (tipoReporte) {
+      case "ventas":
+        reporteData = {
+          ...reporteData,
+          ventas: ventasiPhone,
+          metricas: metricasVentas,
+          resumen: {
+            totalVentas: metricasVentas.totalVentas,
+            totalUnidades: metricasVentas.totalUnidades,
+            gananciaTotal: metricasVentas.gananciaTotal,
+            ticketPromedio: metricasVentas.ticketPromedio,
+            comisionesTotal: metricasVentas.comisionesTotal
+          }
+        };
+        break;
+
+      case "inventario":
+        reporteData = {
+          ...reporteData,
+          metricas: metricasInventario,
+          productosStock: productosStock,
+          resumen: {
+            totalProductos: metricasInventario.totalProductos,
+            capitalInvertido: metricasInventario.capitalInvertido,
+            valorVentaTotal: metricasInventario.valorVentaTotal
+          }
+        };
+        break;
+
+      case "rentabilidad":
+        reporteData = {
+          ...reporteData,
+          metricas: metricasRentabilidad,
+          ventas: ventasiPhone,
+          resumen: {
+            margenGananciaPromedio: metricasRentabilidad.margenGananciaPromedio,
+            roiInventario: metricasRentabilidad.roiInventario,
+            gananciaTotal: metricasVentas.gananciaTotal
+          }
+        };
+        break;
+
+      case "tendencias":
+        reporteData = {
+          ...reporteData,
+          metricas: metricasTendencias,
+          ventas: ventasiPhone,
+          resumen: {
+            totalVentas: metricasVentas.totalVentas,
+            crecimientoReciente: metricasTendencias.crecimientoMensual.slice(-1)[0]?.crecimiento || 0
+          }
+        };
+        break;
+
+      case "abc":
+        reporteData = {
+          ...reporteData,
+          analisisABC: metricasInventario.analisisABC,
+          resumen: {
+            totalProductos: metricasInventario.totalProductos,
+            capitalInvertido: metricasInventario.capitalInvertido,
+            categoriaA: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'A').length,
+            categoriaB: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'B').length,
+            categoriaC: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'C').length
+          }
+        };
+        break;
+    }
+
+    console.log("📊 Generando reporte específico:", reporteData);
 
     // Disparar evento de impresión
-    const printEvent = new CustomEvent("print-invoice", { 
-      detail: baseData 
-    });
-    window.dispatchEvent(printEvent);
+    window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
     
-    // Esperar a que React procese el cambio
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Imprimir
+    await new Promise(resolve => setTimeout(resolve, 500));
     window.print();
     
   } catch (error) {
-    console.error('❌ Error al imprimir:', error);
-    showError(`Error al generar el reporte: ${error.message}`);
+    console.error('Error al imprimir:', error);
+    showError('Error al generar el reporte. Intenta nuevamente.');
   }
 }
 
@@ -6765,6 +6815,376 @@ if (inv?.type === "DetalleDeuda") {
         </div>
 
         <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
+      </div>
+    </div>
+  );
+}
+  // ==== PLANTILLA: REPORTE DE INVENTARIO ====
+if (inv?.type === "Reporte" && inv?.subtipo === "inventario") {
+  const fmt = (n: number) => money(parseNum(n));
+  
+  return (
+    <div className="only-print print-area p-14">
+      <div className="max-w-[780px] mx-auto text-black">
+        <div className="flex items-start justify-between">
+          <div>
+            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+              REPORTE DE INVENTARIO - iPHONES
+            </div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+          </div>
+          <div className="text-right text-sm">
+            <div><b>Período:</b> {inv.periodo}</div>
+            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+          </div>
+        </div>
+
+        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+        {/* RESUMEN INVENTARIO */}
+        <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '20px', color: '#2563eb' }}>{inv.resumen.totalProductos}</div>
+            <div style={{ fontWeight: 600 }}>PRODUCTOS EN STOCK</div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '20px', color: '#d97706' }}>{fmt(inv.resumen.capitalInvertido)}</div>
+            <div style={{ fontWeight: 600 }}>CAPITAL INVERTIDO</div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>{fmt(inv.resumen.valorVentaTotal)}</div>
+            <div style={{ fontWeight: 600 }}>VALOR DE VENTA</div>
+          </div>
+        </div>
+
+        {/* STOCK POR MODELO */}
+        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>📦 STOCK POR MODELO Y CAPACIDAD</div>
+        
+        <table className="print-table text-sm" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Modelo</th>
+              <th style={{ textAlign: 'center' }}>Stock</th>
+              <th style={{ textAlign: 'right' }}>Valor Inventario</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(inv.metricas.stockPorModeloGB)
+              .sort(([,a]: any, [,b]: any) => b - a)
+              .slice(0, 15)
+              .map(([modelo, cantidad]: any) => (
+                <tr key={modelo}>
+                  <td>{modelo}</td>
+                  <td style={{ textAlign: 'center' }}>{cantidad} unidades</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {fmt(inv.productosStock
+                      .filter((p: any) => `${p.modelo} ${p.capacidad}` === modelo)
+                      .reduce((sum: number, p: any) => sum + p.precio_compra + p.costo_reparacion, 0)
+                    )}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+
+        {/* PRODUCTOS CON MÁS TIEMPO */}
+        {inv.metricas.productosViejos.length > 0 && (
+          <>
+            <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ PRODUCTOS CON MÁS DE 30 DÍAS EN STOCK</div>
+            
+            <table className="print-table text-sm" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Producto</th>
+                  <th style={{ textAlign: 'center' }}>Días</th>
+                  <th style={{ textAlign: 'right' }}>Costo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.metricas.productosViejos.slice(0, 10).map((producto: any) => (
+                  <tr key={producto.id}>
+                    <td>{producto.name}</td>
+                    <td style={{ textAlign: 'center', color: producto.diasEnStock > 60 ? '#dc2626' : '#d97706' }}>
+                      {producto.diasEnStock} días
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {fmt(producto.precio_compra + producto.costo_reparacion)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+      </div>
+    </div>
+  );
+}
+
+// ==== PLANTILLA: ANÁLISIS ABC ====
+if (inv?.type === "Reporte" && inv?.subtipo === "abc") {
+  const fmt = (n: number) => money(parseNum(n));
+  
+  return (
+    <div className="only-print print-area p-14">
+      <div className="max-w-[780px] mx-auto text-black">
+        <div className="flex items-start justify-between">
+          <div>
+            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+              ANÁLISIS ABC - CLASIFICACIÓN DE INVENTARIO
+            </div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+          </div>
+          <div className="text-right text-sm">
+            <div><b>Período:</b> {inv.periodo}</div>
+            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+          </div>
+        </div>
+
+        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+        {/* RESUMEN CATEGORÍAS ABC */}
+        <div className="grid grid-cols-3 gap-4 text-center mb-6">
+          <div className="p-4 bg-red-900/10 border-2 border-red-700 rounded-lg">
+            <div style={{ fontWeight: 700, fontSize: '24px', color: '#dc2626' }}>A</div>
+            <div style={{ fontWeight: 600 }}>ALTA PRIORIDAD</div>
+            <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaA} productos</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>80% del valor</div>
+          </div>
+          <div className="p-4 bg-amber-900/10 border-2 border-amber-700 rounded-lg">
+            <div style={{ fontWeight: 700, fontSize: '24px', color: '#d97706' }}>B</div>
+            <div style={{ fontWeight: 600 }}>MEDIA PRIORIDAD</div>
+            <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaB} productos</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>15% del valor</div>
+          </div>
+          <div className="p-4 bg-green-900/10 border-2 border-green-700 rounded-lg">
+            <div style={{ fontWeight: 700, fontSize: '24px', color: '#059669' }}>C</div>
+            <div style={{ fontWeight: 600 }}>BAJA PRIORIDAD</div>
+            <div style={{ fontSize: '14px' }}>{inv.resumen.categoriaC} productos</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>5% del valor</div>
+          </div>
+        </div>
+
+        {/* DETALLE PRODUCTOS CATEGORÍA A */}
+        <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>🔴 PRODUCTOS CATEGORÍA A (ALTA PRIORIDAD)</div>
+        
+        <table className="print-table text-sm" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Producto</th>
+              <th style={{ textAlign: 'center' }}>Ranking</th>
+              <th style={{ textAlign: 'right' }}>Valor Inventario</th>
+              <th style={{ textAlign: 'center' }}>Rotación</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inv.analisisABC
+              .filter((p: any) => p.categoria === 'A')
+              .slice(0, 15)
+              .map((producto: any) => (
+                <tr key={producto.id}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{producto.name}</div>
+                    <div style={{ fontSize: '10px', color: '#666' }}>
+                      {producto.modelo} {producto.capacidad} • {producto.grado}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>#{producto.ranking}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(producto.valorInventario)}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span style={{ 
+                      color: producto.rotacion > 0 ? '#059669' : '#dc2626',
+                      fontWeight: 600
+                    }}>
+                      {producto.rotacion}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+
+        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+      </div>
+    </div>
+  );
+}
+
+// ==== PLANTILLA: REPORTE DE RENTABILIDAD ====
+if (inv?.type === "Reporte" && inv?.subtipo === "rentabilidad") {
+  const fmt = (n: number) => money(parseNum(n));
+  
+  return (
+    <div className="only-print print-area p-14">
+      <div className="max-w-[780px] mx-auto text-black">
+        <div className="flex items-start justify-between">
+          <div>
+            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+              REPORTE DE RENTABILIDAD - iPHONES
+            </div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+          </div>
+          <div className="text-right text-sm">
+            <div><b>Período:</b> {inv.periodo}</div>
+            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+          </div>
+        </div>
+
+        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+        {/* RESUMEN RENTABILIDAD */}
+        <div className="grid grid-cols-3 gap-4 text-center mb-6" style={{ border: "2px solid #000", padding: 12 }}>
+          <div>
+            <div style={{ 
+              fontWeight: 700, 
+              fontSize: '20px', 
+              color: inv.resumen.margenGananciaPromedio >= 20 ? '#059669' : 
+                     inv.resumen.margenGananciaPromedio >= 10 ? '#d97706' : '#dc2626' 
+            }}>
+              {inv.resumen.margenGananciaPromedio.toFixed(1)}%
+            </div>
+            <div style={{ fontWeight: 600 }}>MARGEN PROMEDIO</div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '20px', color: '#059669' }}>
+              {fmt(inv.resumen.gananciaTotal)}
+            </div>
+            <div style={{ fontWeight: 600 }}>GANANCIA TOTAL</div>
+          </div>
+          <div>
+            <div style={{ 
+              fontWeight: 700, 
+              fontSize: '20px', 
+              color: inv.resumen.roiInventario >= 50 ? '#059669' : 
+                     inv.resumen.roiInventario >= 20 ? '#d97706' : '#dc2626' 
+            }}>
+              {inv.resumen.roiInventario.toFixed(1)}%
+            </div>
+            <div style={{ fontWeight: 600 }}>ROI INVENTARIO</div>
+          </div>
+        </div>
+
+        {/* RENTABILIDAD POR MODELO */}
+        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>💰 RENTABILIDAD POR MODELO</div>
+        
+        <table className="print-table text-sm" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Modelo</th>
+              <th style={{ textAlign: 'right' }}>Ventas</th>
+              <th style={{ textAlign: 'right' }}>Ganancia</th>
+              <th style={{ textAlign: 'center' }}>Margen</th>
+              <th style={{ textAlign: 'center' }}>Unidades</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(inv.metricas.rentabilidadPorModeloGB)
+              .sort(([,a]: any, [,b]: any) => b.ganancia - a.ganancia)
+              .slice(0, 12)
+              .map(([modelo, datos]: any) => (
+                <tr key={modelo}>
+                  <td>{modelo}</td>
+                  <td style={{ textAlign: 'right' }}>{fmt(datos.ventas)}</td>
+                  <td style={{ textAlign: 'right' }}>{fmt(datos.ganancia)}</td>
+                  <td style={{ 
+                    textAlign: 'center',
+                    color: (datos.ganancia / datos.ventas * 100) >= 20 ? '#059669' : 
+                           (datos.ganancia / datos.ventas * 100) >= 10 ? '#d97706' : '#dc2626',
+                    fontWeight: 600
+                  }}>
+                    {((datos.ganancia / datos.ventas) * 100).toFixed(1)}%
+                  </td>
+                  <td style={{ textAlign: 'center' }}>{datos.unidades}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+
+        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
+      </div>
+    </div>
+  );
+}
+
+// ==== PLANTILLA: REPORTE DE TENDENCIAS ====
+if (inv?.type === "Reporte" && inv?.subtipo === "tendencias") {
+  const fmt = (n: number) => money(parseNum(n));
+  
+  return (
+    <div className="only-print print-area p-14">
+      <div className="max-w-[780px] mx-auto text-black">
+        <div className="flex items-start justify-between">
+          <div>
+            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+              REPORTE DE TENDENCIAS - iPHONES
+            </div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+          </div>
+          <div className="text-right text-sm">
+            <div><b>Período:</b> {inv.periodo}</div>
+            <div><b>Generado:</b> {inv.fechaGeneracion}</div>
+          </div>
+        </div>
+
+        <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px" }} />
+
+        {/* TENDENCIAS MENSUALES */}
+        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>📈 TENDENCIAS MENSUALES</div>
+        
+        <table className="print-table text-sm" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Mes</th>
+              <th style={{ textAlign: 'right' }}>Ventas</th>
+              <th style={{ textAlign: 'center' }}>Crecimiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inv.metricas.crecimientoMensual.map((mes: any, index: number) => (
+              <tr key={mes.mes}>
+                <td>{mes.mes}</td>
+                <td style={{ textAlign: 'right' }}>{fmt(mes.ventas)}</td>
+                <td style={{ 
+                  textAlign: 'center',
+                  color: mes.crecimiento >= 0 ? '#059669' : '#dc2626',
+                  fontWeight: 600
+                }}>
+                  {mes.crecimiento >= 0 ? '↗' : '↘'} {Math.abs(mes.crecimiento)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* DÍAS CON MÁS VENTAS */}
+        <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>📊 DÍAS CON MÁS VENTAS</div>
+        
+        <table className="print-table text-sm" style={{ width: '100%' }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Fecha</th>
+              <th style={{ textAlign: 'right' }}>Ventas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inv.metricas.diasConMasVentas.map(([dia, monto]: any) => (
+              <tr key={dia}>
+                <td>{new Date(dia).toLocaleDateString('es-AR')}</td>
+                <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(monto)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="mt-8 text-xs text-center">{APP_TITLE}</div>
       </div>
     </div>
   );
