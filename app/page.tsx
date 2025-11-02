@@ -2190,18 +2190,19 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
 }
 
   function Navbar({ current, setCurrent, role, onLogout }: any) {
-  const TABS = [
-    "Facturacion",
-    "Inventario iPhones", 
-    "Clientes",
-    "Agenda Turnos",
-    "Deudores",
-    "Reportes iPhones",  // ← CAMBIADO: Quitar espacio y poner "Reportes iPhones"
-    "Vendedores",
-    "Gastos y Devoluciones",
-    "Pedidos Online",
-    "Cola"
-  ];
+  // En el array TABS del Navbar, asegúrate que diga:
+const TABS = [
+  "Facturacion",
+  "Inventario iPhones", 
+  "Clientes",
+  "Agenda Turnos",
+  "Deudores",
+  "Reportes",  // ← Debe decir "Reportes" sin "iPhones"
+  "Vendedores",
+  "Gastos y Devoluciones",
+  "Pedidos Online",
+  "Cola"
+];
 
   const visibleTabs =
     role === "admin"
@@ -7581,8 +7582,8 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-          {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes iPhones" && (
-  <ReportesiPhoneTab 
+       {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes" && (
+  <ReportesTab 
     state={state} 
     setState={setState} 
     session={session}
