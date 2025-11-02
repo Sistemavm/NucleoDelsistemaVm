@@ -7747,6 +7747,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
       </div>
     </div>
   );
+  }
 // ... código anterior ...
 
 /* ===== Página principal ===== */
