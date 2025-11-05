@@ -2409,6 +2409,11 @@ function FacturacionTab({ state, setState, session, showError, showSuccess, show
   const [clientId, setClientId] = useState(state.clients[0]?.id || "");
   const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
   const [priceList, setPriceList] = useState("1");
+  const [filtroModelo, setFiltroModelo] = useState("Todos");
+const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
+const [filtroBateria, setFiltroBateria] = useState("Todos");
+const [filtroGrado, setFiltroGrado] = useState("Todos");
+const [query, setQuery] = useState("");
  const [filtroModelo, setFiltroModelo] = useState("Todos");
 const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
 const [filtroBateria, setFiltroBateria] = useState("Todos");
