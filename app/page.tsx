@@ -2923,17 +2923,21 @@ const toPay = Math.max(0, total - applied);
 }
 
 /* Clientes */
-function ClientesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [name, setName] = useState("");
+function ClientesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
+  const [name, setName] = useState("");
   const [number, setNumber] = useState(ensureUniqueNumber(state.clients));
   const [deudaInicial, setDeudaInicial] = useState(""); // 👈 NUEVO ESTADO
   const [saldoFavorInicial, setSaldoFavorInicial] = useState(""); // 👈 NUEVO ESTADO
   const [modoAdmin, setModoAdmin] = useState(false); // 👈 NUEVO ESTADO
-                                                                                           const [apellido, setApellido] = useState("");
-const [telefono, setTelefono] = useState("");
-const [email, setEmail] = useState("");
-const [dni, setDni] = useState("");
-const [direccion, setDireccion] = useState("");
-   // 👇👇👇 PEGA LA FUNCIÓN AQUÍ - JUSTO DESPUÉS DE LOS useState
+  
+  // 👇👇👇 SOLO UNA DECLARACIÓN DE ESTOS ESTADOS - ELIMINA LA SEGUNDA
+  const [apellido, setApellido] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
+  const [dni, setDni] = useState("");
+  const [direccion, setDireccion] = useState("");
+
+  // 👇👇👇 PEGA LA FUNCIÓN AQUÍ - JUSTO DESPUÉS DE LOS useState
   async function limpiarDeudasInconsistentes() {
     if (!confirm("¿Estás seguro de limpiar todas las deudas inconsistentes? Esto revisará todos los clientes y ajustará las deudas según los pagos registrados.")) return;
 
@@ -2979,55 +2983,56 @@ const [direccion, setDireccion] = useState("");
     }
   }
 
-// Estados adicionales para el formulario de cliente
-const [apellido, setApellido] = useState("");
-const [telefono, setTelefono] = useState("");
-const [email, setEmail] = useState("");
-const [dni, setDni] = useState("");
-const [direccion, setDireccion] = useState("");
+  // ❌❌❌ ELIMINA ESTA PARTE COMPLETA - SON DECLARACIONES DUPLICADAS ❌❌❌
+  // Estados adicionales para el formulario de cliente
+  // const [apellido, setApellido] = useState("");
+  // const [telefono, setTelefono] = useState("");
+  // const [email, setEmail] = useState("");
+  // const [dni, setDni] = useState("");
+  // const [direccion, setDireccion] = useState("");
 
-async function addClient() {
-  if (!name.trim()) return;
-  
-  const newClient = {
-    id: "c" + Math.random().toString(36).slice(2, 8),
-    number: parseInt(String(number), 10),
-    name: name.trim(),
-    apellido: apellido.trim(),
-    telefono: telefono.trim(),
-    email: email.trim(),
-    dni: dni.trim(),
-    direccion: direccion.trim(),
-    debt: modoAdmin ? parseNum(deudaInicial) : 0,
-    saldo_favor: modoAdmin ? parseNum(saldoFavorInicial) : 0,
-    creado_por: session?.name || "admin",
-    fecha_creacion: todayISO(),
-    deuda_manual: modoAdmin && parseNum(deudaInicial) > 0,
-    updated_at: todayISO()
-  };
+  async function addClient() {
+    if (!name.trim()) return;
+    
+    const newClient = {
+      id: "c" + Math.random().toString(36).slice(2, 8),
+      number: parseInt(String(number), 10),
+      name: name.trim(),
+      apellido: apellido.trim(),
+      telefono: telefono.trim(),
+      email: email.trim(),
+      dni: dni.trim(),
+      direccion: direccion.trim(),
+      debt: modoAdmin ? parseNum(deudaInicial) : 0,
+      saldo_favor: modoAdmin ? parseNum(saldoFavorInicial) : 0,
+      creado_por: session?.name || "admin",
+      fecha_creacion: todayISO(),
+      deuda_manual: modoAdmin && parseNum(deudaInicial) > 0,
+      updated_at: todayISO()
+    };
 
-  const st = clone(state);
-  st.clients.push(newClient);
-  setState(st);
-  
-  // Limpiar formulario
-  setName("");
-  setApellido("");
-  setTelefono("");
-  setEmail("");
-  setDni("");
-  setDireccion("");
-  setNumber(ensureUniqueNumber(st.clients));
-  setDeudaInicial("");
-  setSaldoFavorInicial("");
-  setModoAdmin(false);
+    const st = clone(state);
+    st.clients.push(newClient);
+    setState(st);
+    
+    // Limpiar formulario
+    setName("");
+    setApellido("");
+    setTelefono("");
+    setEmail("");
+    setDni("");
+    setDireccion("");
+    setNumber(ensureUniqueNumber(st.clients));
+    setDeudaInicial("");
+    setSaldoFavorInicial("");
+    setModoAdmin(false);
 
-  if (hasSupabase) {
-    await supabase.from("clients").insert(newClient);
+    if (hasSupabase) {
+      await supabase.from("clients").insert(newClient);
+    }
+
+    showSuccess(`👤 Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'correctamente'}`);
   }
-
-  showSuccess(`👤 Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'correctamente'}`);
-}
 // Función para que admin agregue deuda manualmente a cliente existente - CORREGIDA
 // ✅ FUNCIÓN CORREGIDA - agregarDeudaManual
 async function agregarDeudaManual(clienteId: string) {
