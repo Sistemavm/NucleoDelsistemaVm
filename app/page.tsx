@@ -2208,15 +2208,15 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
   return detallePagos.filter(pago => pago.tiene_deuda_pendiente);
 }
 
-  function Navbar({ current, setCurrent, role, onLogout }: any) {
+ function Navbar({ current, setCurrent, role, onLogout }: any) {
   const TABS = [
     "Facturación",
     "Inventario iPhones", 
     "Clientes",
     "Agenda Turnos",
     "Deudores",
-    "Reportes",
-    "Vendedores",
+    "Reportes", // Solo para admin
+    "Vendedores", // Solo para admin
     "Gastos y Devoluciones",
     "Pedidos Online",
     "Cola"
@@ -2230,11 +2230,11 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
           "Facturación", 
           "Clientes", 
           "Agenda Turnos", 
-          "Deudores",           // 👈 NUEVO
-          "Reportes", 
-          "Gastos y Devoluciones", // 👈 NUEVO  
+          "Deudores",
+          "Gastos y Devoluciones",  
           "Pedidos Online",
-          "Cola"                // 👈 NUEVO
+          "Cola"
+          // REPORTES ELIMINADO para vendedor
         ]
       : role === "pedido-online"
       ? ["Hacer Pedido"]
@@ -8654,14 +8654,12 @@ export default function Page() {
         ) : (
           <>
             <Navbar current={tab} setCurrent={setTab} role={session.role} onLogout={onLogout} />
+{/* Panel de cliente */}
+{session.role === "cliente" && tab === "Panel" && (
+  <ClientePanel state={state} setState={setState} session={session} />
+)}
 
-            {/* Panel de cliente */}
-            {session.role === "cliente" && tab === "Panel" && (
-              <ClientePanel state={state} setState={setState} session={session} />
-            )}
-
-            {/* 👇👇👇 NUEVO: Panel de Pedidos Online */}
-            {/* 👇👇👇 NUEVO: Panel de Pedidos Online */}
+{/* 👇👇👇 NUEVO: Panel de Pedidos Online */}
 {session.role === "pedido-online" && tab === "Hacer Pedido" && (
   <PedidosOnlineTab 
     state={state} 
@@ -8673,9 +8671,21 @@ export default function Page() {
   />
 )}
 
-            {/* Vendedor / Admin */}
-           
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
+{/* Vendedor / Admin */}
+
+{/* 👇👇👇 AGREGAR FACTURACIÓN AQUÍ - ESTA ES LA LÍNEA QUE FALTA */}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Facturación" && (
+  <FacturacionTab 
+    state={state} 
+    setState={setState} 
+    session={session}
+    showError={showError}
+    showSuccess={showSuccess}
+    showInfo={showInfo}
+  />
+)}
+
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Clientes" && (
   <ClientesTab 
     state={state} 
     setState={setState} 
@@ -8685,7 +8695,7 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Deudores" && (
   <DeudoresTab 
     state={state} 
     setState={setState} 
@@ -8696,8 +8706,8 @@ export default function Page() {
   />
 )}
 
-            {/* 👇👇👇 NUEVAS PESTAÑAS SISTEMA iPHONES - AGREGAR ESTO */}
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
+{/* 👇👇👇 NUEVAS PESTAÑAS SISTEMA iPHONES - AGREGAR ESTO */}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Ventas iPhones" && (
   <VentasiPhoneTab 
     state={state} 
     setState={setState} 
@@ -8706,7 +8716,7 @@ export default function Page() {
     showSuccess={showSuccess}
   />
 )}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Inventario iPhones" && (
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Inventario iPhones" && (
   <ProductosiPhoneTab 
     state={state} 
     setState={setState} 
@@ -8716,7 +8726,7 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Agenda Turnos" && (
   <AgendaTurnosTab 
     state={state} 
     setState={setState} 
@@ -8726,7 +8736,7 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-       {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes" && (
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Reportes" && (
   <ReportesTab 
     state={state} 
     setState={setState} 
@@ -8736,8 +8746,8 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-            {/* Cola */}
-            
+{/* Cola */}
+
 {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Cola" && (
   <ColaTab 
     state={state} 
@@ -8748,11 +8758,11 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-            {session.role === "admin" && session.role !== "pedido-online" && tab === "Vendedores" && (
-              <VendedoresTab state={state} setState={setState} />
-            )}
+{session.role === "admin" && session.role !== "pedido-online" && tab === "Vendedores" && (
+  <VendedoresTab state={state} setState={setState} />
+)}
 
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Presupuestos" && (
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Presupuestos" && (
   <PresupuestosTab 
     state={state} 
     setState={setState} 
@@ -8762,7 +8772,7 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-           {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Gastos y Devoluciones" && (
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Gastos y Devoluciones" && (
   <GastosDevolucionesTab 
     state={state} 
     setState={setState} 
@@ -8772,8 +8782,8 @@ export default function Page() {
     showInfo={showInfo}
   />
 )}
-            {/* 👇👇👇 NUEVA PESTAÑA: Gestión de Pedidos Online */}
-            {session.role !== "cliente" && session.role !== "pedido-online" && tab === "Pedidos Online" && (
+{/* 👇👇👇 NUEVA PESTAÑA: Gestión de Pedidos Online */}
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Pedidos Online" && (
   <GestionPedidosTab 
     state={state} 
     setState={setState} 
@@ -8784,9 +8794,9 @@ export default function Page() {
   />
 )}
 
-            <div className="fixed bottom-3 right-3 text-[10px] text-slate-500 select-none">
-              {hasSupabase ? "Supabase activo" : "Datos en navegador"}
-            </div>
+<div className="fixed bottom-3 right-3 text-[10px] text-slate-500 select-none">
+  {hasSupabase ? "Supabase activo" : "Datos en navegador"}
+</div>
           </>
         )}
       </div>
