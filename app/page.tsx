@@ -2503,12 +2503,33 @@ async function saveAndPrint() {
   if (!client || !vendor) return showError("Seleccioná cliente y vendedor.");
   if (items.length === 0) return showError("Agregá productos al carrito.");
   
-  // Validar stock
-  const validacionStock = validarStockDisponible(state.products, items);
-  if (!validacionStock.valido) {
-    const mensajeError = `No hay suficiente stock para los siguientes productos:\n\n${validacionStock.productosSinStock.join('\n')}`;
-    return showError(mensajeError);
+// ✅ MODIFICACIÓN: Validación de stock especial para iPhones
+const productosSinStock: string[] = [];
+
+for (const item of items) {
+  const producto = state.products.find((p: any) => p.id === item.productId);
+  if (producto) {
+    // Para iPhones, verificar por estado y disponibilidad única
+    if (producto.modelo && producto.modelo.includes("iPhone")) {
+      if (producto.estado !== "EN STOCK") {
+        productosSinStock.push(`${producto.name} - No disponible (Estado: ${producto.estado})`);
+      }
+    } else {
+      // Para productos normales, usar la validación de stock numérico
+      const stockActual = parseNum(producto.stock);
+      const cantidadRequerida = parseNum(item.qty);
+      
+      if (stockActual < cantidadRequerida) {
+        productosSinStock.push(`${producto.name} (Stock: ${stockActual}, Necesario: ${cantidadRequerida})`);
+      }
+    }
   }
+}
+
+if (productosSinStock.length > 0) {
+  const mensajeError = `No hay suficiente stock para los siguientes productos:\n\n${productosSinStock.join('\n')}`;
+  return showError(mensajeError);
+}
   
   const total = calcInvoiceTotal(items);
   const cash  = parseNum(payCash);
@@ -2536,15 +2557,21 @@ async function saveAndPrint() {
 
   // Actualizar cliente
   cl.saldo_favor = saldoActual - saldoAplicado;
-  
-  // Descontar stock
-  items.forEach(item => {
-    const product = st.products.find((p: any) => p.id === item.productId);
-    if (product) {
+// ✅ MODIFICACIÓN: Actualizar estado de iPhones (no stock numérico)
+items.forEach(item => {
+  const product = st.products.find((p: any) => p.id === item.productId);
+  if (product) {
+    if (product.modelo && product.modelo.includes("iPhone")) {
+      // Para iPhones: cambiar estado a VENDIDO
+      product.estado = "VENDIDO";
+      product.vendido_en = id;
+      product.vendido_a = client.id;
+    } else {
+      // Para productos normales: descontar stock numérico
       product.stock = Math.max(0, parseNum(product.stock) - parseNum(item.qty));
     }
-  });
-
+  }
+});
   // 👇👇👇 NUEVO: Crear factura con comisión
   const invoice = {
     id,
@@ -2581,15 +2608,27 @@ async function saveAndPrint() {
       saldo_favor: cl.saldo_favor 
     }).eq("id", client.id);
     
-    // Actualizar stock en Supabase
-    for (const item of items) {
-      const product = st.products.find((p: any) => p.id === item.productId);
-      if (product) {
-        await supabase.from("products")
-          .update({ stock: product.stock })
-          .eq("id", item.productId);
-      }
+  // ✅ MODIFICACIÓN: Actualizar productos en Supabase según el tipo
+for (const item of items) {
+  const product = st.products.find((p: any) => p.id === item.productId);
+  if (product) {
+    if (product.modelo && product.modelo.includes("iPhone")) {
+      // Actualizar estado del iPhone
+      await supabase.from("products")
+        .update({ 
+          estado: "VENDIDO",
+          vendido_en: id,
+          vendido_a: client.id
+        })
+        .eq("id", item.productId);
+    } else {
+      // Actualizar stock de producto normal
+      await supabase.from("products")
+        .update({ stock: product.stock })
+        .eq("id", item.productId);
     }
+  }
+}
     
     await saveCountersSupabase(st.meta);
   }
