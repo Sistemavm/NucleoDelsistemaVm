@@ -2425,11 +2425,7 @@ const [query, setQuery] = useState("");
  
   // Estados para buscadores
   const [clienteSearch, setClienteSearch] = useState("");
-  const [busquedaAvanzada, setBusquedaAvanzada] = useState({
-    seccion: "",
-    nombre: "",
-    codigo: ""
-  });
+
 
   const client = state.clients.find((c: any) => c.id === clientId);
   const vendor = state.vendors.find((v: any) => v.id === vendorId);
@@ -2821,39 +2817,14 @@ const toPay = Math.max(0, total - applied);
   }))}
 />
           
-          <div className="space-y-1">
-            <Input 
-              label="Buscar por nombre" 
-              value={busquedaAvanzada.nombre}
-              onChange={(v: string) => setBusquedaAvanzada({...busquedaAvanzada, nombre: v})}
-              placeholder="Nombre del producto..."
-            />
-            <Input 
-              label="Buscar por código/sección" 
-              value={busquedaAvanzada.seccion}
-              onChange={(v: string) => setBusquedaAvanzada({...busquedaAvanzada, seccion: v})}
-              placeholder="Código o sección..."
-            />
-          </div>
+        
           
           <div className={`${isMobile ? 'text-center' : 'pt-6'}`}>
             <Chip tone="emerald">Productos: {filteredProducts.length}</Chip>
           </div>
         </div>
 
-        {/* BOTONES PARA LIMPIAR BÚSQUEDAS */}
-        {(busquedaAvanzada.nombre || busquedaAvanzada.seccion) && (
-          <div className="flex gap-2 mb-3">
-            <Button 
-              tone="slate" 
-              onClick={() => setBusquedaAvanzada({ nombre: "", seccion: "", codigo: "" })}
-              className="text-xs"
-            >
-              ✕ Limpiar búsquedas
-            </Button>
-          </div>
-        )}
-
+   
         <div className={`${isMobile ? 'space-y-4' : 'grid md:grid-cols-2 gap-4'}`}>
           {/* LISTA DE PRODUCTOS - IGUAL QUE ANTES */}
          {/* LISTA DE iPHONES DISPONIBLES */}
