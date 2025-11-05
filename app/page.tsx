@@ -4194,7 +4194,7 @@ function VendedoresTab({ state, setState }: any) {
   );
 }
 
-            /* Reportes */
+/* Reportes */
 function ReportesTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   const [fechaInicio, setFechaInicio] = useState(() => {
     const date = new Date();
@@ -4441,111 +4441,111 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   const metricasTendencias = analizarTendencias();
 
   // 🔥 CORREGIDO: Función de impresión simplificada y segura
-// 🔥 VERSIÓN COMPLETA Y ROBUSTA
-// 🔥 FUNCIÓN MEJORADA: Reportes separados por tipo
-async function imprimirReporte() {
-  try {
-    let reporteData: any = {
-      type: "Reporte",
-      subtipo: tipoReporte,
-      titulo: `Reporte iPhones - ${tipoReporte.toUpperCase()}`,
-      fechaInicio,
-      fechaFin,
-      periodo: `${fechaInicio} a ${fechaFin}`,
-      fechaGeneracion: new Date().toLocaleString("es-AR")
-    };
+  // 🔥 VERSIÓN COMPLETA Y ROBUSTA
+  // 🔥 FUNCIÓN MEJORADA: Reportes separados por tipo
+  async function imprimirReporte() {
+    try {
+      let reporteData: any = {
+        type: "Reporte",
+        subtipo: tipoReporte,
+        titulo: `Reporte iPhones - ${tipoReporte.toUpperCase()}`,
+        fechaInicio,
+        fechaFin,
+        periodo: `${fechaInicio} a ${fechaFin}`,
+        fechaGeneracion: new Date().toLocaleString("es-AR")
+      };
 
-    // 👇👇👇 MODIFICACIÓN: "ventas" usa reporte completo, los otros específicos
-    switch (tipoReporte) {
-      case "ventas":
-        // VENTAS usa el reporte COMPLETO (igual que antes)
-        reporteData = {
-          ...reporteData,
-          ventas: ventasiPhone,
-          gastos: state.gastos || [],
-          devoluciones: state.devoluciones || [],
-          transferenciasPorAlias: [],
-          deudaDelDiaDetalle: [],
-          deudoresActivos: [],
-          pagosDeudoresDetallados: [],
-          resumen: {
-            ventas: metricasVentas.totalVentas,
-            deudaDelDia: 0,
-            efectivoNeto: ventasiPhone.reduce((sum: number, v: any) => 
-              sum + parseNum(v?.payments?.cash || 0), 0),
-            transferencias: ventasiPhone.reduce((sum: number, v: any) => 
-              sum + parseNum(v?.payments?.transfer || 0), 0),
-            flujoCajaEfectivo: 0
-          }
-        };
-        break;
+      // 👇👇👇 MODIFICACIÓN: "ventas" usa reporte completo, los otros específicos
+      switch (tipoReporte) {
+        case "ventas":
+          // VENTAS usa el reporte COMPLETO (igual que antes)
+          reporteData = {
+            ...reporteData,
+            ventas: ventasiPhone,
+            gastos: state.gastos || [],
+            devoluciones: state.devoluciones || [],
+            transferenciasPorAlias: [],
+            deudaDelDiaDetalle: [],
+            deudoresActivos: [],
+            pagosDeudoresDetallados: [],
+            resumen: {
+              ventas: metricasVentas.totalVentas,
+              deudaDelDia: 0,
+              efectivoNeto: ventasiPhone.reduce((sum: number, v: any) => 
+                sum + parseNum(v?.payments?.cash || 0), 0),
+              transferencias: ventasiPhone.reduce((sum: number, v: any) => 
+                sum + parseNum(v?.payments?.transfer || 0), 0),
+              flujoCajaEfectivo: 0
+            }
+          };
+          break;
 
-      case "inventario":
-        reporteData = {
-          ...reporteData,
-          metricas: metricasInventario,
-          productosStock: productosStock,
-          resumen: {
-            totalProductos: metricasInventario.totalProductos,
-            capitalInvertido: metricasInventario.capitalInvertido,
-            valorVentaTotal: metricasInventario.valorVentaTotal
-          }
-        };
-        break;
+        case "inventario":
+          reporteData = {
+            ...reporteData,
+            metricas: metricasInventario,
+            productosStock: productosStock,
+            resumen: {
+              totalProductos: metricasInventario.totalProductos,
+              capitalInvertido: metricasInventario.capitalInvertido,
+              valorVentaTotal: metricasInventario.valorVentaTotal
+            }
+          };
+          break;
 
-      case "rentabilidad":
-        reporteData = {
-          ...reporteData,
-          metricas: metricasRentabilidad,
-          ventas: ventasiPhone,
-          resumen: {
-            margenGananciaPromedio: metricasRentabilidad.margenGananciaPromedio,
-            roiInventario: metricasRentabilidad.roiInventario,
-            gananciaTotal: metricasVentas.gananciaTotal
-          }
-        };
-        break;
+        case "rentabilidad":
+          reporteData = {
+            ...reporteData,
+            metricas: metricasRentabilidad,
+            ventas: ventasiPhone,
+            resumen: {
+              margenGananciaPromedio: metricasRentabilidad.margenGananciaPromedio,
+              roiInventario: metricasRentabilidad.roiInventario,
+              gananciaTotal: metricasVentas.gananciaTotal
+            }
+          };
+          break;
 
-      case "tendencias":
-        reporteData = {
-          ...reporteData,
-          metricas: metricasTendencias,
-          ventas: ventasiPhone,
-          resumen: {
-            totalVentas: metricasVentas.totalVentas,
-            crecimientoReciente: metricasTendencias.crecimientoMensual.slice(-1)[0]?.crecimiento || 0
-          }
-        };
-        break;
+        case "tendencias":
+          reporteData = {
+            ...reporteData,
+            metricas: metricasTendencias,
+            ventas: ventasiPhone,
+            resumen: {
+              totalVentas: metricasVentas.totalVentas,
+              crecimientoReciente: metricasTendencias.crecimientoMensual.slice(-1)[0]?.crecimiento || 0
+            }
+          };
+          break;
 
-      case "abc":
-        reporteData = {
-          ...reporteData,
-          analisisABC: metricasInventario.analisisABC,
-          resumen: {
-            totalProductos: metricasInventario.totalProductos,
-            capitalInvertido: metricasInventario.capitalInvertido,
-            categoriaA: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'A').length,
-            categoriaB: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'B').length,
-            categoriaC: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'C').length
-          }
-        };
-        break;
+        case "abc":
+          reporteData = {
+            ...reporteData,
+            analisisABC: metricasInventario.analisisABC,
+            resumen: {
+              totalProductos: metricasInventario.totalProductos,
+              capitalInvertido: metricasInventario.capitalInvertido,
+              categoriaA: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'A').length,
+              categoriaB: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'B').length,
+              categoriaC: metricasInventario.analisisABC.filter((p: any) => p.categoria === 'C').length
+            }
+          };
+          break;
+      }
+
+      console.log("📊 Generando reporte específico:", reporteData);
+
+      // Disparar evento de impresión
+      window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      window.print();
+      
+    } catch (error) {
+      console.error('Error al imprimir:', error);
+      showError('Error al generar el reporte. Intenta nuevamente.');
     }
-
-    console.log("📊 Generando reporte específico:", reporteData);
-
-    // Disparar evento de impresión
-    window.dispatchEvent(new CustomEvent("print-invoice", { detail: reporteData } as any));
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    window.print();
-    
-  } catch (error) {
-    console.error('Error al imprimir:', error);
-    showError('Error al generar el reporte. Intenta nuevamente.');
   }
-}
 
   // 🔥 NUEVO: Función para obtener recomendaciones inteligentes
   function obtenerRecomendaciones() {
@@ -4598,7 +4598,108 @@ async function imprimirReporte() {
     return recomendaciones;
   }
 
+  // 🔥 NUEVO: Funciones auxiliares para las nuevas cards
+  const docsEnRango = state.invoices.filter((f: any) => {
+    const fechaDoc = new Date(f.date_iso).toISOString().split('T')[0];
+    return fechaDoc >= fechaInicio && fechaDoc <= fechaFin;
+  });
+
+  const devolucionesPeriodo = state.devoluciones.filter((d: any) => {
+    const fechaDev = new Date(d.date_iso).toISOString().split('T')[0];
+    return fechaDev >= fechaInicio && fechaDev <= fechaFin;
+  });
+
+  const pagosDeudores = state.invoices.filter((f: any) => {
+    const fechaPago = new Date(f.date_iso).toISOString().split('T')[0];
+    return f.tipo === "PagoDeuda" && fechaPago >= fechaInicio && fechaPago <= fechaFin;
+  });
+
+  const gastosPeriodo = state.gastos.filter((g: any) => {
+    const fechaGasto = new Date(g.date_iso).toISOString().split('T')[0];
+    return fechaGasto >= fechaInicio && fechaGasto <= fechaFin;
+  });
+
+  // Cálculos para las nuevas cards
+  const totalGastos = gastosPeriodo.reduce((sum: number, g: any) => sum + parseNum(g.total), 0);
+  const totalGastosEfectivo = gastosPeriodo.reduce((sum: number, g: any) => sum + parseNum(g.efectivo), 0);
+  const totalGastosTransferencia = gastosPeriodo.reduce((sum: number, g: any) => sum + parseNum(g.transferencia), 0);
+
+  const devolucionesMontoEfectivo = devolucionesPeriodo.reduce((sum: number, d: any) => sum + parseNum(d.efectivo), 0);
+  const devolucionesMontoTransfer = devolucionesPeriodo.reduce((sum: number, d: any) => sum + parseNum(d.transferencia), 0);
+  const devolucionesMontoTotal = devolucionesPeriodo.reduce((sum: number, d: any) => sum + parseNum(d.total), 0);
+
+  // Transferencias por alias
+  const transferenciasPorAlias: any[] = [];
+  
+  // Combinar transferencias de ventas y pagos de deudores
+  const todasTransferencias = [
+    ...ventasiPhone.filter((v: any) => parseNum(v?.payments?.transfer) > 0),
+    ...pagosDeudores.filter((p: any) => parseNum(p?.payments?.transfer) > 0)
+  ];
+
+  const porAliasMap = new Map();
+  todasTransferencias.forEach((doc: any) => {
+    const alias = (doc?.payments?.alias || "").trim();
+    const monto = parseNum(doc?.payments?.transfer);
+    if (alias && monto > 0) {
+      if (porAliasMap.has(alias)) {
+        porAliasMap.set(alias, porAliasMap.get(alias) + monto);
+      } else {
+        porAliasMap.set(alias, monto);
+      }
+    }
+  });
+
+  const porAlias = Array.from(porAliasMap, ([alias, total]) => ({ alias, total }));
+
   const recomendaciones = obtenerRecomendaciones();
+
+  // 🔥 CORREGIDO: Función auxiliar para calcular días en stock
+  function calcularDiasEnStock(producto: Producto): number {
+    if (!producto.fecha_ingreso) return 0;
+    const fechaIngreso = new Date(producto.fecha_ingreso);
+    const hoy = new Date();
+    const diffTime = hoy.getTime() - fechaIngreso.getTime();
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // 🔥 CORREGIDO: Función auxiliar para formatear dinero
+  function money(amount: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS'
+    }).format(amount);
+  }
+
+  // 🔥 CORREGIDO: Función auxiliar para parsear números
+  function parseNum(value: any): number {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value.replace(/[^\d.-]/g, ''));
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  }
+
+  // 🔥 CORREGIDO: Función auxiliar para padding de números
+  function pad(num: number): string {
+    return num.toString().padStart(4, '0');
+  }
+
+  // 🔥 CORREGIDO: Funciones para cálculo de deudas
+  function calcularDetalleDeudas(state: any, clientId: string): any[] {
+    return state.invoices.filter((f: any) => 
+      f.client_id === clientId && 
+      f.tipo === "Venta" && 
+      parseNum(f.debt_after) > 0.01
+    );
+  }
+
+  function calcularDeudaTotal(detalleDeudas: any[], cliente: any): number {
+    const deudaFacturas = detalleDeudas.reduce((sum, f) => sum + parseNum(f.debt_after), 0);
+    const saldoFavor = parseNum(cliente.saldo_favor || 0);
+    return Math.max(0, deudaFacturas - saldoFavor);
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-4">
@@ -4935,7 +5036,68 @@ async function imprimirReporte() {
             </div>
           </div>
         </Card>
-      // 👇👇👇 AGREGAR ESTO AL FINAL DE TU REPORTESTAB ACTUAL, justo antes del último cierre
+      )}
+
+      {/* REPORTE DE RENTABILIDAD */}
+      {tipoReporte === "rentabilidad" && (
+        <>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card title="💰 Margen de Ganancia Promedio">
+              <div className="text-2xl font-bold text-emerald-400">
+                {metricasRentabilidad.margenGananciaPromedio.toFixed(1)}%
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Sobre ventas totales
+              </div>
+            </Card>
+
+            <Card title="📈 ROI del Inventario">
+              <div className="text-2xl font-bold text-green-400">
+                {metricasRentabilidad.roiInventario.toFixed(1)}%
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Retorno sobre inversión
+              </div>
+            </Card>
+
+            <Card title="💵 Ganancia Total">
+              <div className="text-2xl font-bold text-blue-400">
+                {money(metricasVentas.gananciaTotal)}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                Ganancia neta del período
+              </div>
+            </Card>
+          </div>
+
+          <Card title="📊 Rentabilidad por Modelo y Capacidad">
+            <div className="space-y-3">
+              {Object.entries(metricasRentabilidad.rentabilidadPorModeloGB)
+                .sort(([,a]: any, [,b]: any) => b.ganancia - a.ganancia)
+                .slice(0, 10)
+                .map(([modelo, datos]: any) => {
+                  const margen = (datos.ganancia / datos.ventas) * 100;
+                  return (
+                    <div key={modelo} className="flex justify-between items-center p-3 border border-slate-700 rounded-lg">
+                      <div>
+                        <div className="font-semibold">{modelo}</div>
+                        <div className="text-xs text-slate-400">
+                          {datos.unidades} unidades • Ventas: {money(datos.ventas)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-emerald-400">{money(datos.ganancia)}</div>
+                        <div className={`text-xs ${margen >= 20 ? 'text-green-400' : margen >= 10 ? 'text-amber-400' : 'text-red-400'}`}>
+                          Margen: {margen.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </Card>
+        </>
+      )}
 
       {/* 👇👇👇 LISTADO DE FACTURAS - AGREGAR ESTA CARD */}
       <Card title="📋 Listado de Facturas">
@@ -5238,7 +5400,6 @@ async function imprimirReporte() {
           </div>
         )}
       </Card>
-      )}
     </div>
   );
 }
