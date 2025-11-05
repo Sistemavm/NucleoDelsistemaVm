@@ -2279,12 +2279,13 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
     "Vendedores", // Solo para admin
     "Gastos y Devoluciones",
     "Pedidos Online",
-    "Cola"
+    "Cola",
+    "Presupuestos" // 👈 NUEVA PESTAÑA AGREGADA AQUÍ
   ];
 
   const visibleTabs =
     role === "admin"
-      ? TABS
+      ? TABS // Admin ve todo
       : role === "vendedor"
       ? [
           "Facturación", 
@@ -2293,8 +2294,8 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
           "Deudores",
           "Gastos y Devoluciones",  
           "Pedidos Online",
-          "Cola"
-          // REPORTES ELIMINADO para vendedor
+          "Cola",
+          "Presupuestos" // 👈 AGREGAR PRESUPUESTOS PARA VENDEDORES
         ]
       : role === "pedido-online"
       ? ["Hacer Pedido"]
@@ -5599,23 +5600,30 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
 }
      
 
-/* Presupuestos */
-function PresupuestosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [clientId, setClientId] = useState(state.clients[0]?.id || "");
+function PresupuestosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
+  const [clientId, setClientId] = useState(state.clients[0]?.id || "");
   const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
   const [priceList, setPriceList] = useState("1");
-  const [sectionFilter, setSectionFilter] = useState("Todas"); // 👈 NUEVO
-  const [listFilter, setListFilter] = useState("Todas"); // 👈 NUEVO
+  const [sectionFilter, setSectionFilter] = useState("Todas");
+  const [listFilter, setListFilter] = useState("Todas");
   const [items, setItems] = useState<any[]>([]);
   const [query, setQuery] = useState("");
+  
+  // 👇👇👇 AGREGAR ESTOS 4 ESTADOS FALTANTES
+  const [filtroModelo, setFiltroModelo] = useState("Todos");
+  const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
+  const [filtroBateria, setFiltroBateria] = useState("Todos");
+  const [filtroGrado, setFiltroGrado] = useState("Todos");
+  // 👆👆👆
+
   const client = state.clients.find((c: any) => c.id === clientId);
   const vendor = state.vendors.find((v: any) => v.id === vendorId);
   
-  // 👇👇👇 AGREGAR ESTAS LÍNEAS PARA LOS FILTROS
+  // El resto de tu código permanece igual...
   const sections = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.section || "Otros")))];
   const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
   
-  // 👇👇👇 MODIFICAR ESTA LÍNEA PARA INCLUIR LOS NUEVOS FILTROS
-   // 👇👇👇 FILTRAR SOLO iPhones EN STOCK con los nuevos filtros
+  // 👇👇👇 FILTRAR SOLO iPhones EN STOCK con los nuevos filtros
   const filteredProducts = state.products.filter((p: Producto) => {
     const esiPhone = p.modelo && p.modelo.includes("iPhone");
     const enStock = p.estado === "EN STOCK";
@@ -5628,7 +5636,6 @@ function PresupuestosTab({ state, setState, session, showError, showSuccess, sho
     
     return esiPhone && enStock && cumpleModelo && cumpleCapacidad && cumpleBateria && cumpleGrado && cumpleBusqueda;
   });
-  
   // 👇👇👇 AGREGAR ESTA LÍNEA PARA AGRUPAR POR SECCIÓN
   const grouped = groupBy(filteredProducts, "section");
 
