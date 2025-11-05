@@ -25,7 +25,28 @@ function useIsMobile() {
   return isMobile;
 }
 
+// 👇👇👇 NUEVOS TIPOS PARA CALCULADORA DE ENVÍOS
+type ModeloEnvio = {
+  id: string;
+  nombre: string;
+  peso_gramos: number;
+  precio_referencia?: number;
+};
 
+type ItemEnvio = {
+  modeloId: string;
+  cantidad: number;
+  modelo?: ModeloEnvio;
+};
+
+type CalculoEnvio = {
+  costoPorKilo: number;
+  items: ItemEnvio[];
+  pesoTotal: number;
+  costoTotalEnvio: number;
+  costoUnitarioPromedio: number;
+  costosPorModelo: { modelo: string; costoUnitario: number; costoTotal: number }[];
+};
 /* ===== TIPOS NUEVOS ===== */
 type GradoProducto = "A+" | "A" | "A-" | "AB";
 type EstadoProducto = "EN STOCK" | "VENDIDO" | "EN REPARACION" | "INGRESANDO";
@@ -2269,19 +2290,19 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
 }
 
  function Navbar({ current, setCurrent, role, onLogout }: any) {
-  const TABS = [
-    "Facturación",
-    "Inventario iPhones", 
-    "Clientes",
-    "Agenda Turnos",
-    "Deudores",
-    "Reportes", // Solo para admin
-    "Vendedores", // Solo para admin
-    "Gastos y Devoluciones",
-    "Pedidos Online",
-    "Cola",
-    "Presupuestos" // 👈 NUEVA PESTAÑA AGREGADA AQUÍ
-  ];
+ const TABS = [
+  "Facturación",
+  "Inventario iPhones", 
+  "Clientes",
+  "Agenda Turnos",
+  "Deudores",
+  "Reportes",
+  "Vendedores", 
+  "Gastos y Devoluciones",
+  "Pedidos Online",
+  "Cola",
+  "Calculadora Envíos" // 👈 REEMPLAZADO
+];
 
   const visibleTabs =
     role === "admin"
@@ -2295,7 +2316,7 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
           "Gastos y Devoluciones",  
           "Pedidos Online",
           "Cola",
-          "Presupuestos" // 👈 AGREGAR PRESUPUESTOS PARA VENDEDORES
+        "Calculadora Envíos"
         ]
       : role === "pedido-online"
       ? ["Hacer Pedido"]
@@ -5609,114 +5630,343 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   );
 }
      
+function CalculadoraEnviosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
+  const [costoPorKilo, setCostoPorKilo] = useState("100");
+  const [modelosEnvio, setModelosEnvio] = useState<ModeloEnvio[]>([
+    { id: "iphone8", nombre: "iPhone 8", peso_gramos: 148 },
+    { id: "iphone8plus", nombre: "iPhone 8 Plus", peso_gramos: 202 },
+    { id: "iphonex", nombre: "iPhone X", peso_gramos: 174 },
+    { id: "iphonexs", nombre: "iPhone XS", peso_gramos: 177 },
+    { id: "iphonexsmax", nombre: "iPhone XS Max", peso_gramos: 208 },
+    { id: "iphonexr", nombre: "iPhone XR", peso_gramos: 194 },
+    { id: "iphone11", nombre: "iPhone 11", peso_gramos: 194 },
+    { id: "iphone11pro", nombre: "iPhone 11 Pro", peso_gramos: 188 },
+    { id: "iphone11promax", nombre: "iPhone 11 Pro Max", peso_gramos: 226 },
+    { id: "iphone12", nombre: "iPhone 12", peso_gramos: 164 },
+    { id: "iphone12mini", nombre: "iPhone 12 mini", peso_gramos: 135 },
+    { id: "iphone12pro", nombre: "iPhone 12 Pro", peso_gramos: 189 },
+    { id: "iphone12promax", nombre: "iPhone 12 Pro Max", peso_gramos: 228 },
+    { id: "iphone13", nombre: "iPhone 13", peso_gramos: 174 },
+    { id: "iphone13mini", nombre: "iPhone 13 mini", peso_gramos: 141 },
+    { id: "iphone13pro", nombre: "iPhone 13 Pro", peso_gramos: 204 },
+    { id: "iphone13promax", nombre: "iPhone 13 Pro Max", peso_gramos: 240 },
+    { id: "iphone14", nombre: "iPhone 14", peso_gramos: 172 },
+    { id: "iphone14plus", nombre: "iPhone 14 Plus", peso_gramos: 203 },
+    { id: "iphone14pro", nombre: "iPhone 14 Pro", peso_gramos: 206 },
+    { id: "iphone14promax", nombre: "iPhone 14 Pro Max", peso_gramos: 240 },
+    { id: "iphone15", nombre: "iPhone 15", peso_gramos: 171 },
+    { id: "iphone15plus", nombre: "iPhone 15 Plus", peso_gramos: 201 },
+    { id: "iphone15pro", nombre: "iPhone 15 Pro", peso_gramos: 187 },
+    { id: "iphone15promax", nombre: "iPhone 15 Pro Max", peso_gramos: 221 },
+  ]);
 
-function PresupuestosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
-  const [clientId, setClientId] = useState(state.clients[0]?.id || "");
-  const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
-  const [priceList, setPriceList] = useState("1");
-  const [sectionFilter, setSectionFilter] = useState("Todas");
-  const [listFilter, setListFilter] = useState("Todas");
-  const [items, setItems] = useState<any[]>([]);
-  const [query, setQuery] = useState("");
-  
-  // 👇👇👇 AGREGAR ESTOS 4 ESTADOS FALTANTES
-  const [filtroModelo, setFiltroModelo] = useState("Todos");
-  const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
-  const [filtroBateria, setFiltroBateria] = useState("Todos");
-  const [filtroGrado, setFiltroGrado] = useState("Todos");
-  // 👆👆👆
-
-  const client = state.clients.find((c: any) => c.id === clientId);
-  const vendor = state.vendors.find((v: any) => v.id === vendorId);
-  
-  // El resto de tu código permanece igual...
-  const sections = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.section || "Otros")))];
-  const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
-  
-  // 👇👇👇 FILTRAR SOLO iPhones EN STOCK con los nuevos filtros
-  const filteredProducts = state.products.filter((p: Producto) => {
-    const esiPhone = p.modelo && p.modelo.includes("iPhone");
-    const enStock = p.estado === "EN STOCK";
-    
-    const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
-    const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
-    const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
-    const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
-    const cumpleBusqueda = !query || p.name.toLowerCase().includes(query.toLowerCase());
-    
-    return esiPhone && enStock && cumpleModelo && cumpleCapacidad && cumpleBateria && cumpleGrado && cumpleBusqueda;
+  const [itemsEnvio, setItemsEnvio] = useState<ItemEnvio[]>([]);
+  const [nuevoModelo, setNuevoModelo] = useState<ModeloEnvio>({
+    id: "",
+    nombre: "",
+    peso_gramos: 0
   });
-  // 👇👇👇 AGREGAR ESTA LÍNEA PARA AGRUPAR POR SECCIÓN
-  const grouped = groupBy(filteredProducts, "section");
 
- function addItem(p: Producto) {
-  // ✅ VERIFICAR que el iPhone esté en stock
-  if (p.estado !== "EN STOCK") {
-    showError("❌ Este iPhone no está disponible para la venta");
-    return;
-  }
+  // Calcular costos de envío
+  const calculoEnvio: CalculoEnvio = (() => {
+    const costoKilo = parseNum(costoPorKilo);
+    let pesoTotal = 0;
+    
+    // Calcular peso total
+    itemsEnvio.forEach(item => {
+      const modelo = modelosEnvio.find(m => m.id === item.modeloId);
+      if (modelo) {
+        pesoTotal += modelo.peso_gramos * item.cantidad;
+      }
+    });
 
-  // ✅ Verificar que no esté ya en el carrito (por IMEI)
-  const existing = items.find((it: any) => it.productId === p.id);
-  if (existing) {
-    showError("❌ Este iPhone ya está en el carrito");
-    return;
-  }
+    const pesoTotalKilos = pesoTotal / 1000;
+    const costoTotalEnvio = pesoTotalKilos * costoKilo;
+    
+    // Calcular costos por modelo
+    const costosPorModelo = itemsEnvio.map(item => {
+      const modelo = modelosEnvio.find(m => m.id === item.modeloId);
+      if (modelo) {
+        const pesoModeloKilos = (modelo.peso_gramos * item.cantidad) / 1000;
+        const costoTotalModelo = pesoModeloKilos * costoKilo;
+        const costoUnitario = costoTotalModelo / item.cantidad;
+        
+        return {
+          modelo: modelo.nombre,
+          costoUnitario,
+          costoTotal: costoTotalModelo
+        };
+      }
+      return { modelo: "Desconocido", costoUnitario: 0, costoTotal: 0 };
+    });
 
-  // DETECTAR AUTOMÁTICAMENTE EL PRECIO SEGÚN LA LISTA CONFIGURADA
-  let unitPrice;
-  if (priceList === "1") { // Mitobicel - Consumidor Final
-    unitPrice = p.precio_consumidor_final || p.precio_venta || 0;
-  } else { // ElshoppingDlc - Revendedor
-    unitPrice = p.precio_revendedor || 0;
-  }
+    const costoUnitarioPromedio = itemsEnvio.length > 0 ? 
+      costoTotalEnvio / itemsEnvio.reduce((sum, item) => sum + item.cantidad, 0) : 0;
 
-  const item = {
-    productId: p.id, 
-    imei: p.imei, // 👈 INCLUIR EL IMEI
-    name: p.name, 
-    modelo: p.modelo,
-    capacidad: p.capacidad,
-    grado: p.grado,
-    bateria: p.bateria,
-    section: "iPhone", 
-    qty: 1, // 👈 SIEMPRE 1 porque cada iPhone es único
-    unitPrice: unitPrice, 
-    cost: p.precio_compra + p.costo_reparacion
-  };
-
-  setItems([...items, item]);
-  showSuccess(`✅ ${p.name} agregado al carrito`);
-}
-  
-  // ... el resto de tus funciones permanecen EXACTAMENTE igual ...
-  async function guardarPresupuesto() {
-    if (!client || !vendor || items.length === 0) return;
-    const st = clone(state);
-    const number = st.meta.budgetCounter++;
-    const id = "pr_" + number;
-    const total = calcInvoiceTotal(items);
-    const b = {
-      id,
-      number,
-      date_iso: todayISO(),
-      client_id: client.id,
-      client_name: client.name,
-      vendor_id: vendor.id,
-      vendor_name: vendor.name,
-      items: clone(items),
-      total,
-      status: "Pendiente",
+    return {
+      costoPorKilo: costoKilo,
+      items: itemsEnvio,
+      pesoTotal,
+      costoTotalEnvio,
+      costoUnitarioPromedio,
+      costosPorModelo
     };
-    st.budgets.push(b);
-    setState(st);
-    if (hasSupabase) {
-      await supabase.from("budgets").insert(b);
-      await saveCountersSupabase(st.meta);
+  })();
+
+  // Funciones para manejar items
+  function agregarItemEnvio(modeloId: string) {
+    const existing = itemsEnvio.find(item => item.modeloId === modeloId);
+    if (existing) {
+      setItemsEnvio(itemsEnvio.map(item => 
+        item.modeloId === modeloId 
+          ? { ...item, cantidad: item.cantidad + 1 }
+          : item
+      ));
+    } else {
+      setItemsEnvio([...itemsEnvio, { modeloId, cantidad: 1 }]);
     }
-    alert("Presupuesto guardado.");
-    setItems([]);
   }
+
+  function quitarItemEnvio(modeloId: string) {
+    const existing = itemsEnvio.find(item => item.modeloId === modeloId);
+    if (existing && existing.cantidad > 1) {
+      setItemsEnvio(itemsEnvio.map(item => 
+        item.modeloId === modeloId 
+          ? { ...item, cantidad: item.cantidad - 1 }
+          : item
+      ));
+    } else {
+      setItemsEnvio(itemsEnvio.filter(item => item.modeloId !== modeloId));
+    }
+  }
+
+  function eliminarItemEnvio(modeloId: string) {
+    setItemsEnvio(itemsEnvio.filter(item => item.modeloId !== modeloId));
+  }
+
+  function agregarModeloPersonalizado() {
+    if (!nuevoModelo.nombre || nuevoModelo.peso_gramos <= 0) {
+      showError("Completá nombre y peso del modelo");
+      return;
+    }
+
+    const id = "modelo_" + Math.random().toString(36).slice(2, 8);
+    const modelo: ModeloEnvio = {
+      ...nuevoModelo,
+      id
+    };
+
+    setModelosEnvio([...modelosEnvio, modelo]);
+    setNuevoModelo({ id: "", nombre: "", peso_gramos: 0 });
+    showSuccess("Modelo personalizado agregado");
+  }
+
+  function imprimirCalculo() {
+    const data = {
+      type: "CalculoEnvio",
+      calculo: calculoEnvio,
+      fecha: new Date().toLocaleString("es-AR")
+    };
+
+    window.dispatchEvent(new CustomEvent("print-invoice", { detail: data } as any));
+    setTimeout(() => window.print(), 500);
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 space-y-4">
+      <Card title="🚚 Calculadora de Costos de Envío">
+        <div className="grid md:grid-cols-3 gap-4">
+          <NumberInput
+            label="Costo por Kilo (USD)"
+            value={costoPorKilo}
+            onChange={setCostoPorKilo}
+            placeholder="100"
+          />
+          <div className="md:col-span-2">
+            <div className="text-sm text-slate-400 mb-2">
+              💡 Ingresá el costo del envío por kilo en USD
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Agregar modelo personalizado */}
+      <Card title="➕ Agregar Modelo Personalizado">
+        <div className="grid md:grid-cols-4 gap-3">
+          <Input
+            label="Nombre del Modelo"
+            value={nuevoModelo.nombre}
+            onChange={(v) => setNuevoModelo({...nuevoModelo, nombre: v})}
+            placeholder="Ej: iPhone 16 Pro"
+          />
+          <NumberInput
+            label="Peso (gramos)"
+            value={nuevoModelo.peso_gramos.toString()}
+            onChange={(v) => setNuevoModelo({...nuevoModelo, peso_gramos: parseNum(v)})}
+            placeholder="200"
+          />
+          <div className="pt-6">
+            <Button onClick={agregarModeloPersonalizado}>
+              Agregar Modelo
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Lista de modelos disponibles */}
+        <Card title="📱 Modelos Disponibles">
+          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            {modelosEnvio.map((modelo) => (
+              <div key={modelo.id} className="flex justify-between items-center p-3 border border-slate-700 rounded-lg">
+                <div>
+                  <div className="font-semibold">{modelo.nombre}</div>
+                  <div className="text-xs text-slate-400">
+                    Peso: {modelo.peso_gramos}g
+                  </div>
+                </div>
+                <Button onClick={() => agregarItemEnvio(modelo.id)}>
+                  Agregar
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Items del envío */}
+        <Card title="📦 Envío Actual">
+          {itemsEnvio.length === 0 ? (
+            <div className="text-center text-slate-400 py-8">
+              Agregá modelos del listado
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {itemsEnvio.map((item) => {
+                const modelo = modelosEnvio.find(m => m.id === item.modeloId);
+                if (!modelo) return null;
+
+                const costoModelo = (modelo.peso_gramos * item.cantidad / 1000) * calculoEnvio.costoPorKilo;
+                const costoUnitario = costoModelo / item.cantidad;
+
+                return (
+                  <div key={item.modeloId} className="border border-slate-700 rounded-lg p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="font-semibold">{modelo.nombre}</div>
+                        <div className="text-xs text-slate-400">
+                          {modelo.peso_gramos}g por unidad × {item.cantidad} unidades
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-emerald-400">
+                          {money(costoUnitario)} c/u
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          Total: {money(costoModelo)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        tone="slate" 
+                        onClick={() => quitarItemEnvio(item.modeloId)}
+                        className="text-xs"
+                      >
+                        -1
+                      </Button>
+                      <Button 
+                        tone="slate" 
+                        onClick={() => agregarItemEnvio(item.modeloId)}
+                        className="text-xs"
+                      >
+                        +1
+                      </Button>
+                      <Button 
+                        tone="red" 
+                        onClick={() => eliminarItemEnvio(item.modeloId)}
+                        className="text-xs ml-auto"
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Resumen del cálculo */}
+              {calculoEnvio.items.length > 0 && (
+                <div className="border-t border-slate-700 pt-4 mt-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Peso total:</span>
+                      <span className="font-semibold">
+                        {calculoEnvio.pesoTotal}g ({calculoEnvio.pesoTotal / 1000} kg)
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Costo total envío:</span>
+                      <span className="font-bold text-lg text-emerald-400">
+                        {money(calculoEnvio.costoTotalEnvio)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Costo unitario promedio:</span>
+                      <span className="font-semibold text-emerald-300">
+                        {money(calculoEnvio.costoUnitarioPromedio)} por equipo
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={imprimirCalculo} className="flex-1">
+                      🖨️ Imprimir Cálculo
+                    </Button>
+                    <Button 
+                      tone="slate" 
+                      onClick={() => setItemsEnvio([])}
+                    >
+                      🗑️ Limpiar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Detalle de costos por modelo */}
+      {calculoEnvio.costosPorModelo.length > 0 && (
+        <Card title="📊 Desglose de Costos por Modelo">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-slate-400">
+                <tr>
+                  <th className="py-2 pr-4">Modelo</th>
+                  <th className="py-2 pr-4">Costo Unitario</th>
+                  <th className="py-2 pr-4">Costo Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {calculoEnvio.costosPorModelo.map((costo, index) => (
+                  <tr key={index}>
+                    <td className="py-2 pr-4">{costo.modelo}</td>
+                    <td className="py-2 pr-4 text-emerald-400 font-semibold">
+                      {money(costo.costoUnitario)}
+                    </td>
+                    <td className="py-2 pr-4 font-semibold">
+                      {money(costo.costoTotal)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
 
 async function convertirAFactura(b: any) {
     // ✅ VALIDAR STOCK ANTES DE CONVERTIR
@@ -8148,12 +8398,13 @@ function PrintArea({ state }: any) {
               {inv.items.map((it: any, i: number) => (
                 <tr key={i}>
                   <td style={{ textAlign: "right" }}>{i + 1}</td>
-                  <td>
-                    {it.name}
-                    <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
-                      {it.section || "General"}
-                    </div>
-                  </td>
+                 <td>
+  {it.name}
+  <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
+    {it.color && `Color: ${it.color} • `}{it.imei && `IMEI: ${it.imei}`}
+    {!it.color && !it.imei && (it.section || "General")}
+  </div>
+</td>
                   <td style={{ textAlign: "right" }}>{parseNum(it.qtyDevuelta)}</td>
                   <td style={{ textAlign: "right" }}>{money(parseNum(it.unitPrice))}</td>
                   <td style={{ textAlign: "right" }}>
@@ -8448,6 +8699,62 @@ function PrintArea({ state }: any) {
             PAGADO
           </div>
         )}
+
+        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
+      </div>
+    </div>
+  );
+}
+// ==== 7. CÁLCULO DE ENVÍOS ====
+if (inv?.type === "CalculoEnvio") {
+  const fmt = (n: number) => money(parseNum(n));
+  
+  return (
+    <div className="only-print print-area p-14">
+      <div className="max-w-[780px] mx-auto text-black">
+        <div className="text-center">
+          <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+            CÁLCULO DE COSTOS DE ENVÍO
+          </div>
+          <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+        </div>
+
+        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+        {/* Resumen */}
+        <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+          <div>
+            <div><b>Costo por Kilo:</b> {fmt(inv.calculo.costoPorKilo)}</div>
+            <div><b>Peso Total:</b> {inv.calculo.pesoTotal}g ({inv.calculo.pesoTotal / 1000} kg)</div>
+          </div>
+          <div>
+            <div><b>Costo Total Envío:</b> {fmt(inv.calculo.costoTotalEnvio)}</div>
+            <div><b>Costo Promedio por Equipo:</b> {fmt(inv.calculo.costoUnitarioPromedio)}</div>
+          </div>
+        </div>
+
+        {/* Detalle por modelo */}
+        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Desglose por Modelo</div>
+        
+        <table className="print-table text-sm">
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left" }}>Modelo</th>
+              <th style={{ textAlign: "right" }}>Costo Unitario</th>
+              <th style={{ textAlign: "right" }}>Costo Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inv.calculo.costosPorModelo.map((costo: any, index: number) => (
+              <tr key={index}>
+                <td>{costo.modelo}</td>
+                <td style={{ textAlign: "right" }}>{fmt(costo.costoUnitario)}</td>
+                <td style={{ textAlign: "right" }}>{fmt(costo.costoTotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
         <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
       </div>
@@ -9003,8 +9310,8 @@ export default function Page() {
   <VendedoresTab state={state} setState={setState} />
 )}
 
-{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Presupuestos" && (
-  <PresupuestosTab 
+{session.role !== "cliente" && session.role !== "pedido-online" && tab === "Calculadora Envíos" && (
+  <CalculadoraEnviosTab 
     state={state} 
     setState={setState} 
     session={session}
