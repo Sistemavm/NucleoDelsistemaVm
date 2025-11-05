@@ -6868,13 +6868,14 @@ showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté lis
 }
 
 // 👇👇👇 NUEVO COMPONENTE: Gestión de Pedidos (para admin/vendedores)
-function GestionPedidosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+// 👇👇👇 NUEVO COMPONENTE: Gestión de Pedidos (para admin/vendedores)
+function GestionPedidosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
+  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
 
   const pedidosFiltrados = state.pedidos.filter((pedido: Pedido) => {
     if (filtroEstado === "todos") return true;
     return pedido.status === filtroEstado;
   });
-
   async function cambiarEstado(pedidoId: string, nuevoEstado: Pedido["status"]) {
     const st = clone(state);
     const pedido = st.pedidos.find((p: Pedido) => p.id === pedidoId);
