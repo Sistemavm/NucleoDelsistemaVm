@@ -31,6 +31,9 @@ type GradoProducto = "A+" | "A" | "A-" | "AB";
 type EstadoProducto = "EN STOCK" | "VENDIDO" | "EN REPARACION" | "INGRESANDO";
 type UbicacionProducto = "LOCAL" | "DEPOSITO" | "DEPOSITO_2";
 
+// Agrega estos nuevos tipos al inicio del archivo
+type EstadoBateria = "+80%" | "+90%" | "100%" | "-75%";
+
 type Producto = {
   id: string;
   name: string;
@@ -43,7 +46,6 @@ type Producto = {
   color: string;
   precio_compra: number;
   precio_venta: number;
-  // 👇👇👇 AGREGAR ESTAS DOS LÍNEAS NUEVAS
   precio_consumidor_final: number;
   precio_revendedor: number;
   costo_reparacion: number;
@@ -51,6 +53,8 @@ type Producto = {
   fecha_ingreso: string;
   vendido_en?: string;
   vendido_a?: string;
+  bateria: EstadoBateria; // 👈 NUEVO
+  lista_precio: "consumidor_final" | "revendedor"; // 👈 NUEVO
 };
 
 // Cliente adaptado a TU estructura
@@ -739,12 +743,16 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
     .reduce((total: number, p: Producto) => total + p.precio_compra + p.costo_reparacion, 0);
 
   // 👇👇👇 FILTRAR PRODUCTOS CON LOS NUEVOS FILTROS
+  // 👇👇👇 FILTRAR PRODUCTOS CON LOS NUEVOS FILTROS
   const productosFiltrados = state.products.filter((p: Producto) => {
     const cumpleEstado = p.estado === filtroEstado;
     const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
     const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
     const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
     const cumpleUbicacion = filtroUbicacion === "Todos" || p.ubicacion === filtroUbicacion;
+    // 👇👇👇 NUEVOS FILTROS
+    const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
+    const cumpleListaPrecio = filtroListaPrecio === "Todos" || p.lista_precio === filtroListaPrecio;
     
     // 👇👇👇 FILTRAR POR DÍAS EN STOCK
     let cumpleDiasStock = true;
@@ -758,7 +766,8 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
       }
     }
 
-    return cumpleEstado && cumpleModelo && cumpleCapacidad && cumpleGrado && cumpleUbicacion && cumpleDiasStock;
+    return cumpleEstado && cumpleModelo && cumpleCapacidad && cumpleGrado && 
+           cumpleUbicacion && cumpleDiasStock && cumpleBateria && cumpleListaPrecio;
   });
 
   return (
@@ -784,7 +793,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
             }
           >
             {/* 👇👇👇 NUEVOS FILTROS MEJORADOS */}
-            <div className="grid md:grid-cols-6 gap-3 mb-4">
+            <div className="grid md:grid-cols-8 gap-3 mb-4">
               <Select
                 label="Estado"
                 value={filtroEstado}
@@ -840,6 +849,28 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                 ]}
               />
               <Select
+                label="Batería"
+                value={filtroBateria}
+                onChange={setFiltroBateria}
+                options={[
+                  { value: "Todos", label: "Todas las baterías" },
+                  { value: "100%", label: "🔋 100%" },
+                  { value: "+90%", label: "🔋 +90%" },
+                  { value: "+80%", label: "🔋 +80%" },
+                  { value: "-75%", label: "🔋 -75%" },
+                ]}
+              />
+              <Select
+                label="Lista Precio"
+                value={filtroListaPrecio}
+                onChange={setFiltroListaPrecio}
+                options={[
+                  { value: "Todos", label: "Todas las listas" },
+                  { value: "consumidor_final", label: "💰 Consumidor" },
+                  { value: "revendedor", label: "🏪 Revendedor" },
+                ]}
+              />
+              <Select
                 label="Días en Stock"
                 value={filtroDiasStock}
                 onChange={setFiltroDiasStock}
@@ -871,6 +902,8 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                     <th className="py-2 px-2">Modelo</th>
                     <th className="py-2 px-2">Capacidad</th>
                     <th className="py-2 px-2">IMEI</th>
+                    <th className="py-2 px-2">Batería</th>
+                    <th className="py-2 px-2">Lista</th>
                     <th className="py-2 px-2">Grado</th>
                     <th className="py-2 px-2">Color</th>
                     <th className="py-2 px-2">Estado</th>
@@ -878,7 +911,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                     <th className="py-2 px-2">Días Stock</th>
                     <th className="py-2 px-2">Costo Total</th>
                     <th className="py-2 px-2">P. Final</th>
-      <th className="py-2 px-2">P. Revendedor</th>
+                    <th className="py-2 px-2">P. Revendedor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -897,6 +930,20 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                         {producto.capacidad || "N/A"}
                       </td>
                       <td className="py-2 px-2 font-mono text-xs">{producto.imei}</td>
+                      <td className="py-2 px-2">
+                        <Chip tone={
+                          producto.bateria === "100%" ? "emerald" :
+                          producto.bateria === "+90%" ? "blue" :
+                          producto.bateria === "+80%" ? "amber" : "red"
+                        }>
+                          {producto.bateria}
+                        </Chip>
+                      </td>
+                      <td className="py-2 px-2">
+                        <Chip tone={producto.lista_precio === "consumidor_final" ? "emerald" : "blue"}>
+                          {producto.lista_precio === "consumidor_final" ? "💰 CF" : "🏪 Rev"}
+                        </Chip>
+                      </td>
                       <td className="py-2 px-2">
                         <Chip tone={
                           producto.grado === "A+" ? "emerald" :
@@ -942,11 +989,11 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                         {money(producto.precio_compra + producto.costo_reparacion)}
                       </td>
                       <td className="py-2 px-2 font-semibold">
-                        {money(producto.precio_venta)}
+                        {money(producto.precio_consumidor_final)}
                       </td>
                       <td className="py-2 px-2 font-semibold">
-          {money(producto.precio_revendedor)}
-        </td>
+                        {money(producto.precio_revendedor)}
+                      </td>
                     </tr>
                   )})}
                 </tbody>
@@ -959,7 +1006,6 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
       {modo === "nuevo" && (
         <Card title="➕ Agregar Nuevo iPhone">
           <div className="grid md:grid-cols-2 gap-4">
-            {/* 👇👇👇 ELIMINADO: Input de nombre */}
             <Select
               label="Modelo"
               value={modelo}
@@ -969,7 +1015,6 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                 ...modelosiPhone.map(m => ({ value: m, label: m }))
               ]}
             />
-            {/* 👇👇👇 NUEVO: Selector de capacidad */}
             <Select
               label="Capacidad"
               value={capacidad}
@@ -1012,6 +1057,27 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                 { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
               ]}
             />
+            {/* 👇👇👇 NUEVOS CAMPOS */}
+            <Select
+              label="Estado de Batería"
+              value={bateria}
+              onChange={setBateria}
+              options={[
+                { value: "100%", label: "🔋 100% - Excelente" },
+                { value: "+90%", label: "🔋 +90% - Muy Bueno" },
+                { value: "+80%", label: "🔋 +80% - Bueno" },
+                { value: "-75%", label: "🔋 -75% - Regular" },
+              ]}
+            />
+            <Select
+              label="Lista de Precio"
+              value={listaPrecio}
+              onChange={setListaPrecio}
+              options={[
+                { value: "consumidor_final", label: "💰 Consumidor Final" },
+                { value: "revendedor", label: "🏪 Revendedor" },
+              ]}
+            />
            {/* Precio de Compra */}
       <NumberInput
         label="Precio de Compra"
@@ -1020,7 +1086,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
         placeholder="0"
       />
       
-      {/* Costo de Reparación - CON CÁLCULO AUTOMÁTICO MEJORADO */}
+      {/* Costo de Reparación */}
 <div className="space-y-2">
   <NumberInput
     label="Costo de Reparación"
@@ -1038,8 +1104,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
   />
 </div>
 
-      {/* Precio de Venta con sugerencia automática */}
-      {/* Precio de Venta con sugerencia automática */}
+      {/* Precios de Venta */}
 <div className="space-y-2">
   <NumberInput
     label="Precio Consumidor Final"
@@ -2863,6 +2928,11 @@ function ClientesTab({ state, setState, session, showError, showSuccess, showInf
   const [deudaInicial, setDeudaInicial] = useState(""); // 👈 NUEVO ESTADO
   const [saldoFavorInicial, setSaldoFavorInicial] = useState(""); // 👈 NUEVO ESTADO
   const [modoAdmin, setModoAdmin] = useState(false); // 👈 NUEVO ESTADO
+                                                                                           const [apellido, setApellido] = useState("");
+const [telefono, setTelefono] = useState("");
+const [email, setEmail] = useState("");
+const [dni, setDni] = useState("");
+const [direccion, setDireccion] = useState("");
    // 👇👇👇 PEGA LA FUNCIÓN AQUÍ - JUSTO DESPUÉS DE LOS useState
   async function limpiarDeudasInconsistentes() {
     if (!confirm("¿Estás seguro de limpiar todas las deudas inconsistentes? Esto revisará todos los clientes y ajustará las deudas según los pagos registrados.")) return;
@@ -2909,38 +2979,55 @@ function ClientesTab({ state, setState, session, showError, showSuccess, showInf
     }
   }
 
-  async function addClient() {
-    if (!name.trim()) return;
-    
-    const newClient = {
-      id: "c" + Math.random().toString(36).slice(2, 8),
-      number: parseInt(String(number), 10),
-      name: name.trim(),
-      debt: modoAdmin ? parseNum(deudaInicial) : 0,
-      saldo_favor: modoAdmin ? parseNum(saldoFavorInicial) : 0,
-      creado_por: session?.name || "admin",
-      fecha_creacion: todayISO(),
-deuda_manual: modoAdmin && parseNum(deudaInicial) > 0
-    };
+// Estados adicionales para el formulario de cliente
+const [apellido, setApellido] = useState("");
+const [telefono, setTelefono] = useState("");
+const [email, setEmail] = useState("");
+const [dni, setDni] = useState("");
+const [direccion, setDireccion] = useState("");
 
-    const st = clone(state);
-    st.clients.push(newClient);
-    setState(st);
-    
-    // Limpiar formulario
-    setName("");
-    setNumber(ensureUniqueNumber(st.clients));
-    setDeudaInicial("");
-    setSaldoFavorInicial("");
-    setModoAdmin(false);
+async function addClient() {
+  if (!name.trim()) return;
+  
+  const newClient = {
+    id: "c" + Math.random().toString(36).slice(2, 8),
+    number: parseInt(String(number), 10),
+    name: name.trim(),
+    apellido: apellido.trim(),
+    telefono: telefono.trim(),
+    email: email.trim(),
+    dni: dni.trim(),
+    direccion: direccion.trim(),
+    debt: modoAdmin ? parseNum(deudaInicial) : 0,
+    saldo_favor: modoAdmin ? parseNum(saldoFavorInicial) : 0,
+    creado_por: session?.name || "admin",
+    fecha_creacion: todayISO(),
+    deuda_manual: modoAdmin && parseNum(deudaInicial) > 0,
+    updated_at: todayISO()
+  };
 
-    if (hasSupabase) {
-      await supabase.from("clients").insert(newClient);
-    }
+  const st = clone(state);
+  st.clients.push(newClient);
+  setState(st);
+  
+  // Limpiar formulario
+  setName("");
+  setApellido("");
+  setTelefono("");
+  setEmail("");
+  setDni("");
+  setDireccion("");
+  setNumber(ensureUniqueNumber(st.clients));
+  setDeudaInicial("");
+  setSaldoFavorInicial("");
+  setModoAdmin(false);
 
-showSuccess(`👤 Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'correctamente'}`);
+  if (hasSupabase) {
+    await supabase.from("clients").insert(newClient);
   }
 
+  showSuccess(`👤 Cliente agregado ${modoAdmin ? 'con deuda/saldo manual' : 'correctamente'}`);
+}
 // Función para que admin agregue deuda manualmente a cliente existente - CORREGIDA
 // ✅ FUNCIÓN CORREGIDA - agregarDeudaManual
 async function agregarDeudaManual(clienteId: string) {
@@ -3115,172 +3202,214 @@ async function cancelarDeuda(clienteId: string) {
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-4">
       {/* Card para agregar cliente normal */}
-      <Card title="Agregar cliente">
-        <div className="space-y-3">
-          {/* Solo admin puede activar modo avanzado */}
-          {session?.role === "admin" && (
-            <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg">
-              <input
-                type="checkbox"
-                id="modoAdmin"
-                checked={modoAdmin}
-                onChange={(e) => setModoAdmin(e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="modoAdmin" className="text-sm font-medium">
-                Modo Admin: Agregar con deuda/saldo inicial
-              </label>
-            </div>
-          )}
+   <Card title="Agregar cliente">
+  <div className="space-y-3">
+    {/* Solo admin puede activar modo avanzado */}
+    {session?.role === "admin" && (
+      <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg">
+        <input
+          type="checkbox"
+          id="modoAdmin"
+          checked={modoAdmin}
+          onChange={(e) => setModoAdmin(e.target.checked)}
+          className="rounded"
+        />
+        <label htmlFor="modoAdmin" className="text-sm font-medium">
+          Modo Admin: Agregar con deuda/saldo inicial
+        </label>
+      </div>
+    )}
 
-          <div className="grid md:grid-cols-3 gap-3">
-            <NumberInput 
-              label="N° cliente" 
-              value={number} 
-              onChange={setNumber} 
-            />
-            <Input 
-              label="Nombre" 
-              value={name} 
-              onChange={setName} 
-              placeholder="Ej: Kiosco 9 de Julio" 
-            />
-            <div className="pt-6">
-              <Button onClick={addClient}>
-                Agregar
-              </Button>
-            </div>
-          </div>
+    <div className="grid md:grid-cols-2 gap-3">
+      <NumberInput 
+        label="N° cliente" 
+        value={number} 
+        onChange={setNumber} 
+      />
+      <Input 
+        label="Nombre" 
+        value={name} 
+        onChange={setName} 
+        placeholder="Ej: Juan" 
+      />
+      <Input 
+        label="Apellido" 
+        value={apellido} 
+        onChange={setApellido} 
+        placeholder="Ej: Pérez" 
+      />
+      <Input 
+        label="Teléfono" 
+        value={telefono} 
+        onChange={setTelefono} 
+        placeholder="Ej: 3416123456" 
+      />
+      <Input 
+        label="Email" 
+        value={email} 
+        onChange={setEmail} 
+        placeholder="Ej: cliente@email.com" 
+        type="email"
+      />
+      <Input 
+        label="DNI" 
+        value={dni} 
+        onChange={setDni} 
+        placeholder="Ej: 12345678" 
+      />
+      <Input 
+        label="Dirección" 
+        value={direccion} 
+        onChange={setDireccion} 
+        placeholder="Ej: Calle Falsa 123" 
+        className="md:col-span-2"
+      />
+    </div>
 
-          {/* Campos solo para admin en modo avanzado */}
-          {session?.role === "admin" && modoAdmin && (
-            <div className="grid md:grid-cols-2 gap-3 p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg">
-              <NumberInput
-                label="Deuda inicial"
-                value={deudaInicial}
-                onChange={setDeudaInicial}
-                placeholder="0"
-              />
-              <NumberInput
-                label="Saldo a favor inicial"
-                value={saldoFavorInicial}
-                onChange={setSaldoFavorInicial}
-                placeholder="0"
-              />
-              <div className="md:col-span-2 text-xs text-amber-300">
-                ⚠️ Solo usar para casos especiales. La deuda manual se registrará en el sistema.
-              </div>
-            </div>
-          )}
+    {/* Campos solo para admin en modo avanzado */}
+    {session?.role === "admin" && modoAdmin && (
+      <div className="grid md:grid-cols-2 gap-3 p-4 bg-amber-900/20 border border-amber-700/50 rounded-lg">
+        <NumberInput
+          label="Deuda inicial"
+          value={deudaInicial}
+          onChange={setDeudaInicial}
+          placeholder="0"
+        />
+        <NumberInput
+          label="Saldo a favor inicial"
+          value={saldoFavorInicial}
+          onChange={setSaldoFavorInicial}
+          placeholder="0"
+        />
+        <div className="md:col-span-2 text-xs text-amber-300">
+          ⚠️ Solo usar para casos especiales. La deuda manual se registrará en el sistema.
         </div>
-      </Card>
+      </div>
+    )}
+
+    <div className="flex justify-end">
+      <Button onClick={addClient}>
+        Agregar Cliente
+      </Button>
+    </div>
+  </div>
+</Card>
 
       {/* Listado de clientes */}
-      <Card title="Listado de Clientes">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-slate-400">
-              <tr>
-                <th className="py-2 pr-4">N°</th>
-                <th className="py-2 pr-4">Nombre</th>
-                <th className="py-2 pr-4">Deuda</th>
-                <th className="py-2 pr-4">Saldo a favor</th>
-                <th className="py-2 pr-4">Gasto mes</th>
-                <th className="py-2 pr-4">Acciones</th>
-              </tr>
-            </thead>
+    {/* Listado de clientes */}
+<Card title="Listado de Clientes">
+  <div className="overflow-x-auto">
+    <table className="min-w-full text-sm">
+      <thead className="text-left text-slate-400">
+        <tr>
+          <th className="py-2 pr-4">N°</th>
+          <th className="py-2 pr-4">Nombre</th>
+          <th className="py-2 pr-4">Apellido</th>
+          <th className="py-2 pr-4">Teléfono</th>
+          <th className="py-2 pr-4">Email</th>
+          <th className="py-2 pr-4">DNI</th>
+          <th className="py-2 pr-4">Deuda</th>
+          <th className="py-2 pr-4">Saldo a favor</th>
+          <th className="py-2 pr-4">Gasto mes</th>
+          <th className="py-2 pr-4">Acciones</th>
+        </tr>
+      </thead>
 
-            <tbody className="divide-y divide-slate-800">
-              {clients.map((c: any) => (
-                <tr key={c.id} className={c.deuda_manual ? "bg-amber-900/10" : ""}>
-                  <td className="py-2 pr-4">{c.number}</td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
-                      {c.name}
-                      {c.deuda_manual && (
-                        <span 
-                          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-amber-800 text-amber-200 border border-amber-700"
-                          title="Deuda manualmente asignada"
-                        >
-                          ⚠️ Manual
-                        </span>
-                      )}
-                    </div>
-                    {session?.role === "admin" && c.creado_por && (
-                      <div className="text-xs text-slate-500">
-                        Creado por: {c.creado_por}
-                      </div>
-                    )}
-                  </td>
-       <td className="py-2 pr-4">
-  <div className={`font-medium ${
-    (() => {
-      const detalleDeudas = calcularDetalleDeudas(state, c.id);
-      const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-      return deudaNeta > 0 ? "text-amber-400" : "text-emerald-400";
-    })()
-  }`}>
-    {(() => {
-      const detalleDeudas = calcularDetalleDeudas(state, c.id);
-      const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-      return deudaNeta > 0 ? money(deudaNeta) : "✅ Al día";
-    })()}
-  </div>
-</td>
-                  <td className="py-2 pr-4">
-                    <div className={`font-medium ${
-                      c.saldo_favor > 0 ? "text-emerald-400" : "text-slate-300"
-                    }`}>
-                      {money(c.saldo_favor || 0)}
-                    </div>
-                  </td>
-                  <td className="py-2 pr-4">{money(gastoMesCliente(state, c.id))}</td>
-                  <td className="py-2 pr-4">
-                    <div className="flex gap-1">
-                      {/* Solo admin puede gestionar deuda manual */}
-                      {session?.role === "admin" && (
-                        <>
-                          <button
-                            onClick={() => agregarDeudaManual(c.id)}
-                            className="text-amber-400 hover:text-amber-300 text-sm px-2 py-1 border border-amber-700 rounded"
-                            title="Agregar deuda manual"
-                          >
-                            + Deuda
-                          </button>
-                          <button
-                            onClick={() => ajustarSaldoFavor(c.id)}
-                            className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 border border-blue-700 rounded"
-                            title="Ajustar saldo a favor"
-                          >
-                            💰 Saldo
-                          </button>
-                          {c.debt > 0 && (
-                            <button
-                              onClick={() => cancelarDeuda(c.id)}
-                              className="text-red-400 hover:text-red-300 text-sm px-2 py-1 border border-red-700 rounded"
-                              title="Cancelar deuda"
-                            >
-                              ✕ Deuda
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-
-              {clients.length === 0 && (
-                <tr>
-                  <td className="py-2 pr-4 text-slate-400" colSpan={6}>
-                    Sin clientes cargados.
-                  </td>
-                </tr>
+      <tbody className="divide-y divide-slate-800">
+        {clients.map((c: any) => (
+          <tr key={c.id} className={c.deuda_manual ? "bg-amber-900/10" : ""}>
+            <td className="py-2 pr-4">{c.number}</td>
+            <td className="py-2 pr-4">
+              <div className="flex items-center gap-2">
+                {c.name}
+                {c.deuda_manual && (
+                  <span 
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-amber-800 text-amber-200 border border-amber-700"
+                    title="Deuda manualmente asignada"
+                  >
+                    ⚠️ Manual
+                  </span>
+                )}
+              </div>
+              {session?.role === "admin" && c.creado_por && (
+                <div className="text-xs text-slate-500">
+                  Creado por: {c.creado_por}
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+            </td>
+            <td className="py-2 pr-4">{c.apellido || "-"}</td>
+            <td className="py-2 pr-4">{c.telefono || "-"}</td>
+            <td className="py-2 pr-4">{c.email || "-"}</td>
+            <td className="py-2 pr-4">{c.dni || "-"}</td>
+            <td className="py-2 pr-4">
+              <div className={`font-medium ${
+                (() => {
+                  const detalleDeudas = calcularDetalleDeudas(state, c.id);
+                  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+                  return deudaNeta > 0 ? "text-amber-400" : "text-emerald-400";
+                })()
+              }`}>
+                {(() => {
+                  const detalleDeudas = calcularDetalleDeudas(state, c.id);
+                  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+                  return deudaNeta > 0 ? money(deudaNeta) : "✅ Al día";
+                })()}
+              </div>
+            </td>
+            <td className="py-2 pr-4">
+              <div className={`font-medium ${
+                c.saldo_favor > 0 ? "text-emerald-400" : "text-slate-300"
+              }`}>
+                {money(c.saldo_favor || 0)}
+              </div>
+            </td>
+            <td className="py-2 pr-4">{money(gastoMesCliente(state, c.id))}</td>
+            <td className="py-2 pr-4">
+              <div className="flex gap-1">
+                {/* Solo admin puede gestionar deuda manual */}
+                {session?.role === "admin" && (
+                  <>
+                    <button
+                      onClick={() => agregarDeudaManual(c.id)}
+                      className="text-amber-400 hover:text-amber-300 text-sm px-2 py-1 border border-amber-700 rounded"
+                      title="Agregar deuda manual"
+                    >
+                      + Deuda
+                    </button>
+                    <button
+                      onClick={() => ajustarSaldoFavor(c.id)}
+                      className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 border border-blue-700 rounded"
+                      title="Ajustar saldo a favor"
+                    >
+                      💰 Saldo
+                    </button>
+                    {c.debt > 0 && (
+                      <button
+                        onClick={() => cancelarDeuda(c.id)}
+                        className="text-red-400 hover:text-red-300 text-sm px-2 py-1 border border-red-700 rounded"
+                        title="Cancelar deuda"
+                      >
+                        ✕ Deuda
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+
+        {clients.length === 0 && (
+          <tr>
+            <td className="py-2 pr-4 text-slate-400" colSpan={10}>
+              Sin clientes cargados.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</Card>
 
 {session?.role === "admin" && (
   <Card title="🛠️ Panel de Control - Administrador">
