@@ -580,7 +580,7 @@ function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, 
   const [descripcion, setDescripcion] = useState("");
   // Agrega estos estados junto con los otros useState
 const [bateria, setBateria] = useState<EstadoBateria>("+80%");
-const [listaPrecio, setListaPrecio] = useState<"consumidor_final" | "revendedor">("consumidor_final");
+
   // Estados para filtros
   const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
   const [filtroModelo, setFiltroModelo] = useState("Todos");
@@ -649,6 +649,7 @@ showError("El IMEI ya existe en el sistema");
     // 👇👇👇 CREAR NOMBRE AUTOMÁTICO CON MODELO + CAPACIDAD
     const nombreCompleto = `${modelo} ${capacidad}`;
 
+// REEMPLAZAR el objeto nuevoProducto por:
 const nuevoProducto: Producto = {
   id: "ip_" + Math.random().toString(36).slice(2, 9),
   name: nombreCompleto,
@@ -662,13 +663,12 @@ const nuevoProducto: Producto = {
   precio_compra: parseNum(precioCompra),
   precio_consumidor_final: parseNum(precioConsumidorFinal),
   precio_revendedor: parseNum(precioRevendedor),
-  precio_venta: parseNum(precioConsumidorFinal),
+  precio_venta: parseNum(precioConsumidorFinal), // Por defecto usa consumidor final
   costo_reparacion: parseNum(costoReparacion),
   descripcion: descripcion || undefined,
   fecha_ingreso: todayISO(),
-  // CORREGIR ESTAS DOS LÍNEAS:
-  bateria: "+80%", // o "+90%", "100%", "-75%"
-  lista_precio: "consumidor_final" // o "revendedor"
+  bateria: bateria,
+  lista_precio: "consumidor_final" // Valor por defecto, ya no se selecciona
 };
 
     const st = clone(state);
@@ -911,7 +911,6 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                     <th className="py-2 px-2">Capacidad</th>
                     <th className="py-2 px-2">IMEI</th>
                     <th className="py-2 px-2">Batería</th>
-                    <th className="py-2 px-2">Lista</th>
                     <th className="py-2 px-2">Grado</th>
                     <th className="py-2 px-2">Color</th>
                     <th className="py-2 px-2">Estado</th>
@@ -947,11 +946,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                           {producto.bateria}
                         </Chip>
                       </td>
-                      <td className="py-2 px-2">
-                        <Chip tone={producto.lista_precio === "consumidor_final" ? "emerald" : "blue"}>
-                          {producto.lista_precio === "consumidor_final" ? "💰 CF" : "🏪 Rev"}
-                        </Chip>
-                      </td>
+                      
                       <td className="py-2 px-2">
                         <Chip tone={
                           producto.grado === "A+" ? "emerald" :
@@ -1077,15 +1072,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                 { value: "-75%", label: "🔋 -75% - Regular" },
               ]}
             />
-            <Select
-              label="Lista de Precio"
-              value={listaPrecio}
-              onChange={setListaPrecio}
-              options={[
-                { value: "consumidor_final", label: "💰 Consumidor Final" },
-                { value: "revendedor", label: "🏪 Revendedor" },
-              ]}
-            />
+            
            {/* Precio de Compra */}
       <NumberInput
         label="Precio de Compra"
@@ -2422,8 +2409,11 @@ function FacturacionTab({ state, setState, session, showError, showSuccess, show
   const [clientId, setClientId] = useState(state.clients[0]?.id || "");
   const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
   const [priceList, setPriceList] = useState("1");
-  const [sectionFilter, setSectionFilter] = useState("Todas");
-  const [listFilter, setListFilter] = useState("Todas");
+ const [filtroModelo, setFiltroModelo] = useState("Todos");
+const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
+const [filtroBateria, setFiltroBateria] = useState("Todos");
+const [filtroGrado, setFiltroGrado] = useState("Todos");
+
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [payCash, setPayCash] = useState("");
@@ -2454,8 +2444,26 @@ function FacturacionTab({ state, setState, session, showError, showSuccess, show
     return matchName || matchNumber;
   });
  
-  const sections = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.section || "Otros")))];
-  const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
+   // 👇👇👇 OBTENER OPCIONES PARA FILTROS DE iPHONES
+  const modelosUnicos = ["Todos", ...Array.from(new Set(state.products
+    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
+    .map((p: Producto) => p.modelo)))
+    .filter(m => m)];
+
+  const capacidadesUnicas = ["Todos", ...Array.from(new Set(state.products
+    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
+    .map((p: Producto) => p.capacidad)))
+    .filter(c => c)];
+
+  const bateriasUnicas = ["Todos", ...Array.from(new Set(state.products
+    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
+    .map((p: Producto) => p.bateria)))
+    .filter(b => b)];
+
+  const gradosUnicos = ["Todos", ...Array.from(new Set(state.products
+    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
+    .map((p: Producto) => p.grado)))
+    .filter(g => g)];
 
   // Filtro de productos
   const filteredProducts = state.products.filter((p: any) => {
@@ -2470,19 +2478,27 @@ function FacturacionTab({ state, setState, session, showError, showSuccess, show
     return okS && okL && okNombre && okSeccion;
   });
 
-  function addItem(p: any) {
-    const existing = items.find((it: any) => it.productId === p.id);
-    const unit = priceList === "1" ? p.price1 : p.price2;
-    if (existing) setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
-    else setItems([...items, { 
-      productId: p.id, 
-      name: p.name, 
-      section: p.section, 
-      qty: 1, 
-      unitPrice: unit, 
-      cost: p.cost 
-    }]);
+function addItem(p: any) {
+  const existing = items.find((it: any) => it.productId === p.id);
+  
+  // DETECTAR AUTOMÁTICAMENTE EL PRECIO SEGÚN LA LISTA CONFIGURADA
+  let unit;
+  if (priceList === "1") { // Mitobicel - Consumidor Final
+    unit = p.precio_consumidor_final || p.precio_venta || p.price1;
+  } else { // ElshoppingDlc - Revendedor
+    unit = p.precio_revendedor || p.price2;
   }
+  
+  if (existing) setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
+  else setItems([...items, { 
+    productId: p.id, 
+    name: p.name, 
+    section: p.section, 
+    qty: 1, 
+    unitPrice: unit, 
+    cost: p.cost 
+  }]);
+}
 
 async function saveAndPrint() {
   if (!client || !vendor) return showError("Seleccioná cliente y vendedor.");
@@ -2764,18 +2780,43 @@ const toPay = Math.max(0, total - applied);
       {/* EL RESTO DEL CÓDIGO DE PRODUCTOS PERMANECE IGUAL */}
       <Card title="Productos" className={isMobile ? 'text-sm' : ''}>
         <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-4'} gap-2 mb-3`}>
-          <Select 
-            label="Sección" 
-            value={sectionFilter} 
-            onChange={setSectionFilter} 
-            options={sections.map((s: any) => ({ value: s, label: s }))} 
-          />
-          <Select 
-            label="Lista" 
-            value={listFilter} 
-            onChange={setListFilter} 
-            options={lists.map((s: any) => ({ value: s, label: s }))} 
-          />
+         {/* 👇👇👇 FILTROS ESPECÍFICOS PARA iPHONES */}
+<Select
+  label="📱 Modelo"
+  value={filtroModelo}
+  onChange={setFiltroModelo}
+  options={modelosUnicos.map(m => ({ 
+    value: m, 
+    label: m === "Todos" ? "Todos los modelos" : m 
+  }))}
+/>
+<Select
+  label="💾 Capacidad"
+  value={filtroCapacidad}
+  onChange={setFiltroCapacidad}
+  options={capacidadesUnicas.map(c => ({ 
+    value: c, 
+    label: c === "Todos" ? "Todas las capacidades" : c 
+  }))}
+/>
+<Select
+  label="🔋 Batería"
+  value={filtroBateria}
+  onChange={setFiltroBateria}
+  options={bateriasUnicas.map(b => ({ 
+    value: b, 
+    label: b === "Todos" ? "Todas las baterías" : b 
+  }))}
+/>
+<Select
+  label="⭐ Grado"
+  value={filtroGrado}
+  onChange={setFiltroGrado}
+  options={gradosUnicos.map(g => ({ 
+    value: g, 
+    label: g === "Todos" ? "Todos los grados" : g 
+  }))}
+/>
           
           <div className="space-y-1">
             <Input 
@@ -2812,54 +2853,63 @@ const toPay = Math.max(0, total - applied);
 
         <div className={`${isMobile ? 'space-y-4' : 'grid md:grid-cols-2 gap-4'}`}>
           {/* LISTA DE PRODUCTOS - IGUAL QUE ANTES */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <div className="text-sm font-semibold">Productos Disponibles</div>
-              {filteredProducts.length > 0 && (
-                <div className="text-xs text-slate-400">
-                  {filteredProducts.length} producto(s)
-                </div>
-              )}
+         {/* LISTA DE iPHONES DISPONIBLES */}
+<div className="space-y-3">
+  <div className="flex justify-between items-center">
+    <div className="text-sm font-semibold">📱 iPhones Disponibles</div>
+    {filteredProducts.length > 0 && (
+      <div className="text-xs text-slate-400">
+        {filteredProducts.length} iPhone(s) en stock
+      </div>
+    )}
+  </div>
+  
+  {filteredProducts.length === 0 ? (
+    <div className="text-center p-6 border border-slate-800 rounded-xl">
+      <div className="text-slate-400">No se encontraron iPhones con los filtros seleccionados</div>
+    </div>
+  ) : (
+    <div className="space-y-3 max-h-[600px] overflow-y-auto">
+      {filteredProducts.map((producto: Producto) => (
+        <div key={producto.id} className="border border-slate-700 rounded-lg p-3 hover:bg-slate-800/30 transition-colors">
+          <div className="flex justify-between items-start">
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold">{producto.name}</div>
+              <div className="text-sm text-slate-400">
+                {producto.modelo} • {producto.capacidad} • {producto.color}
+              </div>
+              <div className="text-xs text-slate-500 font-mono mt-1">
+                IMEI: {producto.imei} • Grado: {producto.grado} • Batería: {producto.bateria}
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Chip tone="slate">{producto.ubicacion}</Chip>
+                <Chip tone={
+                  producto.bateria === "100%" ? "emerald" :
+                  producto.bateria === "+90%" ? "blue" :
+                  producto.bateria === "+80%" ? "amber" : "red"
+                }>
+                  {producto.bateria}
+                </Chip>
+              </div>
             </div>
-            
-            {filteredProducts.length === 0 ? (
-              <div className="text-center p-6 border border-slate-800 rounded-xl">
-                <div className="text-slate-400">No se encontraron productos</div>
+            <div className="text-right shrink-0 ml-3">
+              <div className="font-bold text-lg">
+                {money(priceList === "1" ? producto.precio_consumidor_final : producto.precio_revendedor)}
               </div>
-            ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {Object.entries(grouped).map(([sec, arr]: any) => (
-                  <div key={sec} className="border border-slate-800 rounded-xl">
-                    <div className="px-3 py-2 text-xs font-semibold bg-slate-800/70 flex justify-between items-center">
-                      <span>🗂️ {sec}</span>
-                      <span className="text-slate-400">{arr.length} producto(s)</span>
-                    </div>
-                    <div className="divide-y divide-slate-800">
-                      {arr.map((p: any) => (
-                        <div key={p.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-800/30 transition-colors">
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium truncate">{p.name}</div>
-                            <div className="text-xs text-slate-400 truncate">
-                              Precio: {money(priceList === "1" ? p.price1 : p.price2)} · 
-                              Stock: {p.stock || 0}
-                            </div>
-                          </div>
-                          <Button 
-                            onClick={() => addItem(p)} 
-                            tone="slate" 
-                            className="shrink-0 text-xs"
-                            disabled={parseNum(p.stock) <= 0}
-                          >
-                            {parseNum(p.stock) <= 0 ? "Sin stock" : (isMobile ? "+" : "Añadir")}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+              <Button 
+                onClick={() => addItem(producto)}
+                tone="emerald"
+                className="mt-2"
+              >
+                Agregar
+              </Button>
+            </div>
           </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
           {/* CARRITO - IGUAL QUE ANTES */}
           <div className="space-y-3">
@@ -5563,22 +5613,62 @@ function PresupuestosTab({ state, setState, session, showError, showSuccess, sho
   const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
   
   // 👇👇👇 MODIFICAR ESTA LÍNEA PARA INCLUIR LOS NUEVOS FILTROS
-  const filteredProducts = state.products.filter((p: any) => {
-    const okS = sectionFilter === "Todas" || p.section === sectionFilter;
-    const okL = listFilter === "Todas" || p.list_label === listFilter;
-    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
-    return okS && okL && okQ;
+   // 👇👇👇 FILTRAR SOLO iPhones EN STOCK con los nuevos filtros
+  const filteredProducts = state.products.filter((p: Producto) => {
+    const esiPhone = p.modelo && p.modelo.includes("iPhone");
+    const enStock = p.estado === "EN STOCK";
+    
+    const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
+    const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
+    const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
+    const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
+    const cumpleBusqueda = !query || p.name.toLowerCase().includes(query.toLowerCase());
+    
+    return esiPhone && enStock && cumpleModelo && cumpleCapacidad && cumpleBateria && cumpleGrado && cumpleBusqueda;
   });
   
   // 👇👇👇 AGREGAR ESTA LÍNEA PARA AGRUPAR POR SECCIÓN
   const grouped = groupBy(filteredProducts, "section");
 
-  function addItem(p: any) {
-    const existing = items.find((it: any) => it.productId === p.id);
-    const unit = priceList === "1" ? p.price1 : p.price2;
-    if (existing) setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
-    else setItems([...items, { productId: p.id, name: p.name, section: p.section, qty: 1, unitPrice: unit, cost: p.cost }]);
+ function addItem(p: Producto) {
+  // ✅ VERIFICAR que el iPhone esté en stock
+  if (p.estado !== "EN STOCK") {
+    showError("❌ Este iPhone no está disponible para la venta");
+    return;
   }
+
+  // ✅ Verificar que no esté ya en el carrito (por IMEI)
+  const existing = items.find((it: any) => it.productId === p.id);
+  if (existing) {
+    showError("❌ Este iPhone ya está en el carrito");
+    return;
+  }
+
+  // DETECTAR AUTOMÁTICAMENTE EL PRECIO SEGÚN LA LISTA CONFIGURADA
+  let unitPrice;
+  if (priceList === "1") { // Mitobicel - Consumidor Final
+    unitPrice = p.precio_consumidor_final || p.precio_venta || 0;
+  } else { // ElshoppingDlc - Revendedor
+    unitPrice = p.precio_revendedor || 0;
+  }
+
+  const item = {
+    productId: p.id, 
+    imei: p.imei, // 👈 INCLUIR EL IMEI
+    name: p.name, 
+    modelo: p.modelo,
+    capacidad: p.capacidad,
+    grado: p.grado,
+    bateria: p.bateria,
+    section: "iPhone", 
+    qty: 1, // 👈 SIEMPRE 1 porque cada iPhone es único
+    unitPrice: unitPrice, 
+    cost: p.precio_compra + p.costo_reparacion
+  };
+
+  setItems([...items, item]);
+  showSuccess(`✅ ${p.name} agregado al carrito`);
+}
   
   // ... el resto de tus funciones permanecen EXACTAMENTE igual ...
   async function guardarPresupuesto() {
