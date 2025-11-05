@@ -2466,17 +2466,19 @@ const [filtroGrado, setFiltroGrado] = useState("Todos");
     .filter(g => g)];
 
   // Filtro de productos
-  const filteredProducts = state.products.filter((p: any) => {
-    const okS = sectionFilter === "Todas" || p.section === sectionFilter;
-    const okL = listFilter === "Todas" || p.list_label === listFilter;
-    const okNombre = !busquedaAvanzada.nombre || 
-      p.name.toLowerCase().includes(busquedaAvanzada.nombre.toLowerCase());
-    const okSeccion = !busquedaAvanzada.seccion || 
-      p.section.toLowerCase().includes(busquedaAvanzada.seccion.toLowerCase()) ||
-      p.id.toLowerCase().includes(busquedaAvanzada.seccion.toLowerCase());
-    
-    return okS && okL && okNombre && okSeccion;
-  });
+// 👇👇👇 FILTRAR SOLO iPhones EN STOCK con los nuevos filtros
+const filteredProducts = state.products.filter((p: Producto) => {
+  const esiPhone = p.modelo && p.modelo.includes("iPhone");
+  const enStock = p.estado === "EN STOCK";
+  
+  const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
+  const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
+  const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
+  const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
+  const cumpleBusqueda = !query || p.name.toLowerCase().includes(query.toLowerCase());
+  
+  return esiPhone && enStock && cumpleModelo && cumpleCapacidad && cumpleBateria && cumpleGrado && cumpleBusqueda;
+});
 
 function addItem(p: any) {
   const existing = items.find((it: any) => it.productId === p.id);
@@ -6619,8 +6621,7 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
 
   const filteredProducts = state.products.filter((p: any) => {
     const okS = sectionFilter === "Todas" || p.section === sectionFilter;
-    const okL = listFilter === "Todas" || p.list_label === listFilter;
-    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
+const okL = true; // Ya no usamos filtro de lista    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
     return okS && okL && okQ;
   });
 
