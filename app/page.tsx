@@ -578,7 +578,9 @@ function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, 
   const [costoReparacion, setCostoReparacion] = useState("");
   const [ubicacion, setUbicacion] = useState<UbicacionProducto>("LOCAL");
   const [descripcion, setDescripcion] = useState("");
-  
+  // Agrega estos estados junto con los otros useState
+const [bateria, setBateria] = useState<EstadoBateria>("+80%");
+const [listaPrecio, setListaPrecio] = useState<"consumidor_final" | "revendedor">("consumidor_final");
   // Estados para filtros
   const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
   const [filtroModelo, setFiltroModelo] = useState("Todos");
@@ -586,6 +588,9 @@ function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, 
   const [filtroGrado, setFiltroGrado] = useState("Todos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("Todos");
   const [filtroDiasStock, setFiltroDiasStock] = useState("Todos"); // 👈 NUEVO FILTRO
+  // Agrega estos estados para los filtros
+const [filtroBateria, setFiltroBateria] = useState("Todos");
+const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
 
   const productosStockBajo = state.products.filter((p: Producto) => 
     p.estado === "EN STOCK" && 
@@ -644,7 +649,7 @@ showError("El IMEI ya existe en el sistema");
     // 👇👇👇 CREAR NOMBRE AUTOMÁTICO CON MODELO + CAPACIDAD
     const nombreCompleto = `${modelo} ${capacidad}`;
 
-   const nuevoProducto: Producto = {
+const nuevoProducto: Producto = {
   id: "ip_" + Math.random().toString(36).slice(2, 9),
   name: nombreCompleto,
   modelo,
@@ -661,9 +666,9 @@ showError("El IMEI ya existe en el sistema");
   costo_reparacion: parseNum(costoReparacion),
   descripcion: descripcion || undefined,
   fecha_ingreso: todayISO(),
-  // AGREGA ESTAS DOS PROPIEDADES QUE FALTAN:
-  bateria: "", // o el valor que corresponda
-  lista_precio: "" // o el valor que corresponda
+  // CORREGIR ESTAS DOS LÍNEAS:
+  bateria: "+80%", // o "+90%", "100%", "-75%"
+  lista_precio: "consumidor_final" // o "revendedor"
 };
 
     const st = clone(state);
