@@ -2414,12 +2414,7 @@ const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
 const [filtroBateria, setFiltroBateria] = useState("Todos");
 const [filtroGrado, setFiltroGrado] = useState("Todos");
 const [query, setQuery] = useState("");
- const [filtroModelo, setFiltroModelo] = useState("Todos");
-const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
-const [filtroBateria, setFiltroBateria] = useState("Todos");
-const [filtroGrado, setFiltroGrado] = useState("Todos");
 
-  const [query, setQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [payCash, setPayCash] = useState("");
   const [payTransf, setPayTransf] = useState("");
