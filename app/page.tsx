@@ -6627,10 +6627,10 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
   const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
 
   const filteredProducts = state.products.filter((p: any) => {
-    const okS = sectionFilter === "Todas" || p.section === sectionFilter;
-const okL = true; // Ya no usamos filtro de lista    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
-    return okS && okL && okQ;
-  });
+  const okS = sectionFilter === "Todas" || p.section === sectionFilter;
+const okL = true; // Ya no usamos filtro de lista
+const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
+return okS && okL && okQ;
 
   const grouped = groupBy(filteredProducts, "section");
 
