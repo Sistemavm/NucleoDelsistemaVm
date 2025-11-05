@@ -6616,7 +6616,9 @@ ${cli.debt > 0 ? `Se aplicó saldo a favor a la deuda existente. Deuda actual: $
 }
 
 // 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
-function PedidosOnlineTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  const [priceList, setPriceList] = useState("1");
+// 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
+function PedidosOnlineTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
+  const [priceList, setPriceList] = useState("1");
   const [sectionFilter, setSectionFilter] = useState("Todas");
   const [listFilter, setListFilter] = useState("Todas");
   const [query, setQuery] = useState("");
@@ -6627,39 +6629,28 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
   const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
 
   const filteredProducts = state.products.filter((p: any) => {
-  const okS = sectionFilter === "Todas" || p.section === sectionFilter;
-const okL = true; // Ya no usamos filtro de lista
-const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
-return okS && okL && okQ;
+    const okS = sectionFilter === "Todas" || p.section === sectionFilter;
+    const okL = listFilter === "Todas" || p.list_label === listFilter;
+    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
+    return okS && okL && okQ;
+  });
 
   const grouped = groupBy(filteredProducts, "section");
 
-function addItem(p: any) {
-  // ✅ VERIFICAR STOCK ANTES DE AGREGAR
-  const stockActual = parseNum(p.stock);
-  if (stockActual <= 0) {
-    return alert(`No hay stock disponible de ${p.name}. Stock actual: ${stockActual}`);
-  }
-  
-  const existing = items.find((it: any) => it.productId === p.id);
-  const unit = priceList === "1" ? p.price1 : p.price2;
-  
-  if (existing) {
-    // Verificar si al agregar una unidad más supera el stock
-    const nuevaCantidad = parseNum(existing.qty) + 1;
-    if (nuevaCantidad > stockActual) {
-      return alert(`No hay suficiente stock de ${p.name}. Stock disponible: ${stockActual}`);
+  function addItem(p: any) {
+    const existing = items.find((it: any) => it.productId === p.id);
+    const unit = priceList === "1" ? p.price1 : p.price2;
+    
+    if (existing) {
+      setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
+    } else {
+      setItems([...items, { productId: p.id, name: p.name, section: p.section, qty: 1, unitPrice: unit, cost: p.cost }]);
     }
-    setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: nuevaCantidad } : it)));
-  } else {
-    setItems([...items, { productId: p.id, name: p.name, section: p.section, qty: 1, unitPrice: unit, cost: p.cost }]);
   }
-}
 
   async function hacerPedido() {
     if (items.length === 0) return showError("Agregá productos al pedido.");
 
-    
     const st = clone(state);
     const pedidoId = "ped_" + Math.random().toString(36).slice(2, 9);
     const total = calcInvoiceTotal(items);
@@ -6687,7 +6678,7 @@ function addItem(p: any) {
     setItems([]);
     setObservaciones("");
     
-showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté listo.");
+    showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté listo.");
   }
 
   const total = calcInvoiceTotal(items);
@@ -6867,7 +6858,6 @@ showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté lis
   );
 }
 
-// 👇👇👇 NUEVO COMPONENTE: Gestión de Pedidos (para admin/vendedores)
 // 👇👇👇 NUEVO COMPONENTE: Gestión de Pedidos (para admin/vendedores)
 function GestionPedidosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
