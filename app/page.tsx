@@ -5,6 +5,25 @@ export const fetchCache = "force-no-store";
 import React, { useEffect, useState } from "react";
 import "./globals.css";
 import { supabase, hasSupabase } from "../lib/supabaseClient";
+// 👇👇👇 AGREGAR ESTE HOOK AL INICIO DEL ARCHIVO, después de los imports
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkDevice = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    
+    return () => {
+      window.removeEventListener('resize', checkDevice);
+    };
+  }, []);
+
+  return isMobile;
+}
 
 
 /* ===== TIPOS NUEVOS ===== */
@@ -2190,25 +2209,33 @@ const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, clien
 }
 
   function Navbar({ current, setCurrent, role, onLogout }: any) {
-  // En el array TABS del Navbar, asegúrate que diga:
-const TABS = [
-  "Facturacion",
-  "Inventario iPhones", 
-  "Clientes",
-  "Agenda Turnos",
-  "Deudores",
-  "Reportes",  // ← Debe decir "Reportes" sin "iPhones"
-  "Vendedores",
-  "Gastos y Devoluciones",
-  "Pedidos Online",
-  "Cola"
-];
+  const TABS = [
+    "Facturación",
+    "Inventario iPhones", 
+    "Clientes",
+    "Agenda Turnos",
+    "Deudores",
+    "Reportes",
+    "Vendedores",
+    "Gastos y Devoluciones",
+    "Pedidos Online",
+    "Cola"
+  ];
 
   const visibleTabs =
     role === "admin"
       ? TABS
       : role === "vendedor"
-      ? ["Ventas iPhones", "Clientes", "Agenda Turnos", "Reportes iPhones", "Pedidos Online"]
+      ? [
+          "Facturación", 
+          "Clientes", 
+          "Agenda Turnos", 
+          "Deudores",           // 👈 NUEVO
+          "Reportes", 
+          "Gastos y Devoluciones", // 👈 NUEVO  
+          "Pedidos Online",
+          "Cola"                // 👈 NUEVO
+        ]
       : role === "pedido-online"
       ? ["Hacer Pedido"]
       : ["Panel"];
@@ -2317,6 +2344,7 @@ function ClientePanel({ state, setState, session }: any) {
 /* =====================  TABS  ===================== */
 /* Facturación */
 function FacturacionTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
+  const isMobile = useIsMobile();
   
   const [clientId, setClientId] = useState(state.clients[0]?.id || "");
   const [vendorId, setVendorId] = useState(session.role === "admin" ? state.vendors[0]?.id : session.id);
@@ -2325,79 +2353,103 @@ function FacturacionTab({ state, setState, session, showError, showSuccess, show
   const [listFilter, setListFilter] = useState("Todas");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
- const [payCash, setPayCash] = useState("");
-const [payTransf, setPayTransf] = useState("");
-const [payChange, setPayChange] = useState(""); // vuelto (opcional)
-const [alias, setAlias] = useState("");
+  const [payCash, setPayCash] = useState("");
+  const [payTransf, setPayTransf] = useState("");
+  const [payChange, setPayChange] = useState("");
+  const [alias, setAlias] = useState("");
+  const [comisionVendedor, setComisionVendedor] = useState(""); // 👈 NUEVO: Comisión
+ 
+  // Estados para buscadores
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [busquedaAvanzada, setBusquedaAvanzada] = useState({
+    seccion: "",
+    nombre: "",
+    codigo: ""
+  });
 
   const client = state.clients.find((c: any) => c.id === clientId);
   const vendor = state.vendors.find((v: any) => v.id === vendorId);
-
+  
+  // Filtrar clientes
+  const filteredClients = state.clients.filter((c: any) => {
+    if (!clienteSearch.trim()) return true;
+    
+    const searchTerm = clienteSearch.toLowerCase().trim();
+    const matchName = c.name.toLowerCase().includes(searchTerm);
+    const matchNumber = String(c.number).includes(searchTerm);
+    
+    return matchName || matchNumber;
+  });
+ 
   const sections = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.section || "Otros")))];
   const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
 
+  // Filtro de productos
   const filteredProducts = state.products.filter((p: any) => {
     const okS = sectionFilter === "Todas" || p.section === sectionFilter;
     const okL = listFilter === "Todas" || p.list_label === listFilter;
-    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
-    return okS && okL && okQ;
+    const okNombre = !busquedaAvanzada.nombre || 
+      p.name.toLowerCase().includes(busquedaAvanzada.nombre.toLowerCase());
+    const okSeccion = !busquedaAvanzada.seccion || 
+      p.section.toLowerCase().includes(busquedaAvanzada.seccion.toLowerCase()) ||
+      p.id.toLowerCase().includes(busquedaAvanzada.seccion.toLowerCase());
+    
+    return okS && okL && okNombre && okSeccion;
   });
 
   function addItem(p: any) {
     const existing = items.find((it: any) => it.productId === p.id);
     const unit = priceList === "1" ? p.price1 : p.price2;
     if (existing) setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
-    else setItems([...items, { productId: p.id, name: p.name, section: p.section, qty: 1, unitPrice: unit, cost: p.cost }]);
+    else setItems([...items, { 
+      productId: p.id, 
+      name: p.name, 
+      section: p.section, 
+      qty: 1, 
+      unitPrice: unit, 
+      cost: p.cost 
+    }]);
   }
 
 async function saveAndPrint() {
   if (!client || !vendor) return showError("Seleccioná cliente y vendedor.");
-
   if (items.length === 0) return showError("Agregá productos al carrito.");
-
   
-  // ✅ VALIDAR STOCK ANTES DE CONTINUAR
+  // Validar stock
   const validacionStock = validarStockDisponible(state.products, items);
   if (!validacionStock.valido) {
     const mensajeError = `No hay suficiente stock para los siguientes productos:\n\n${validacionStock.productosSinStock.join('\n')}`;
-    return alert(mensajeError);
+    return showError(mensajeError);
   }
   
   const total = calcInvoiceTotal(items);
   const cash  = parseNum(payCash);
   const transf = parseNum(payTransf);
+  const comision = parseNum(comisionVendedor); // 👈 NUEVO: Comisión
   const suggestedChange = Math.max(0, cash - Math.max(0, total - transf));
   const change = payChange.trim() === "" ? suggestedChange : Math.max(0, parseNum(payChange));
+  
   if (change > cash) return showError("El vuelto no puede ser mayor al efectivo entregado.");
-
 
   const st = clone(state);
   const number = st.meta.invoiceCounter++;
   const id = "inv_" + number;
 
-  // 1) Consumir saldo a favor del cliente ANTES de calcular deuda
+  // Manejar saldo a favor
   const cl = st.clients.find((c:any) => c.id === client.id)!;
   const saldoActual = parseNum(cl.saldo_favor || 0);
   const saldoAplicado = Math.min(total, saldoActual);
   const totalTrasSaldo = total - saldoAplicado;
 
-  // 2) Lo efectivamente aplicado por pagos (efectivo+transf - vuelto)
+  // Calcular pagos aplicados
   const applied = Math.max(0, cash + transf - change);
-
-  // 3) Deuda que queda luego de aplicar saldo y pagos
   const debtDelta = Math.max(0, totalTrasSaldo - applied);
-  
-  // ✅ CORRECCIÓN: NO sumar deuda manualmente si ya se calcula automáticamente
-  // Solo actualizar si realmente hay deuda pendiente
   const status = debtDelta > 0 ? "No Pagada" : "Pagada";
 
-  // 4) Actualizar cliente: bajar saldo_favor, NO sumar deuda manualmente
+  // Actualizar cliente
   cl.saldo_favor = saldoActual - saldoAplicado;
   
-  // ✅ CORRECCIÓN IMPORTANTE: No modificar cl.debt aquí
-  // La deuda se calculará automáticamente desde las facturas pendientes
-  
-  // ⭐⭐⭐⭐ NUEVO: DESCONTAR STOCK DE PRODUCTOS VENDIDOS ⭐⭐⭐⭐⭐
+  // Descontar stock
   items.forEach(item => {
     const product = st.products.find((p: any) => p.id === item.productId);
     if (product) {
@@ -2405,6 +2457,7 @@ async function saveAndPrint() {
     }
   });
 
+  // 👇👇👇 NUEVO: Crear factura con comisión
   const invoice = {
     id,
     number,
@@ -2417,10 +2470,16 @@ async function saveAndPrint() {
     total,
     total_after_credit: totalTrasSaldo,
     cost: calcInvoiceCost(items),
-    payments: { cash, transfer: transf, change, alias: alias.trim(), saldo_aplicado: saldoAplicado },
+    comision_vendedor: comision, // 👈 NUEVO: Guardar comisión
+    payments: { 
+      cash, 
+      transfer: transf, 
+      change, 
+      alias: alias.trim(), 
+      saldo_aplicado: saldoAplicado 
+    },
     status,
     type: "Factura",
-    // ✅ REMOVER: client_debt_total: cl.debt, // Esto causa duplicación
   };
 
   st.invoices.push(invoice);
@@ -2430,13 +2489,11 @@ async function saveAndPrint() {
   if (hasSupabase) {
     await supabase.from("invoices").insert(invoice);
     
-    // ✅ CORRECCIÓN: Solo actualizar saldo_favor, NO la deuda
     await supabase.from("clients").update({ 
       saldo_favor: cl.saldo_favor 
-      // ❌ NO actualizar debt aquí
     }).eq("id", client.id);
     
-    // ⭐⭐⭐⭐ ACTUALIZAR STOCK EN SUPABASE ⭐⭐⭐⭐⭐
+    // Actualizar stock en Supabase
     for (const item of items) {
       const product = st.products.find((p: any) => p.id === item.productId);
       if (product) {
@@ -2458,175 +2515,305 @@ async function saveAndPrint() {
   setPayTransf("");
   setPayChange("");
   setAlias("");
+  setComisionVendedor(""); // 👈 Limpiar comisión
   setItems([]);
+  
+  showSuccess("✅ Factura guardada e impresa correctamente");
 }
 
 const total = calcInvoiceTotal(items);
 const cash = parseNum(payCash);
 const transf = parseNum(payTransf);
+const comision = parseNum(comisionVendedor); // 👈 NUEVO
 
-// Vuelto sugerido automáticamente: solo sale del EFECTIVO
+// Cálculos de pago
 const suggestedChange = Math.max(0, cash - Math.max(0, total - transf));
-// Si el usuario no escribió nada, usamos el sugerido
 const change = payChange.trim() === "" ? suggestedChange : Math.max(0, parseNum(payChange));
-
-const paid = cash + transf;                               // lo que ENTREGÓ el cliente
-const applied = Math.max(0, cash + transf - change);      // lo que realmente se aplica a la factura
+const paid = cash + transf;
+const applied = Math.max(0, cash + transf - change);
 const toPay = Math.max(0, total - applied);
 
   const grouped = groupBy(filteredProducts, "section");
 
-  return (
-    <div className="max-w-7xl mx-auto p-4 space-y-4">
-      <div className="grid md:grid-cols-3 gap-4">
-        <Card title="Datos">
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Cliente"
-              value={clientId}
-              onChange={setClientId}
-              options={state.clients.map((c: any) => ({ value: c.id, label: `${c.number} — ${c.name}` }))}
-            />
-            <Select
-              label="Vendedor"
-              value={vendorId}
-              onChange={setVendorId}
-              options={state.vendors.map((v: any) => ({ value: v.id, label: v.name }))}
-            />
-<div className="col-span-2 text-xs text-slate-300 mt-1">
-  Deuda del cliente: <span className="font-semibold">
-    {(() => {
-      const cliente = state.clients.find((c:any) => c.id === clientId);
-      if (!cliente) return "✅ Al día";
-      const detalleDeudas = calcularDetalleDeudas(state, clientId);
-      const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
-      return deudaNeta > 0 ? money(deudaNeta) : "✅ Al día";
-    })()}
-  </span>
-  <span className="mx-2">·</span>
-  Saldo a favor: <span className="font-semibold text-emerald-400">
-    {money(state.clients.find((c:any)=>c.id===clientId)?.saldo_favor || 0)}
-  </span>
-  <span className="mx-2">·</span>
-  Gastado este mes: <span className="font-semibold">{money(gastoMesCliente(state, clientId))}</span>
-</div>
-
-
-            <Select
-              label="Lista de precios"
-              value={priceList}
-              onChange={setPriceList}
-              options={[
-                { value: "1", label: "Revendedores" },
-                { value: "2", label: "Consumidor Final" },
-              ]}
-            />
+   return (
+    <div className="max-w-7xl mx-auto p-2 md:p-4 space-y-3 md:space-y-4">
+      <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-3'} gap-3 md:gap-4`}>
+       <Card title="Datos" className={isMobile ? 'text-sm' : ''}>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+    
+    {/* Buscador de Clientes */}
+    <div className="md:col-span-2">
+      <div className="relative">
+        <Input
+          label="Buscar Cliente (Nombre o Número)"
+          value={clienteSearch}
+          onChange={setClienteSearch}
+          placeholder="Ej: 'Kiosco' o '1001'..."
+          className="pr-20"
+        />
+        
+        {/* Resultados del buscador */}
+        {clienteSearch && (
+          <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            {filteredClients.length === 0 ? (
+              <div className="p-3 text-sm text-slate-400 text-center">
+                No se encontraron clientes
+              </div>
+            ) : (
+              filteredClients.slice(0, 10).map((c: any) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setClientId(c.id);
+                    setClienteSearch("");
+                  }}
+                  className={`w-full text-left p-3 hover:bg-slate-700 border-b border-slate-700 last:border-b-0 ${
+                    clientId === c.id ? 'bg-emerald-900/30' : ''
+                  }`}
+                >
+                  <div className="font-medium">{c.name}</div>
+                  <div className="text-xs text-slate-400">
+                    N° {c.number} | Deuda: {(() => {
+                      const detalleDeudas = calcularDetalleDeudas(state, c.id);
+                      const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+                      return deudaNeta > 0 ? money(deudaNeta) : "✅ Al día";
+                    })()}
+                  </div>
+                </button>
+              ))
+            )}
           </div>
-        </Card>
-
-       <Card title="Pagos">
-  <div className="grid grid-cols-2 gap-3 items-end">
-    <NumberInput label="Efectivo" value={payCash} onChange={setPayCash} placeholder="0" />
-    <NumberInput label="Transferencia" value={payTransf} onChange={setPayTransf} placeholder="0" />
-
-    {/* Vuelto + ayuda (sugerido) */}
-    <div className="space-y-1">
-      <NumberInput
-        label="Vuelto (efectivo)"
-        value={payChange}
-        onChange={setPayChange}
-        placeholder="0"
-      />
-      {payChange.trim() === "" && (
-        <div className="text-[11px] text-slate-400">
-          Sugerido: {money(suggestedChange)}
+        )}
+      </div>
+      
+      {/* Cliente seleccionado */}
+      {client && (
+        <div className="mt-2 p-2 bg-slate-800/50 rounded-lg border border-slate-700">
+          <div className="text-sm font-medium">Cliente seleccionado:</div>
+          <div className="text-sm">
+            <span className="font-semibold">{client.name}</span> 
+            <span className="text-slate-400 ml-2">(N° {client.number})</span>
+          </div>
+          <div className="text-xs text-slate-400 mt-1">
+            Deuda: {(() => {
+              const detalleDeudas = calcularDetalleDeudas(state, client.id);
+              const deudaNeta = calcularDeudaTotal(detalleDeudas, client);
+              return deudaNeta > 0 ? (
+                <span className="text-amber-400 font-semibold">{money(deudaNeta)}</span>
+              ) : (
+                <span className="text-emerald-400">✅ Al día</span>
+              );
+            })()}
+            <span className="mx-2">·</span>
+            Saldo a favor: <span className="text-emerald-400 font-semibold">
+              {money(client.saldo_favor || 0)}
+            </span>
+          </div>
         </div>
       )}
     </div>
 
-    {/* Alias/CVU alineado con Vuelto */}
-    <div className="self-end">
-      <Input
-        label="Alias / CVU destino"
-        value={alias}
-        onChange={setAlias}
-        placeholder="ej: Vm.Electronica"
-      />
-    </div>
+    <Select
+      label="Vendedor"
+      value={vendorId}
+      onChange={setVendorId}
+      options={state.vendors.map((v: any) => ({ value: v.id, label: v.name }))}
+    />
+    
+    <Select
+      label="Lista de precios"
+      value={priceList}
+      onChange={setPriceList}
+      options={[
+        { value: "1", label: "Mitobicel" },
+        { value: "2", label: "ElshoppingDlc" },
+      ]}
+    />
 
-    <div className="col-span-2 text-xs text-slate-300">
-      Pagado: <span className="font-semibold">{money(paid)}</span> — Falta:{" "}
-      <span className="font-semibold">{money(toPay)}</span> — Vuelto:{" "}
-      <span className="font-semibold">{money(change)}</span>
-    </div>
+    {/* 👇👇👇 NUEVO: Campo para comisión del vendedor */}
+    <NumberInput
+      label="Comisión Vendedor"
+      value={comisionVendedor}
+      onChange={setComisionVendedor}
+      placeholder="0"
+    />
+    
   </div>
 </Card>
 
+        <Card title="Pagos" className={isMobile ? 'text-sm' : ''}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3 items-end">
+            <NumberInput label="Efectivo" value={payCash} onChange={setPayCash} placeholder="0" />
+            <NumberInput label="Transferencia" value={payTransf} onChange={setPayTransf} placeholder="0" />
+            <NumberInput label="Vuelto (efectivo)" value={payChange} onChange={setPayChange} placeholder="0" />
+            <Input label="Alias / CVU destino" value={alias} onChange={setAlias} placeholder="ej: mitobicel.algo.banco" />
+            
+            <div className="md:col-span-2 text-xs text-slate-300">
+              Pagado: <span className="font-semibold">{money(paid)}</span> — 
+              Falta: <span className="font-semibold">{money(toPay)}</span> — 
+              Vuelto: <span className="font-semibold">{money(change)}</span>
+              {comision > 0 && (
+                <span> — Comisión: <span className="font-semibold text-amber-400">{money(comision)}</span></span>
+              )}
+            </div>
+          </div>
+        </Card>
 
-        <Card title="Totales">
+        <Card title="Totales" className={isMobile ? 'text-sm' : ''}>
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center justify-between">
               <span>Subtotal</span>
               <span>{money(total)}</span>
             </div>
+            
+            {/* 👇👇👇 NUEVO: Mostrar comisión en totales */}
+            {comision > 0 && (
+              <div className="flex items-center justify-between text-amber-400">
+                <span>Comisión Vendedor</span>
+                <span>- {money(comision)}</span>
+              </div>
+            )}
+            
             <div className="flex items-center justify-between text-lg font-bold">
               <span>Total</span>
               <span>{money(total)}</span>
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
-              <Button onClick={saveAndPrint} className="shadow-lg">
-                Guardar e Imprimir
+              <Button onClick={saveAndPrint} className="w-full md:w-auto text-center justify-center">
+                {isMobile ? "🖨️ Guardar" : "Guardar e Imprimir"}
               </Button>
             </div>
           </div>
         </Card>
       </div>
 
-      <Card title="Productos">
-        <div className="grid md:grid-cols-4 gap-2 mb-3">
-          <Select label="Sección" value={sectionFilter} onChange={setSectionFilter} options={sections.map((s: any) => ({ value: s, label: s }))} />
-          <Select label="Lista" value={listFilter} onChange={setListFilter} options={lists.map((s: any) => ({ value: s, label: s }))} />
-          <Input label="Buscar" value={query} onChange={setQuery} placeholder="Nombre del producto..." />
-          <div className="pt-6">
-            <Chip tone="emerald">Total productos: {filteredProducts.length}</Chip>
+      {/* EL RESTO DEL CÓDIGO DE PRODUCTOS PERMANECE IGUAL */}
+      <Card title="Productos" className={isMobile ? 'text-sm' : ''}>
+        <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-4'} gap-2 mb-3`}>
+          <Select 
+            label="Sección" 
+            value={sectionFilter} 
+            onChange={setSectionFilter} 
+            options={sections.map((s: any) => ({ value: s, label: s }))} 
+          />
+          <Select 
+            label="Lista" 
+            value={listFilter} 
+            onChange={setListFilter} 
+            options={lists.map((s: any) => ({ value: s, label: s }))} 
+          />
+          
+          <div className="space-y-1">
+            <Input 
+              label="Buscar por nombre" 
+              value={busquedaAvanzada.nombre}
+              onChange={(v: string) => setBusquedaAvanzada({...busquedaAvanzada, nombre: v})}
+              placeholder="Nombre del producto..."
+            />
+            <Input 
+              label="Buscar por código/sección" 
+              value={busquedaAvanzada.seccion}
+              onChange={(v: string) => setBusquedaAvanzada({...busquedaAvanzada, seccion: v})}
+              placeholder="Código o sección..."
+            />
+          </div>
+          
+          <div className={`${isMobile ? 'text-center' : 'pt-6'}`}>
+            <Chip tone="emerald">Productos: {filteredProducts.length}</Chip>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        {/* BOTONES PARA LIMPIAR BÚSQUEDAS */}
+        {(busquedaAvanzada.nombre || busquedaAvanzada.seccion) && (
+          <div className="flex gap-2 mb-3">
+            <Button 
+              tone="slate" 
+              onClick={() => setBusquedaAvanzada({ nombre: "", seccion: "", codigo: "" })}
+              className="text-xs"
+            >
+              ✕ Limpiar búsquedas
+            </Button>
+          </div>
+        )}
+
+        <div className={`${isMobile ? 'space-y-4' : 'grid md:grid-cols-2 gap-4'}`}>
+          {/* LISTA DE PRODUCTOS - IGUAL QUE ANTES */}
           <div className="space-y-3">
-            {Object.entries(grouped).map(([sec, arr]: any) => (
-              <div key={sec} className="border border-slate-800 rounded-xl">
-                <div className="px-3 py-2 text-xs font-semibold bg-slate-800/70">{sec}</div>
-                <div className="divide-y divide-slate-800">
-                  {arr.map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between px-3 py-2">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">{p.name}</div>
-                        <div className="text-xs text-slate-400">
-                          Revendedores: {money(p.price1)} · Cliente Final: {money(p.price2)} <span className="text-[10px] text-slate-500 ml-1">{p.list_label}</span>
-                        </div>
-                      </div>
-                      <Button onClick={() => addItem(p)} tone="slate" className="shrink-0">
-                        Añadir
-                      </Button>
-                    </div>
-                  ))}
+            <div className="flex justify-between items-center">
+              <div className="text-sm font-semibold">Productos Disponibles</div>
+              {filteredProducts.length > 0 && (
+                <div className="text-xs text-slate-400">
+                  {filteredProducts.length} producto(s)
                 </div>
+              )}
+            </div>
+            
+            {filteredProducts.length === 0 ? (
+              <div className="text-center p-6 border border-slate-800 rounded-xl">
+                <div className="text-slate-400">No se encontraron productos</div>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {Object.entries(grouped).map(([sec, arr]: any) => (
+                  <div key={sec} className="border border-slate-800 rounded-xl">
+                    <div className="px-3 py-2 text-xs font-semibold bg-slate-800/70 flex justify-between items-center">
+                      <span>🗂️ {sec}</span>
+                      <span className="text-slate-400">{arr.length} producto(s)</span>
+                    </div>
+                    <div className="divide-y divide-slate-800">
+                      {arr.map((p: any) => (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-800/30 transition-colors">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{p.name}</div>
+                            <div className="text-xs text-slate-400 truncate">
+                              Precio: {money(priceList === "1" ? p.price1 : p.price2)} · 
+                              Stock: {p.stock || 0}
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={() => addItem(p)} 
+                            tone="slate" 
+                            className="shrink-0 text-xs"
+                            disabled={parseNum(p.stock) <= 0}
+                          >
+                            {parseNum(p.stock) <= 0 ? "Sin stock" : (isMobile ? "+" : "Añadir")}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* CARRITO - IGUAL QUE ANTES */}
           <div className="space-y-3">
-            <div className="text-sm font-semibold">Carrito</div>
-            <div className="rounded-xl border border-slate-800 divide-y divide-slate-800">
-              {items.length === 0 && <div className="p-3 text-sm text-slate-400">Vacío</div>}
+            <div className="text-sm font-semibold">Carrito ({items.length} producto(s))</div>
+            <div className="rounded-xl border border-slate-800 divide-y divide-slate-800 max-h-[400px] overflow-y-auto">
+              {items.length === 0 && (
+                <div className="p-6 text-center text-slate-400">
+                  <div>🛒 El carrito está vacío</div>
+                  <div className="text-xs mt-1">Agregá productos del listado</div>
+                </div>
+              )}
               {items.map((it, idx) => (
-                <div key={idx} className="p-3 grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-6">
-                    <div className="text-sm font-medium">{it.name}</div>
-                    <div className="text-xs text-slate-400">{it.section}</div>
+                <div key={idx} className="p-3 hover:bg-slate-800/20 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{it.name}</div>
+                      <div className="text-xs text-slate-400">{it.section}</div>
+                    </div>
+                    <button 
+                      onClick={() => setItems(items.filter((_: any, i: number) => i !== idx))}
+                      className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
+                      title="Eliminar producto"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <div className="col-span-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <NumberInput
                       label="Cant."
                       value={it.qty}
@@ -2634,9 +2821,8 @@ const toPay = Math.max(0, total - applied);
                         const q = Math.max(0, parseNum(v));
                         setItems(items.map((x, i) => (i === idx ? { ...x, qty: q } : x)));
                       }}
+                      className="text-xs"
                     />
-                  </div>
-                  <div className="col-span-3">
                     <NumberInput
                       label="Precio"
                       value={it.unitPrice}
@@ -2644,18 +2830,25 @@ const toPay = Math.max(0, total - applied);
                         const q = Math.max(0, parseNum(v));
                         setItems(items.map((x, i) => (i === idx ? { ...x, unitPrice: q } : x)));
                       }}
+                      className="text-xs"
                     />
                   </div>
-                  <div className="col-span-1 flex items-end justify-end pb-0.5">
-                    <button onClick={() => setItems(items.filter((_: any, i: number) => i !== idx))} className="text-xs text-red-400 hover:text-red-300">
-                      ✕
-                    </button>
-                  </div>
-                  <div className="col-span-12 text-right text-xs text-slate-300 pt-1">
-                    Subtotal ítem: {money(parseNum(it.qty) * parseNum(it.unitPrice))}
+                  <div className="text-right text-xs text-slate-300 pt-1">
+                    Subtotal: <span className="font-semibold">
+                      {money(parseNum(it.qty) * parseNum(it.unitPrice))}
+                    </span>
                   </div>
                 </div>
               ))}
+              
+              {items.length > 0 && (
+                <div className="p-3 bg-slate-800/50 border-t border-slate-700">
+                  <div className="flex justify-between items-center font-semibold">
+                    <span>Total del Carrito:</span>
+                    <span className="text-lg">{money(total)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -4742,6 +4935,309 @@ async function imprimirReporte() {
             </div>
           </div>
         </Card>
+      // 👇👇👇 AGREGAR ESTO AL FINAL DE TU REPORTESTAB ACTUAL, justo antes del último cierre
+
+      {/* 👇👇👇 LISTADO DE FACTURAS - AGREGAR ESTA CARD */}
+      <Card title="📋 Listado de Facturas">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-slate-400">
+              <tr>
+                <th className="py-2 pr-3">#</th>
+                <th className="py-2 pr-3">Fecha y Hora</th>
+                <th className="py-2 pr-3">Cliente</th>
+                <th className="py-2 pr-3">Vendedor</th>
+                <th className="py-2 pr-3">Total</th>
+                <th className="py-2 pr-3">Efectivo</th>
+                <th className="py-2 pr-3">Transf.</th>
+                <th className="py-2 pr-3">Vuelto</th>
+                <th className="py-2 pr-3">Alias/CVU</th>
+                <th className="py-2 pr-3">Estado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {docsEnRango
+                .slice()
+                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
+                .map((f: any) => {
+                  const cash = parseNum(f?.payments?.cash);
+                  const tr = parseNum(f?.payments?.transfer);
+                  const ch = parseNum(f?.payments?.change);
+                  const alias = (f?.payments?.alias || "").trim() || "—";
+
+                  return (
+                    <tr key={f.id}>
+                      <td className="py-2 pr-3">{pad(f.number || 0)}</td>
+                      <td className="py-2 pr-3">{new Date(f.date_iso).toLocaleString("es-AR")}</td>
+                      <td className="py-2 pr-3">{f.client_name}</td>
+                      <td className="py-2 pr-3">{f.vendor_name}</td>
+                      <td className="py-2 pr-3">{money(parseNum(f.total))}</td>
+                      <td className="py-2 pr-3">{money(cash)}</td>
+                      <td className="py-2 pr-3">{money(tr)}</td>
+                      <td className="py-2 pr-3">{money(ch)}</td>
+                      <td className="py-2 pr-3 truncate max-w-[180px]">{alias}</td>
+                      <td className="py-2 pr-3">
+                        <Chip tone={f.status === "Pagada" ? "emerald" : "slate"}>
+                          {f.status || "—"}
+                        </Chip>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {docsEnRango.length === 0 && (
+                <tr>
+                  <td className="py-3 text-slate-400" colSpan={10}>
+                    Sin facturas en el período.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* 👇👇👇 LISTADO DE DEVOLUCIONES - AGREGAR ESTA CARD */}
+      <Card title="🔄 Listado de Devoluciones">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-slate-400">
+              <tr>
+                <th className="py-2 pr-3">Fecha y Hora</th>
+                <th className="py-2 pr-3">Cliente</th>
+                <th className="py-2 pr-3">Método</th>
+                <th className="py-2 pr-3">Efectivo</th>
+                <th className="py-2 pr-3">Transf.</th>
+                <th className="py-2 pr-3">Total</th>
+                <th className="py-2 pr-3">Detalle</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {devolucionesPeriodo
+                .slice()
+                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
+                .map((d: any) => (
+                  <tr key={d.id}>
+                    <td className="py-2 pr-3">{new Date(d.date_iso).toLocaleString("es-AR")}</td>
+                    <td className="py-2 pr-3">{d.client_name}</td>
+                    <td className="py-2 pr-3 capitalize">{d.metodo}</td>
+                    <td className="py-2 pr-3">{money(parseNum(d.efectivo))}</td>
+                    <td className="py-2 pr-3">{money(parseNum(d.transferencia))}</td>
+                    <td className="py-2 pr-3">{money(parseNum(d.total))}</td>
+                    <td className="py-2 pr-3">
+                      {(d.items || []).map((it: any, i: number) => (
+                        <div key={i} className="text-xs">
+                          {it.name} — dev.: {parseNum(it.qtyDevuelta)} × {money(parseNum(it.unitPrice))}
+                        </div>
+                      ))}
+                      {d.metodo === "intercambio_otro" && (
+                        <div className="text-xs text-slate-400 mt-1">
+                          Dif. abonada: ef. {money(parseNum(d.extra_pago_efectivo || 0))} · tr. {money(parseNum(d.extra_pago_transferencia || 0))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              {devolucionesPeriodo.length === 0 && (
+                <tr>
+                  <td className="py-3 text-slate-400" colSpan={7}>
+                    Sin devoluciones en el período.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* 👇👇👇 LISTADO DE DEUDORES - AGREGAR ESTA CARD */}
+      <Card title="👥 Listado de Deudores Activos">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-slate-400">
+              <tr>
+                <th className="py-2 pr-3">Cliente</th>
+                <th className="py-2 pr-3">N°</th>
+                <th className="py-2 pr-3">Deuda Total</th>
+                <th className="py-2 pr-3">Saldo a Favor</th>
+                <th className="py-2 pr-3">Facturas Pend.</th>
+                <th className="py-2 pr-3">Deuda Neta</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {state.clients
+                .filter((c: any) => {
+                  const detalleDeudas = calcularDetalleDeudas(state, c.id);
+                  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+                  return deudaNeta > 0.01;
+                })
+                .sort((a: any, b: any) => {
+                  const deudaA = calcularDeudaTotal(calcularDetalleDeudas(state, a.id), a);
+                  const deudaB = calcularDeudaTotal(calcularDetalleDeudas(state, b.id), b);
+                  return deudaB - deudaA;
+                })
+                .map((c: any) => {
+                  const detalleDeudas = calcularDetalleDeudas(state, c.id);
+                  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+                  
+                  return (
+                    <tr key={c.id}>
+                      <td className="py-2 pr-3">{c.name}</td>
+                      <td className="py-2 pr-3">{c.number}</td>
+                      <td className="py-2 pr-3">
+                        <span className="text-amber-400">
+                          {money(parseNum(c.debt))}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className="text-emerald-400">
+                          {money(parseNum(c.saldo_favor || 0))}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">{detalleDeudas.length}</td>
+                      <td className="py-2 pr-3">
+                        <span className="text-red-400 font-semibold">
+                          {money(deudaNeta)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {state.clients.filter((c: any) => {
+                const detalleDeudas = calcularDetalleDeudas(state, c.id);
+                const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+                return deudaNeta > 0.01;
+              }).length === 0 && (
+                <tr>
+                  <td className="py-3 text-slate-400" colSpan={6}>
+                    No hay deudores activos.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* 👇👇👇 PAGO DE DEUDORES - AGREGAR ESTA CARD */}
+      <Card title="💳 Listado de Pagos de Deudores">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="text-left text-slate-400">
+              <tr>
+                <th className="py-2 pr-3">Fecha y Hora</th>
+                <th className="py-2 pr-3">Cliente</th>
+                <th className="py-2 pr-3">Monto Pagado</th>
+                <th className="py-2 pr-3">Deuda Antes</th>
+                <th className="py-2 pr-3">Deuda Después</th>
+                <th className="py-2 pr-3">Método</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {pagosDeudores
+                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
+                .map((pago: any) => {
+                  const efectivo = parseNum(pago?.cash_amount || pago?.payments?.cash || 0);
+                  const transferencia = parseNum(pago?.transfer_amount || pago?.payments?.transfer || 0);
+                  const montoTotal = efectivo + transferencia;
+                  const metodo = efectivo > 0 && transferencia > 0 
+                    ? "Mixto" 
+                    : efectivo > 0 
+                      ? "Efectivo" 
+                      : "Transferencia";
+
+                  return (
+                    <tr key={pago.id}>
+                      <td className="py-2 pr-3">
+                        {new Date(pago.date_iso).toLocaleString("es-AR")}
+                      </td>
+                      <td className="py-2 pr-3">{pago.client_name}</td>
+                      <td className="py-2 pr-3">
+                        <span className="font-medium text-emerald-400">
+                          {money(montoTotal)}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className="text-amber-400">
+                          {money(parseNum(pago.debt_before))}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className={parseNum(pago.debt_after) > 0 ? "text-amber-400" : "text-emerald-400"}>
+                          {money(parseNum(pago.debt_after))}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <Chip tone={metodo === "Efectivo" ? "emerald" : "slate"}>
+                          {metodo}
+                        </Chip>
+                      </td>
+                    </tr>
+                  );
+                })}
+              {pagosDeudores.length === 0 && (
+                <tr>
+                  <td className="py-3 text-slate-400" colSpan={6}>
+                    No hay pagos registrados en el período.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* 👇👇👇 GASTOS Y DEVOLUCIONES - AGREGAR ESTA CARD */}
+      <Card title="📊 Resumen de Gastos y Devoluciones">
+        <div className="grid md:grid-cols-2 gap-4">
+          {/* GASTOS */}
+          <div>
+            <h4 className="font-semibold mb-2">💰 Gastos del Período</h4>
+            <div className="space-y-2 text-sm">
+              <div>Total gastos: <b>{money(totalGastos)}</b></div>
+              <div>- En efectivo: {money(totalGastosEfectivo)}</div>
+              <div>- En transferencia: {money(totalGastosTransferencia)}</div>
+              
+              {transferenciasPorAlias.length > 0 && (
+                <>
+                  <div className="mt-2 font-semibold">Transferencias por alias:</div>
+                  <ul className="list-disc pl-5">
+                    {transferenciasPorAlias.map((t) => (
+                      <li key={t.alias}>{t.alias}: {money(t.total)}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* DEVOLUCIONES */}
+          <div>
+            <h4 className="font-semibold mb-2">🔄 Devoluciones del Período</h4>
+            <div className="space-y-2 text-sm">
+              <div>Cantidad: <b>{devolucionesPeriodo.length}</b></div>
+              <div>- En efectivo: {money(devolucionesMontoEfectivo)}</div>
+              <div>- En transferencia: {money(devolucionesMontoTransfer)}</div>
+              <div>- Monto total: <b>{money(devolucionesMontoTotal)}</b></div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 👇👇👇 TRANSFERENCIA POR ALIAS - AGREGAR ESTA CARD */}
+      <Card title="🏦 Transferencias por Alias (Ventas + Deudores)">
+        {porAlias.length === 0 ? (
+          <div className="text-sm text-slate-400">Sin transferencias en el período.</div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-3">
+            {porAlias.map((a: any) => (
+              <div key={a.alias} className="rounded-xl border border-slate-800 p-3 flex items-center justify-between">
+                <div className="text-sm font-medium truncate max-w-[60%]">{a.alias}</div>
+                <div className="text-sm font-semibold text-emerald-400">{money(a.total as number)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
       )}
     </div>
   );
