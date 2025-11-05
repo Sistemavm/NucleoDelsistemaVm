@@ -644,24 +644,27 @@ showError("El IMEI ya existe en el sistema");
     // 👇👇👇 CREAR NOMBRE AUTOMÁTICO CON MODELO + CAPACIDAD
     const nombreCompleto = `${modelo} ${capacidad}`;
 
-    const nuevoProducto: Producto = {
-      id: "ip_" + Math.random().toString(36).slice(2, 9),
-      name: nombreCompleto, // 👈 USAR NOMBRE AUTOMÁTICO
-      modelo,
-      capacidad, // 👈 AGREGAR CAPACIDAD AL PRODUCTO
-      imei,
-      grado,
-      color,
-      estado: "EN STOCK",
-      ubicacion,
-      precio_compra: parseNum(precioCompra),
-      precio_consumidor_final: parseNum(precioConsumidorFinal),
-      precio_revendedor: parseNum(precioRevendedor),
-      precio_venta: parseNum(precioConsumidorFinal), // Mantener por compatibilidad
-      costo_reparacion: parseNum(costoReparacion),
-      descripcion: descripcion || undefined,
-      fecha_ingreso: todayISO()
-    };
+   const nuevoProducto: Producto = {
+  id: "ip_" + Math.random().toString(36).slice(2, 9),
+  name: nombreCompleto,
+  modelo,
+  capacidad,
+  imei,
+  grado,
+  color,
+  estado: "EN STOCK",
+  ubicacion,
+  precio_compra: parseNum(precioCompra),
+  precio_consumidor_final: parseNum(precioConsumidorFinal),
+  precio_revendedor: parseNum(precioRevendedor),
+  precio_venta: parseNum(precioConsumidorFinal),
+  costo_reparacion: parseNum(costoReparacion),
+  descripcion: descripcion || undefined,
+  fecha_ingreso: todayISO(),
+  // AGREGA ESTAS DOS PROPIEDADES QUE FALTAN:
+  bateria: "", // o el valor que corresponda
+  lista_precio: "" // o el valor que corresponda
+};
 
     const st = clone(state);
     st.products.push(nuevoProducto);
