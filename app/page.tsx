@@ -4506,6 +4506,76 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
 
   // Productos en stock
   const productosStock = state.products.filter((p: Producto) => p.estado === "EN STOCK");
+  // ✅ AGREGAR ESTO DONDE ESTÁN LOS OTROS CÁLCULOS (busca donde están ventasiPhone, etc.)
+
+// 1. DEUDA DEL DÍA - Facturas de HOY con saldo pendiente
+const hoy = new Date().toISOString().split('T')[0];
+const deudaDelDiaDetalle = (state.invoices || [])
+  .filter((f: any) => {
+    const fechaFactura = new Date(f.date_iso).toISOString().split('T')[0];
+    return fechaFactura === hoy && f.status === "No Pagada";
+  })
+  .map((f: any) => {
+    const total = parseNum(f.total);
+    const pagos = parseNum(f?.payments?.cash || 0) + 
+                 parseNum(f?.payments?.transfer || 0) + 
+                 parseNum(f?.payments?.saldo_aplicado || 0);
+    return { ...f, monto_debe: total - pagos };
+  })
+  .filter((f: any) => f.monto_debe > 0.01);
+
+// 2. DEUDORES ACTIVOS - Clientes con deuda REAL
+const deudoresActivos = (state.clients || [])
+  .map((cliente: any) => {
+    const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
+    const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
+    
+    if (deudaNeta > 0.01) {
+      return {
+        ...cliente,
+        deuda_neta: deudaNeta,
+        deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
+        saldo_favor: parseNum(cliente.saldo_favor || 0),
+        cantidad_facturas: detalleDeudas.length,
+        detalle_facturas: detalleDeudas
+      };
+    }
+    return null;
+  })
+  .filter(Boolean)
+  .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
+
+// 3. PAGOS DE DEUDORES - Todos los pagos del período
+const pagosDeudoresDetallados = (state.debt_payments || [])
+  .filter((pago: any) => {
+    try {
+      const fechaPago = new Date(pago.date_iso).toISOString().split('T')[0];
+      return fechaPago >= fechaInicio && fechaPago <= fechaFin;
+    } catch (error) {
+      return false;
+    }
+  })
+  .map((pago: any) => ({
+    pago_id: pago.id,
+    cliente: pago.client_name,
+    cliente_id: pago.client_id,
+    fecha_pago: pago.date_iso,
+    total_pagado: pago.total_amount,
+    efectivo: pago.cash_amount,
+    transferencia: pago.transfer_amount,
+    alias: pago.alias || "",
+    deuda_antes_pago: pago.debt_before,
+    deuda_despues_pago: pago.debt_after,
+    aplicaciones: pago.aplicaciones || []
+  }))
+  .sort((a: any, b: any) => new Date(b.fecha_pago).getTime() - new Date(a.fecha_pago).getTime());
+
+// 4. DEBUG SEGURO - Solo después de crear las variables
+console.log("✅ VARIABLES CREADAS:", {
+  deudaDelDia: deudaDelDiaDetalle.length,
+  deudoresActivos: deudoresActivos.length, 
+  pagosDeudores: pagosDeudoresDetallados.length
+});
 
   // 🔥 NUEVO: Análisis ABC de inventario
   function calcularAnalisisABC() {
@@ -4741,44 +4811,7 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
         periodo: `${fechaInicio} a ${fechaFin}`,
         fechaGeneracion: new Date().toLocaleString("es-AR")
       };
-      // ✅ AGREGAR ESTO TEMPORALMENTE - DEBUG COMPLETO
-console.log("🔍 DEBUG - ESTADO ACTUAL DEL SISTEMA:", {
-  // 1. Verificar facturas
-  totalFacturas: state.invoices?.length,
-  facturasHoy: state.invoices?.filter((f: any) => {
-    const fecha = new Date(f.date_iso).toISOString().split('T')[0];
-    return fecha === new Date().toISOString().split('T')[0];
-  }).length,
-  facturasNoPagadas: state.invoices?.filter((f: any) => f.status === "No Pagada").length,
-  
-  // 2. Verificar clientes con deuda
-  totalClientes: state.clients?.length,
-  clientesConDeuda: state.clients?.filter((c: any) => {
-    const detalle = calcularDetalleDeudas(state, c.id);
-    const deuda = calcularDeudaTotal(detalle, c);
-    return deuda > 0;
-  }).length,
-  
-  // 3. Verificar pagos
-  totalPagos: state.debt_payments?.length,
-  pagosPeriodo: state.debt_payments?.filter((p: any) => {
-    const fecha = new Date(p.date_iso).toISOString().split('T')[0];
-    return fecha >= fechaInicio && fecha <= fechaFin;
-  }).length,
-  
-  // 4. Verificar las variables calculadas
-  deudaDelDiaDetalle: deudaDelDiaDetalle?.length,
-  deudoresActivos: deudoresActivos?.length,
-  pagosDeudoresDetallados: pagosDeudoresDetallados?.length
-});
-
-// DEBUG ESPECÍFICO - Ver primeros elementos
-console.log("📋 DEBUG - Primeros elementos de cada array:", {
-  primeraDeudaDelDia: deudaDelDiaDetalle[0],
-  primerDeudorActivo: deudoresActivos[0], 
-  primerPagoDeudor: pagosDeudoresDetallados[0]
-});
-
+ 
       // 👇👇👇 MODIFICACIÓN: "ventas" usa reporte completo, los otros específicos
       switch (tipoReporte) {
        case "ventas":
