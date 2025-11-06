@@ -8661,9 +8661,6 @@ return (
             }}>
               {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
             </div>
-            <div style={{ fontSize: '12px', color: '#666' }}>
-              Sistema de gestión y facturación By Tobías Carrizo
-            </div>
           </div>
         </div>
       </div>
@@ -8687,7 +8684,7 @@ return (
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <div className="text-right">
+        <div className="text-left">
           <div>
             <b>Factura Nº:</b> {pad(inv.number)}
           </div>
@@ -8842,7 +8839,6 @@ return (
   </div>
 );
   }
-
 
  function Login({ onLogin, vendors, adminKey, clients }: any) {
   const [role, setRole] = useState("vendedor");
