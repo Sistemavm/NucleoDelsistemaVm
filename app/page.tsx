@@ -2218,7 +2218,7 @@ function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
 // === Deuda total del cliente - CON SALDO A FAVOR APLICADO ===
 // === Deuda total del cliente - CON SALDO A FAVOR APLICADO ===
 // 👇👇👇 FUNCIÓN CORREGIDA - ACTUALIZA SUPABASE
-async function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): Promise<number> {
+function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): number {
   if (!cliente) return 0;
   
   // ✅ Deuda de facturas pendientes
@@ -2236,22 +2236,23 @@ async function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): 
   
   console.log(`💰 Cliente ${cliente.name}: Facturas=${deudaFacturas}, Manual=${deudaManual}, SaldoFavor=${saldoFavor}, Bruta=${deudaBruta}, Neta=${deudaNeta}`);
   
-  // ✅ ACTUALIZAR EN SUPABASE
+  // ✅ ACTUALIZAR EN SUPABASE (pero de forma asíncrona sin bloquear)
   if (hasSupabase && cliente.id) {
-    try {
-      await supabase
-        .from("clients")
-        .update({ 
-          deuda_total: deudaNeta,
-          debt: deudaManual, // Mantener la deuda manual
-          saldo_favor: saldoFavor
-        })
-        .eq("id", cliente.id);
-      
-      console.log(`✅ Deuda guardada en Supabase: ${money(deudaNeta)} para ${cliente.name}`);
-    } catch (error) {
-      console.error("❌ Error al guardar deuda en Supabase:", error);
-    }
+    // Usar then/catch para no hacer la función async
+    supabase
+      .from("clients")
+      .update({ 
+        deuda_total: deudaNeta,
+        debt: deudaManual,
+        saldo_favor: saldoFavor
+      })
+      .eq("id", cliente.id)
+      .then(() => {
+        console.log(`✅ Deuda guardada en Supabase: ${money(deudaNeta)} para ${cliente.name}`);
+      })
+      .catch((error) => {
+        console.error("❌ Error al guardar deuda en Supabase:", error);
+      });
   }
   
   return deudaNeta;
@@ -2269,7 +2270,7 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
     const detalleDeudasCliente = calcularDetalleDeudas(state, pago.client_id);
     
     // Calcular deuda total ANTES del pago - CON parseNum
-    const deudaTotalAntes = parseNum(cliente ? calcularDeudaTotal(detalleDeudasCliente, cliente) : 0);
+const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, cliente) : 0;
     
     // Reconstruir las aplicaciones con información completa
     const aplicacionesCompletas = pago.aplicaciones?.map((app: any) => {
