@@ -4746,28 +4746,28 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
 
       // 👇👇👇 MODIFICACIÓN: "ventas" usa reporte completo, los otros específicos
       switch (tipoReporte) {
-        case "ventas":
-          // VENTAS usa el reporte COMPLETO (igual que antes)
-          reporteData = {
-            ...reporteData,
-            ventas: ventasiPhone,
-            gastos: state.gastos || [],
-            devoluciones: state.devoluciones || [],
-            transferenciasPorAlias: [],
-            deudaDelDiaDetalle: [],
-            deudoresActivos: [],
-            pagosDeudoresDetallados: [],
-            resumen: {
-              ventas: metricasVentas.totalVentas,
-              deudaDelDia: 0,
-              efectivoNeto: ventasiPhone.reduce((sum: number, v: any) => 
-                sum + parseNum(v?.payments?.cash || 0), 0),
-              transferencias: ventasiPhone.reduce((sum: number, v: any) => 
-                sum + parseNum(v?.payments?.transfer || 0), 0),
-              flujoCajaEfectivo: 0
-            }
-          };
-          break;
+       case "ventas":
+  // ✅ REEMPLAZAR ESTE BLOQUE COMPLETO
+  reporteData = {
+    ...reporteData,
+    ventas: ventasiPhone,
+    gastos: state.gastos || [],
+    devoluciones: state.devoluciones || [],
+    transferenciasPorAlias: porAlias, // ← Usar la variable calculada
+    deudaDelDiaDetalle: deudaDelDiaDetalle, // ← Usar la variable calculada
+    deudoresActivos: deudoresActivos, // ← Usar la variable calculada
+    pagosDeudoresDetallados: pagosDeudoresDetallados, // ← Usar la variable calculada
+    resumen: {
+      ventas: metricasVentas.totalVentas,
+      deudaDelDia: deudaDelDiaDetalle.reduce((sum: number, f: any) => sum + f.monto_debe, 0),
+      efectivoNeto: ventasiPhone.reduce((sum: number, v: any) => 
+        sum + parseNum(v?.payments?.cash || 0), 0),
+      transferencias: ventasiPhone.reduce((sum: number, v: any) => 
+        sum + parseNum(v?.payments?.transfer || 0), 0),
+      flujoCajaEfectivo: flujoCajaNeto
+    }
+  };
+  break;
 
         case "inventario":
           reporteData = {
