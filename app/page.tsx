@@ -4814,17 +4814,17 @@ console.log("✅ VARIABLES CREADAS:", {
  
       // 👇👇👇 MODIFICACIÓN: "ventas" usa reporte completo, los otros específicos
       switch (tipoReporte) {
-       case "ventas":
-  // ✅ REEMPLAZAR ESTE BLOQUE COMPLETO
+      case "ventas":
+  // ✅ BLOQUE CORREGIDO
   reporteData = {
     ...reporteData,
     ventas: ventasiPhone,
     gastos: state.gastos || [],
     devoluciones: state.devoluciones || [],
-    transferenciasPorAlias: porAlias, // ← Usar la variable calculada
-    deudaDelDiaDetalle: deudaDelDiaDetalle, // ← Usar la variable calculada
-    deudoresActivos: deudoresActivos, // ← Usar la variable calculada
-    pagosDeudoresDetallados: pagosDeudoresDetallados, // ← Usar la variable calculada
+    transferenciasPorAlias: porAlias,
+    deudaDelDiaDetalle: deudaDelDiaDetalle,
+    deudoresActivos: deudoresActivos,
+    pagosDeudoresDetallados: pagosDeudoresDetallados,
     resumen: {
       ventas: metricasVentas.totalVentas,
       deudaDelDia: deudaDelDiaDetalle.reduce((sum: number, f: any) => sum + f.monto_debe, 0),
@@ -4832,7 +4832,10 @@ console.log("✅ VARIABLES CREADAS:", {
         sum + parseNum(v?.payments?.cash || 0), 0),
       transferencias: ventasiPhone.reduce((sum: number, v: any) => 
         sum + parseNum(v?.payments?.transfer || 0), 0),
-      flujoCajaEfectivo: flujoCajaNeto
+      flujoCajaEfectivo: ventasiPhone.reduce((sum: number, v: any) => 
+        sum + parseNum(v?.payments?.cash || 0), 0) - 
+      ventasiPhone.reduce((sum: number, v: any) => 
+        sum + parseNum(v?.payments?.change || 0), 0)
     }
   };
   break;
