@@ -6218,15 +6218,14 @@ async function convertirAFactura(b: any) {
   >
     📄
   </button>
-
-  {/* Botón Convertir o estado convertido */}
-  {b.status === "Pendiente" ? (
-    <Button onClick={() => convertirAFactura(b)} tone="emerald">
-      Convertir a factura
-    </Button>
-  ) : (
-    <span className="text-xs">Convertido</span>
-  )}
+{/* Botón Convertir o estado convertido */}
+{b.status === "Pendiente" ? (
+  <Button onClick={() => convertirAFactura(b)} tone="emerald">
+    Convertir a factura
+  </Button>
+) : (
+  <span className="text-xs">Convertido</span>
+)}
 {/* Botón Eliminar */}
 <button
   title="Eliminar presupuesto"
@@ -6255,17 +6254,15 @@ async function convertirAFactura(b: any) {
   🗑️
 </button>
 </td>
-
-
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </div>
-  );
-}
+</tr>
+))}
+</tbody>
+</table>
+</div>
+</Card>
+</div>
+);
+} // ← Esta llave cierra la función del componente
 
 
 
