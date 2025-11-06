@@ -4525,24 +4525,29 @@ const deudaDelDiaDetalle = (state.invoices || [])
   .filter((f: any) => f.monto_debe > 0.01);
 
 // 2. DEUDORES ACTIVOS - Clientes con deuda REAL
-const deudoresActivos = (state.clients || [])
+const deudoresActivos = state.clients
+  .filter((c: any) => {
+    if (!c || !c.id) return false;
+    
+    const detalleDeudas = calcularDetalleDeudas(state, c.id);
+    const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+    
+    // MISMA condición que en DeudoresTab
+    return deudaNeta > 0.01;
+  })
   .map((cliente: any) => {
     const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
     const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
     
-    if (deudaNeta > 0.01) {
-      return {
-        ...cliente,
-        deuda_neta: deudaNeta,
-        deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
-        saldo_favor: parseNum(cliente.saldo_favor || 0),
-        cantidad_facturas: detalleDeudas.length,
-        detalle_facturas: detalleDeudas
-      };
-    }
-    return null;
+    return {
+      ...cliente,
+      deuda_neta: deudaNeta,
+      deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
+      saldo_favor: parseNum(cliente.saldo_favor || 0),
+      cantidad_facturas: detalleDeudas.length,
+      detalle_facturas: detalleDeudas
+    };
   })
-  .filter(Boolean)
   .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
 
 // 3. PAGOS DE DEUDORES - Todos los pagos del período
