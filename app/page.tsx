@@ -5967,7 +5967,6 @@ function CalculadoraEnviosTab({ state, setState, session, showError, showSuccess
     </div>
   );
 }
-
 async function convertirAFactura(b: any) {
     // ✅ VALIDAR STOCK ANTES DE CONVERTIR
   const validacionStock = validarStockDisponible(state.products, b.items);
