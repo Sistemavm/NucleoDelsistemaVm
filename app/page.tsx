@@ -4729,9 +4729,43 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   // 🔥 NUEVO: Métricas de TENDENCIAS
   const metricasTendencias = analizarTendencias();
 
-  // 🔥 CORREGIDO: Función de impresión simplificada y segura
-  // 🔥 VERSIÓN COMPLETA Y ROBUSTA
-  // 🔥 FUNCIÓN MEJORADA: Reportes separados por tipo
+// ✅ AGREGAR ESTO TEMPORALMENTE - DEBUG COMPLETO
+console.log("🔍 DEBUG - ESTADO ACTUAL DEL SISTEMA:", {
+  // 1. Verificar facturas
+  totalFacturas: state.invoices?.length,
+  facturasHoy: state.invoices?.filter((f: any) => {
+    const fecha = new Date(f.date_iso).toISOString().split('T')[0];
+    return fecha === new Date().toISOString().split('T')[0];
+  }).length,
+  facturasNoPagadas: state.invoices?.filter((f: any) => f.status === "No Pagada").length,
+  
+  // 2. Verificar clientes con deuda
+  totalClientes: state.clients?.length,
+  clientesConDeuda: state.clients?.filter((c: any) => {
+    const detalle = calcularDetalleDeudas(state, c.id);
+    const deuda = calcularDeudaTotal(detalle, c);
+    return deuda > 0;
+  }).length,
+  
+  // 3. Verificar pagos
+  totalPagos: state.debt_payments?.length,
+  pagosPeriodo: state.debt_payments?.filter((p: any) => {
+    const fecha = new Date(p.date_iso).toISOString().split('T')[0];
+    return fecha >= fechaInicio && fecha <= fechaFin;
+  }).length,
+  
+  // 4. Verificar las variables calculadas
+  deudaDelDiaDetalle: deudaDelDiaDetalle?.length,
+  deudoresActivos: deudoresActivos?.length,
+  pagosDeudoresDetallados: pagosDeudoresDetallados?.length
+});
+
+// DEBUG ESPECÍFICO - Ver primeros elementos
+console.log("📋 DEBUG - Primeros elementos de cada array:", {
+  primeraDeudaDelDia: deudaDelDiaDetalle[0],
+  primerDeudorActivo: deudoresActivos[0], 
+  primerPagoDeudor: pagosDeudoresDetallados[0]
+});
   async function imprimirReporte() {
     try {
       let reporteData: any = {
