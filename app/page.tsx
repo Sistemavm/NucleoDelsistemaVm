@@ -4729,7 +4729,19 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   // 🔥 NUEVO: Métricas de TENDENCIAS
   const metricasTendencias = analizarTendencias();
 
-// ✅ AGREGAR ESTO TEMPORALMENTE - DEBUG COMPLETO
+
+  async function imprimirReporte() {
+    try {
+      let reporteData: any = {
+        type: "Reporte",
+        subtipo: tipoReporte,
+        titulo: `Reporte iPhones - ${tipoReporte.toUpperCase()}`,
+        fechaInicio,
+        fechaFin,
+        periodo: `${fechaInicio} a ${fechaFin}`,
+        fechaGeneracion: new Date().toLocaleString("es-AR")
+      };
+      // ✅ AGREGAR ESTO TEMPORALMENTE - DEBUG COMPLETO
 console.log("🔍 DEBUG - ESTADO ACTUAL DEL SISTEMA:", {
   // 1. Verificar facturas
   totalFacturas: state.invoices?.length,
@@ -4766,17 +4778,6 @@ console.log("📋 DEBUG - Primeros elementos de cada array:", {
   primerDeudorActivo: deudoresActivos[0], 
   primerPagoDeudor: pagosDeudoresDetallados[0]
 });
-  async function imprimirReporte() {
-    try {
-      let reporteData: any = {
-        type: "Reporte",
-        subtipo: tipoReporte,
-        titulo: `Reporte iPhones - ${tipoReporte.toUpperCase()}`,
-        fechaInicio,
-        fechaFin,
-        periodo: `${fechaInicio} a ${fechaFin}`,
-        fechaGeneracion: new Date().toLocaleString("es-AR")
-      };
 
       // 👇👇👇 MODIFICACIÓN: "ventas" usa reporte completo, los otros específicos
       switch (tipoReporte) {
