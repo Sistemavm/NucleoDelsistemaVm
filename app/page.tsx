@@ -5967,194 +5967,82 @@ function CalculadoraEnviosTab({ state, setState, session, showError, showSuccess
     </div>
   );
 }
-async function convertirAFactura(b: any) {
+  async function convertirAFactura(b: any) {
     // ✅ VALIDAR STOCK ANTES DE CONVERTIR
-  const validacionStock = validarStockDisponible(state.products, b.items);
-  if (!validacionStock.valido) {
-    const mensajeError = `No hay suficiente stock para convertir el presupuesto:\n\n${validacionStock.productosSinStock.join('\n')}`;
-    return alert(mensajeError);
-  }
-  
-  const efectivoStr = prompt("¿Cuánto paga en EFECTIVO?", "0") ?? "0";
-  const transferenciaStr = prompt("¿Cuánto paga por TRANSFERENCIA?", "0") ?? "0";
-  const aliasStr = prompt("Alias/CVU destino de la transferencia (opcional):", "") ?? "";
-
-  const efectivo = parseNum(efectivoStr);
-  const transferencia = parseNum(transferenciaStr);
-  const alias = aliasStr.trim();
-
-  const st = clone(state);
-  const number = st.meta.invoiceCounter++;
-  const id = "inv_" + number;
-
-  // ⭐⭐⭐⭐ DESCONTAR STOCK AL CONVERTIR PRESUPUESTO ⭐⭐⭐⭐⭐
-  b.items.forEach((item: any) => {
-    const product = st.products.find((p: any) => p.id === item.productId);
-    if (product) {
-      product.stock = Math.max(0, parseNum(product.stock) - parseNum(item.qty));
+    const validacionStock = validarStockDisponible(state.products, b.items);
+    if (!validacionStock.valido) {
+      const mensajeError = `No hay suficiente stock para convertir el presupuesto:\n\n${validacionStock.productosSinStock.join('\n')}`;
+      return alert(mensajeError);
     }
-  });
-
-  const invoice = {
-    id,
-    number,
-    date_iso: todayISO(),
-    client_id: b.client_id,
-    client_name: b.client_name,
-    vendor_id: b.vendor_id,
-    vendor_name: b.vendor_name,
-    items: clone(b.items),
-    total: b.total,
-    cost: calcInvoiceCost(b.items),
-    payments: { cash: efectivo, transfer: transferencia, alias },
-    status: (efectivo + transferencia) >= b.total ? "Pagada" : "No Pagada",
-    type: "Factura",
-  };
-
-  st.invoices.push(invoice);
-  const budget = st.budgets.find((x: any) => x.id === b.id)!;
-  budget.status = "Convertido";
-  setState(st);
-
-  if (hasSupabase) {
-    await supabase.from("invoices").insert(invoice);
-    await supabase.from("budgets").update({ status: "Convertido" }).eq("id", b.id);
     
-    // ⭐⭐⭐⭐ ACTUALIZAR STOCK EN SUPABASE ⭐⭐⭐⭐⭐
-    for (const item of b.items) {
+    const efectivoStr = prompt("¿Cuánto paga en EFECTIVO?", "0") ?? "0";
+    const transferenciaStr = prompt("¿Cuánto paga por TRANSFERENCIA?", "0") ?? "0";
+    const aliasStr = prompt("Alias/CVU destino de la transferencia (opcional):", "") ?? "";
+
+    const efectivo = parseNum(efectivoStr);
+    const transferencia = parseNum(transferenciaStr);
+    const alias = aliasStr.trim();
+
+    const st = clone(state);
+    const number = st.meta.invoiceCounter++;
+    const id = "inv_" + number;
+
+    // ⭐⭐⭐⭐ DESCONTAR STOCK AL CONVERTIR PRESUPUESTO ⭐⭐⭐⭐⭐
+    b.items.forEach((item: any) => {
       const product = st.products.find((p: any) => p.id === item.productId);
       if (product) {
-        await supabase.from("products")
-          .update({ stock: product.stock })
-          .eq("id", item.productId);
+        product.stock = Math.max(0, parseNum(product.stock) - parseNum(item.qty));
       }
+    });
+
+    const invoice = {
+      id,
+      number,
+      date_iso: todayISO(),
+      client_id: b.client_id,
+      client_name: b.client_name,
+      vendor_id: b.vendor_id,
+      vendor_name: b.vendor_name,
+      items: clone(b.items),
+      total: b.total,
+      cost: calcInvoiceCost(b.items),
+      payments: { cash: efectivo, transfer: transferencia, alias },
+      status: (efectivo + transferencia) >= b.total ? "Pagada" : "No Pagada",
+      type: "Factura",
+    };
+
+    st.invoices.push(invoice);
+    const budget = st.budgets.find((x: any) => x.id === b.id)!;
+    budget.status = "Convertido";
+    setState(st);
+
+    if (hasSupabase) {
+      await supabase.from("invoices").insert(invoice);
+      await supabase.from("budgets").update({ status: "Convertido" }).eq("id", b.id);
+      
+      // ⭐⭐⭐⭐ ACTUALIZAR STOCK EN SUPABASE ⭐⭐⭐⭐⭐
+      for (const item of b.items) {
+        const product = st.products.find((p: any) => p.id === item.productId);
+        if (product) {
+          await supabase.from("products")
+            .update({ stock: product.stock })
+            .eq("id", item.productId);
+        }
+      }
+      
+      await saveCountersSupabase(st.meta);
     }
-    
-    await saveCountersSupabase(st.meta);
+
+    window.dispatchEvent(new CustomEvent("print-invoice", { detail: invoice } as any));
+    await nextPaint();
+    window.print();
   }
 
-  window.dispatchEvent(new CustomEvent("print-invoice", { detail: invoice } as any));
-  await nextPaint();
-  window.print();
-}
-
- 
+  // El resto de tu JSX aquí...
+  return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
-      <Card title="Nuevo presupuesto">
-        <div className="grid md:grid-cols-4 gap-3">
-          <Select label="Cliente" value={clientId} onChange={setClientId} options={state.clients.map((c: any) => ({ value: c.id, label: `${c.number} — ${c.name}` }))} />
-          <Select label="Vendedor" value={vendorId} onChange={setVendorId} options={state.vendors.map((v: any) => ({ value: v.id, label: v.name }))} />
-          <Select label="Lista de precios" value={priceList} onChange={setPriceList} options={[{ value: "1", label: "Mitobicel" }, { value: "2", label: "ElshoppingDlc" }]} />
-          <Input label="Buscar producto" value={query} onChange={setQuery} placeholder="Nombre..." />
-        </div>
-        
-        {/* 👇👇👇 AGREGAR ESTOS NUEVOS FILTROS */}
-        <div className="grid md:grid-cols-4 gap-2 mt-3">
-          <Select 
-            label="Sección" 
-            value={sectionFilter} 
-            onChange={setSectionFilter} 
-            options={sections.map((s: any) => ({ value: s, label: s }))} 
-          />
-          <Select 
-            label="Lista" 
-            value={listFilter} 
-            onChange={setListFilter} 
-            options={lists.map((s: any) => ({ value: s, label: s }))} 
-          />
-          <div className="md:col-span-2 pt-6">
-            <Chip tone="emerald">Total productos: {filteredProducts.length}</Chip>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4 mt-3">
-          <div className="space-y-2">
-            <div className="text-sm font-semibold">Productos</div>
-            
-            {/* 👇👇👇 MODIFICAR LA LISTA DE PRODUCTOS PARA MOSTRAR POR SECCIÓN */}
-            <div className="space-y-3">
-              {Object.entries(grouped).map(([sec, arr]: any) => (
-                <div key={sec} className="border border-slate-800 rounded-xl">
-                  <div className="px-3 py-2 text-xs font-semibold bg-slate-800/70">{sec}</div>
-                  <div className="divide-y divide-slate-800">
-                    {arr.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{p.name}</div>
-                          <div className="text-xs text-slate-400">
-                            L1: {money(p.price1)} L2: {money(p.price2)} 
-                            <span className="text-[10px] text-slate-500 ml-1">{p.list_label}</span>
-                          </div>
-                        </div>
-                        <Button tone="slate" onClick={() => addItem(p)}>
-                          Añadir
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* 👆👆👆 HASTA AQUÍ LOS CAMBIOS EN LA LISTA DE PRODUCTOS */}
-          
-          <div className="space-y-2">
-            <div className="text-sm font-semibold">Ítems</div>
-            <div className="rounded-xl border border-slate-800 divide-y divide-slate-800">
-              {items.length === 0 && <div className="p-3 text-sm text-slate-400">Vacío</div>}
-         {items.map((it: any, idx: number) => (
-  <div key={idx} className="p-3 grid grid-cols-12 gap-2 items-center">
-    <div className="col-span-6">
-      <div className="text-sm font-medium">{it.name}</div>
-      <div className="text-xs text-slate-400">{it.section}</div>
-    </div>
-    <div className="col-span-2">
-      <NumberInput
-        label="Cant."
-        value={it.qty}
-        onChange={(v: any) => {
-          const q = Math.max(0, parseNum(v));
-          setItems(items.map((x: any, i: number) => (i === idx ? { ...x, qty: q } : x)));
-        }}
-      />
-    </div>
-    <div className="col-span-3">
-      <NumberInput
-        label="Precio"
-        value={it.unitPrice}
-        onChange={(v: any) => {
-          const q = Math.max(0, parseNum(v));
-          setItems(items.map((x: any, i: number) => (i === idx ? { ...x, unitPrice: q } : x)));
-        }}
-      />
-    </div>
-    <div className="col-span-1 flex items-end justify-end pb-0.5">
-      <button
-        onClick={() => setItems(items.filter((_: any, i: number) => i !== idx))}
-        className="text-xs text-red-400 hover:text-red-300"
-      >
-        ✕
-      </button>
-    </div>
-    <div className="col-span-12 text-right text-xs text-slate-300 pt-1">
-      Subtotal ítem: {money(parseNum(it.qty) * parseNum(it.unitPrice))}
-    </div>
-  </div>
-))}
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="text-sm">Total</div>
-              <div className="text-lg font-bold">{money(total)}</div>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={guardarPresupuesto}>Guardar presupuesto</Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* EL RESTO DE TU CÓDIGO PERMANECE EXACTAMENTE IGUAL */}
+      {/* ... todo tu JSX actual ... */}
+      
       <Card 
         title="Presupuestos guardados"
         actions={
@@ -6192,76 +6080,78 @@ async function convertirAFactura(b: any) {
                     <td className="py-2 pr-4">{b.vendor_name}</td>
                     <td className="py-2 pr-4">{money(b.total)}</td>
                     <td className="py-2 pr-4 flex gap-2 items-center">
-  {/* Botón Editar */}
-  <button
-    title="Editar"
-    onClick={() => {
-      setClientId(b.client_id);
-      setVendorId(b.vendor_id);
-      setItems(clone(b.items));
-      alert(`Editando presupuesto Nº ${pad(b.number)}`);
-    }}
-    className="text-blue-400 hover:text-blue-300 text-lg"
-  >
-    ✏️
-  </button>
+                      {/* Botón Editar */}
+                      <button
+                        title="Editar"
+                        onClick={() => {
+                          setClientId(b.client_id);
+                          setVendorId(b.vendor_id);
+                          setItems(clone(b.items));
+                          alert(`Editando presupuesto Nº ${pad(b.number)}`);
+                        }}
+                        className="text-blue-400 hover:text-blue-300 text-lg"
+                      >
+                        ✏️
+                      </button>
 
-  {/* Botón Descargar PDF */}
-  <button
-    title="Descargar PDF"
-    onClick={() => {
-      const data = { ...b, type: "Presupuesto" };
-      window.dispatchEvent(new CustomEvent("print-invoice", { detail: data } as any));
-      setTimeout(() => window.print(), 0);
-    }}
-    className="text-red-400 hover:text-red-300 text-lg"
-  >
-    📄
-  </button>
-{/* Botón Convertir o estado convertido */}
-{b.status === "Pendiente" ? (
-  <Button onClick={() => convertirAFactura(b)} tone="emerald">
-    Convertir a factura
-  </Button>
-) : (
-  <span className="text-xs">Convertido</span>
-)}
-{/* Botón Eliminar */}
-<button
-  title="Eliminar presupuesto"
-  onClick={async () => {
-    if (!confirm(`¿Seguro que deseas eliminar el presupuesto Nº ${pad(b.number)}?`)) return;
-    
-    const st = clone(state);
-    st.budgets = st.budgets.filter((x: any) => x.id !== b.id);
-    setState(st);
-    
-    if (hasSupabase) {
-      const { error } = await supabase.from("budgets").delete().eq("id", b.id);
-      if (error) {
-        console.error("Error eliminando presupuesto:", error);
-        alert("Error al eliminar el presupuesto de la base de datos.");
-        // Recargar datos si hay error
-        const refreshedState = await loadFromSupabase(seedState());
-        setState(refreshedState);
-        return;
-      }
-    }
-    alert(`Presupuesto Nº ${pad(b.number)} eliminado correctamente.`);
-  }}
-  className="text-red-500 hover:text-red-400 text-lg ml-2"
->
-  🗑️
-</button>
-</td>
-</tr>
-))}
-</tbody>
-</table>
-</div>
-</Card>
-</div>
-);
+                      {/* Botón Descargar PDF */}
+                      <button
+                        title="Descargar PDF"
+                        onClick={() => {
+                          const data = { ...b, type: "Presupuesto" };
+                          window.dispatchEvent(new CustomEvent("print-invoice", { detail: data } as any));
+                          setTimeout(() => window.print(), 0);
+                        }}
+                        className="text-red-400 hover:text-red-300 text-lg"
+                      >
+                        📄
+                      </button>
+                      
+                      {/* Botón Convertir o estado convertido */}
+                      {b.status === "Pendiente" ? (
+                        <Button onClick={() => convertirAFactura(b)} tone="emerald">
+                          Convertir a factura
+                        </Button>
+                      ) : (
+                        <span className="text-xs">Convertido</span>
+                      )}
+                      
+                      {/* Botón Eliminar */}
+                      <button
+                        title="Eliminar presupuesto"
+                        onClick={async () => {
+                          if (!confirm(`¿Seguro que deseas eliminar el presupuesto Nº ${pad(b.number)}?`)) return;
+                          
+                          const st = clone(state);
+                          st.budgets = st.budgets.filter((x: any) => x.id !== b.id);
+                          setState(st);
+                          
+                          if (hasSupabase) {
+                            const { error } = await supabase.from("budgets").delete().eq("id", b.id);
+                            if (error) {
+                              console.error("Error eliminando presupuesto:", error);
+                              alert("Error al eliminar el presupuesto de la base de datos.");
+                              // Recargar datos si hay error
+                              const refreshedState = await loadFromSupabase(seedState());
+                              setState(refreshedState);
+                              return;
+                            }
+                          }
+                          alert(`Presupuesto Nº ${pad(b.number)} eliminado correctamente.`);
+                        }}
+                        className="text-red-500 hover:text-red-400 text-lg ml-2"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
 } // ← Esta llave cierra la función del componente
 
 
