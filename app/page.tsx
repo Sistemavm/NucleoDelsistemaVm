@@ -4605,9 +4605,6 @@ const deudaDelDiaDetalle = (state.invoices || [])
 
 // 2. DEUDORES ACTIVOS - Clientes con deuda REAL
 const deudoresActivos = obtenerDeudoresActivos(state);
-  .map((cliente: any) => {
-    const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
-    const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
     
     return {
       ...cliente,
