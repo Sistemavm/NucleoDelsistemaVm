@@ -2524,38 +2524,38 @@ async function saveAndPrint() {
   if (!client || !vendor) return showError("Seleccioná cliente y vendedor.");
   if (items.length === 0) return showError("Agregá productos al carrito.");
   
-// ✅ MODIFICACIÓN: Validación de stock especial para iPhones
-const productosSinStock: string[] = [];
+  // ✅ Validación de stock especial para iPhones
+  const productosSinStock: string[] = [];
 
-for (const item of items) {
-  const producto = state.products.find((p: any) => p.id === item.productId);
-  if (producto) {
-    // Para iPhones, verificar por estado y disponibilidad única
-    if (producto.modelo && producto.modelo.includes("iPhone")) {
-      if (producto.estado !== "EN STOCK") {
-        productosSinStock.push(`${producto.name} - No disponible (Estado: ${producto.estado})`);
-      }
-    } else {
-      // Para productos normales, usar la validación de stock numérico
-      const stockActual = parseNum(producto.stock);
-      const cantidadRequerida = parseNum(item.qty);
-      
-      if (stockActual < cantidadRequerida) {
-        productosSinStock.push(`${producto.name} (Stock: ${stockActual}, Necesario: ${cantidadRequerida})`);
+  for (const item of items) {
+    const producto = state.products.find((p: any) => p.id === item.productId);
+    if (producto) {
+      // Para iPhones, verificar por estado y disponibilidad única
+      if (producto.modelo && producto.modelo.includes("iPhone")) {
+        if (producto.estado !== "EN STOCK") {
+          productosSinStock.push(`${producto.name} - No disponible (Estado: ${producto.estado})`);
+        }
+      } else {
+        // Para productos normales, usar la validación de stock numérico
+        const stockActual = parseNum(producto.stock);
+        const cantidadRequerida = parseNum(item.qty);
+        
+        if (stockActual < cantidadRequerida) {
+          productosSinStock.push(`${producto.name} (Stock: ${stockActual}, Necesario: ${cantidadRequerida})`);
+        }
       }
     }
   }
-}
 
-if (productosSinStock.length > 0) {
-  const mensajeError = `No hay suficiente stock para los siguientes productos:\n\n${productosSinStock.join('\n')}`;
-  return showError(mensajeError);
-}
+  if (productosSinStock.length > 0) {
+    const mensajeError = `No hay suficiente stock para los siguientes productos:\n\n${productosSinStock.join('\n')}`;
+    return showError(mensajeError);
+  }
   
   const total = calcInvoiceTotal(items);
-  const cash  = parseNum(payCash);
+  const cash = parseNum(payCash);
   const transf = parseNum(payTransf);
-  const comision = parseNum(comisionVendedor); // 👈 NUEVO: Comisión
+  const comision = parseNum(comisionVendedor);
   const suggestedChange = Math.max(0, cash - Math.max(0, total - transf));
   const change = payChange.trim() === "" ? suggestedChange : Math.max(0, parseNum(payChange));
   
@@ -2576,24 +2576,30 @@ if (productosSinStock.length > 0) {
   const debtDelta = Math.max(0, totalTrasSaldo - applied);
   const status = debtDelta > 0 ? "No Pagada" : "Pagada";
 
+  // Calcular costos y ganancias
+  const cost = calcInvoiceCost(items);
+  const ganancia = total - cost - comision;
+
   // Actualizar cliente
   cl.saldo_favor = saldoActual - saldoAplicado;
-// ✅ MODIFICACIÓN: Actualizar estado de iPhones (no stock numérico)
-items.forEach(item => {
-  const product = st.products.find((p: any) => p.id === item.productId);
-  if (product) {
-    if (product.modelo && product.modelo.includes("iPhone")) {
-      // Para iPhones: cambiar estado a VENDIDO
-      product.estado = "VENDIDO";
-      product.vendido_en = id;
-      product.vendido_a = client.id;
-    } else {
-      // Para productos normales: descontar stock numérico
-      product.stock = Math.max(0, parseNum(product.stock) - parseNum(item.qty));
+
+  // ✅ MODIFICACIÓN: Actualizar estado de iPhones (no stock numérico)
+  items.forEach(item => {
+    const product = st.products.find((p: any) => p.id === item.productId);
+    if (product) {
+      if (product.modelo && product.modelo.includes("iPhone")) {
+        // Para iPhones: cambiar estado a VENDIDO
+        product.estado = "VENDIDO";
+        product.vendido_en = id;
+        product.vendido_a = client.id;
+      } else {
+        // Para productos normales: descontar stock numérico
+        product.stock = Math.max(0, parseNum(product.stock) - parseNum(item.qty));
+      }
     }
-  }
-});
-  // 👇👇👇 NUEVO: Crear factura con comisión
+  });
+
+  // 👇👇👇 CORREGIDO: Crear factura con estructura compatible con Supabase
   const invoice = {
     id,
     number,
@@ -2604,9 +2610,7 @@ items.forEach(item => {
     vendor_name: vendor.name,
     items: clone(items),
     total,
-    total_after_credit: totalTrasSaldo,
-    cost: calcInvoiceCost(items),
-    comision_vendedor: comision, // 👈 NUEVO: Guardar comisión
+    cost, // costo_total
     payments: { 
       cash, 
       transfer: transf, 
@@ -2616,6 +2620,13 @@ items.forEach(item => {
     },
     status,
     type: "Factura",
+    // 👇👇👇 NUEVOS CAMPOS PARA SUPABASE
+    costo_total: cost,
+    ganancia: ganancia,
+    comisiones_total: comision,
+    vendedor_id: vendor.id,
+    vendedor_nombre: vendor.name,
+    tipo: "Venta" // Este campo parece duplicado con 'type', pero lo mantengo por compatibilidad
   };
 
   st.invoices.push(invoice);
@@ -2623,35 +2634,61 @@ items.forEach(item => {
   setState(st);
 
   if (hasSupabase) {
-    await supabase.from("invoices").insert(invoice);
-    
-    await supabase.from("clients").update({ 
-      saldo_favor: cl.saldo_favor 
-    }).eq("id", client.id);
-    
-  // ✅ MODIFICACIÓN: Actualizar productos en Supabase según el tipo
-for (const item of items) {
-  const product = st.products.find((p: any) => p.id === item.productId);
-  if (product) {
-    if (product.modelo && product.modelo.includes("iPhone")) {
-      // Actualizar estado del iPhone
-      await supabase.from("products")
-        .update({ 
-          estado: "VENDIDO",
-          vendido_en: id,
-          vendido_a: client.id
-        })
-        .eq("id", item.productId);
-    } else {
-      // Actualizar stock de producto normal
-      await supabase.from("products")
-        .update({ stock: product.stock })
-        .eq("id", item.productId);
+    try {
+      // 1. Insertar factura en Supabase
+      const { error: invoiceError } = await supabase.from("invoices").insert(invoice);
+      
+      if (invoiceError) {
+        console.error("Error insertando factura:", invoiceError);
+        return showError(`Error al guardar factura: ${invoiceError.message}`);
+      }
+
+      // 2. Actualizar saldo del cliente
+      const { error: clientError } = await supabase.from("clients").update({ 
+        saldo_favor: cl.saldo_favor 
+      }).eq("id", client.id);
+      
+      if (clientError) {
+        console.error("Error actualizando cliente:", clientError);
+      }
+
+      // 3. ✅ Actualizar productos en Supabase según el tipo
+      for (const item of items) {
+        const product = st.products.find((p: any) => p.id === item.productId);
+        if (product) {
+          if (product.modelo && product.modelo.includes("iPhone")) {
+            // Actualizar estado del iPhone
+            const { error: productError } = await supabase.from("products")
+              .update({ 
+                estado: "VENDIDO",
+                vendido_en: id,
+                vendido_a: client.id
+              })
+              .eq("id", item.productId);
+              
+            if (productError) {
+              console.error(`Error actualizando iPhone ${product.name}:`, productError);
+            }
+          } else {
+            // Actualizar stock de producto normal
+            const { error: productError } = await supabase.from("products")
+              .update({ stock: product.stock })
+              .eq("id", item.productId);
+              
+            if (productError) {
+              console.error(`Error actualizando producto ${product.name}:`, productError);
+            }
+          }
+        }
+      }
+      
+      // 4. Guardar contadores
+      await saveCountersSupabase(st.meta);
+      
+    } catch (error) {
+      console.error("Error general en saveAndPrint:", error);
+      return showError("Error al sincronizar con la base de datos");
     }
-  }
-}
-    
-    await saveCountersSupabase(st.meta);
   }
 
   window.dispatchEvent(new CustomEvent("print-invoice", { detail: invoice } as any));
@@ -2663,7 +2700,7 @@ for (const item of items) {
   setPayTransf("");
   setPayChange("");
   setAlias("");
-  setComisionVendedor(""); // 👈 Limpiar comisión
+  setComisionVendedor("");
   setItems([]);
   
   showSuccess("✅ Factura guardada e impresa correctamente");
@@ -6312,16 +6349,7 @@ ${cli.debt > 0 ? `Se aplicó saldo a favor a la deuda existente. Deuda actual: $
               onChange={setDetalle}
               placeholder="Ej: Coca-Cola, Luz, Transporte..."
             />
-            <Select
-  label="Tipo de gasto"
-  value={tipoGasto}
-  onChange={setTipoGasto}
-  options={[
-    { value: "Proveedor", label: "Proveedor" },
-    { value: "Gabi", label: "Gabi" }, // 👈 NUEVA OPCIÓN
-    { value: "Otro", label: "Otro" },
-  ]}
-/>
+    
             <NumberInput
               label="Monto en efectivo"
               value={montoEfectivo}
