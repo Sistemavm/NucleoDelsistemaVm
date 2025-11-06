@@ -253,159 +253,164 @@ async function loadFromSupabase(fallback: any) {
   if (!hasSupabase) return fallback;
   const out = clone(fallback);
   
-  // meta
-  const { data: meta, error: metaErr } = await supabase
-    .from("meta").select("*").eq("key","counters").maybeSingle();
-  if (metaErr) { console.error("SELECT meta:", metaErr); alert("No pude leer 'meta' de Supabase."); }
-  if (meta?.value) out.meta = { ...out.meta, ...meta.value };
+  try {
+    console.log("🔄 Cargando datos desde Supabase...");
 
-  // 👇👇👇 AGREGAR AQUÍ - Cargar comisiones
-  const { data: commissionsData, error: commErr } = await supabase
-    .from("commissions")
-    .select("*");
+    // meta
+    const { data: meta, error: metaErr } = await supabase
+      .from("meta").select("*").eq("key","counters").maybeSingle();
+    if (metaErr) { 
+      console.error("SELECT meta:", metaErr); 
+    } else if (meta?.value) {
+      out.meta = { ...out.meta, ...meta.value };
+    }
 
-  if (commErr) {
-    console.error("SELECT commissions:", commErr);
-  } else if (commissionsData) {
-    const commissionsByDate: Record<string, number> = {};
-    commissionsData.forEach((row: any) => {
-      commissionsByDate[row.day] = parseNum(row.amount);
+    // comisiones
+    const { data: commissionsData, error: commErr } = await supabase
+      .from("commissions")
+      .select("*");
+
+    if (commErr) {
+      console.error("SELECT commissions:", commErr);
+    } else if (commissionsData) {
+      const commissionsByDate: Record<string, number> = {};
+      commissionsData.forEach((row: any) => {
+        commissionsByDate[row.day] = parseNum(row.amount);
+      });
+      out.meta.commissionsByDate = commissionsByDate;
+    }
+
+    // cash_floats
+    const { data: cashFloatsData, error: cashFloatsErr } = await supabase
+      .from("cash_floats")
+      .select("*");
+
+    if (cashFloatsErr) {
+      console.error("SELECT cash_floats:", cashFloatsErr);
+    } else if (cashFloatsData) {
+      const cashFloatByDate: Record<string, number> = {};
+      cashFloatsData.forEach((row: any) => {
+        cashFloatByDate[row.day] = parseNum(row.amount);
+      });
+      out.meta.cashFloatByDate = cashFloatByDate;
+    }
+
+    // gabi_funds
+    const { data: gabiFundsData, error: gabiErr } = await supabase
+      .from("gabi_funds")
+      .select("*")
+      .order("day", { ascending: false });
+
+    if (gabiErr) {
+      console.error("SELECT gabi_funds:", gabiErr);
+    } else if (gabiFundsData) {
+      const gabiFundsByDate: Record<string, number> = {};
+      gabiFundsData.forEach((row: any) => {
+        gabiFundsByDate[row.day] = parseNum(row.initial_amount);
+      });
+      out.meta.gabiFundsByDate = gabiFundsByDate;
+      out.gabiFunds = gabiFundsData;
+    }
+
+    // 👇👇👇 CARGAR TODAS LAS TABLAS PRINCIPALES EN PARALELO
+    const [
+      { data: vendors, error: vendErr },
+      { data: clients, error: cliErr },
+      { data: products, error: prodErr },
+      { data: invoices, error: invErr },
+      { data: devoluciones, error: devErr },
+      { data: debtPayments, error: dpErr },
+      { data: budgets, error: budErr },
+      { data: pedidos, error: pedidosErr },
+      { data: turnos, error: turnosErr },
+      { data: gastos, error: gastosErr }
+    ] = await Promise.all([
+      supabase.from("vendors").select("*"),
+      supabase.from("clients").select("*"),
+      supabase.from("products").select("*"),
+      supabase.from("invoices").select("*").order("number"),
+      supabase.from("devoluciones").select("*").order("date_iso", { ascending: false }),
+      supabase.from("debt_payments").select("*").order("date_iso", { ascending: false }),
+      supabase.from("budgets").select("*").order("number"),
+      supabase.from("pedidos").select("*").order("date_iso", { ascending: false }),
+      supabase.from("turnos").select("*").order("fecha", { ascending: true }).order("hora", { ascending: true }),
+      supabase.from("gastos").select("*").order("date_iso", { ascending: false })
+    ]);
+
+    // Procesar resultados
+    if (vendErr) console.error("SELECT vendors:", vendErr);
+    if (vendors) out.vendors = vendors;
+
+    if (cliErr) console.error("SELECT clients:", cliErr);
+    if (clients) {
+      out.clients = clients.map((c: any) => ({
+        ...c,
+        creado_por: c.creado_por || "sistema",
+        fecha_creacion: c.fecha_creacion || c.date_iso || todayISO(),
+        deuda_manual: c.deuda_manual || false
+      }));
+    }
+
+    if (prodErr) console.error("SELECT products:", prodErr);
+    if (products) {
+      out.products = products.map((p: any) => ({
+        ...p,
+        stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0,
+        precio_consumidor_final: p.precio_consumidor_final || p.precio_venta || 0,
+        precio_revendedor: p.precio_revendedor || (p.precio_venta ? p.precio_venta * 0.85 : 0)
+      }));
+    }
+
+    if (invErr) console.error("SELECT invoices:", invErr);
+    if (invoices) out.invoices = invoices;
+
+    if (devErr) console.error("SELECT devoluciones:", devErr);
+    if (devoluciones) out.devoluciones = devoluciones;
+
+    if (dpErr) console.error("SELECT debt_payments:", dpErr);
+    if (debtPayments) out.debt_payments = debtPayments;
+
+    if (budErr) console.error("SELECT budgets:", budErr);
+    if (budgets) out.budgets = budgets;
+
+    if (pedidosErr) console.error("SELECT pedidos:", pedidosErr);
+    if (pedidos) out.pedidos = pedidos;
+
+    if (turnosErr) console.error("SELECT turnos:", turnosErr);
+    if (turnos) out.turnos = turnos;
+
+    if (gastosErr) console.error("SELECT gastos:", gastosErr);
+    if (gastos) out.gastos = gastos;
+
+    console.log("✅ Datos cargados correctamente desde Supabase:", {
+      vendors: out.vendors?.length || 0,
+      clients: out.clients?.length || 0,
+      products: out.products?.length || 0,
+      invoices: out.invoices?.length || 0,
+      devoluciones: out.devoluciones?.length || 0,
+      debt_payments: out.debt_payments?.length || 0,
+      budgets: out.budgets?.length || 0,
+      pedidos: out.pedidos?.length || 0,
+      turnos: out.turnos?.length || 0,
+      gastos: out.gastos?.length || 0
     });
-    out.meta.commissionsByDate = commissionsByDate;
-  }
-  // 👆👆👆 HASTA AQUÍ
-    const { data: turnos, error: turnosErr } = await supabase
-    .from("turnos")
-    .select("*")
-    .order("fecha", { ascending: true })
-    .order("hora", { ascending: true });
 
-  if (turnosErr) {
-    console.error("SELECT turnos:", turnosErr);
-  } else if (turnos) {
-    out.turnos = turnos;
-  }
-  // 👇👇👇 AGREGAR AQUÍ - Cargar cash_floats
-const { data: cashFloatsData, error: cashFloatsErr } = await supabase
-  .from("cash_floats")
-  .select("*");
+    // Si está vacío, inicializar counters
+    if (!out.vendors?.length && !out.clients?.length && !out.products?.length) {
+      await supabase.from("meta").upsert({
+        key: "counters",
+        value: {
+          invoiceCounter: 1,
+          budgetCounter: 1,
+          cashFloat: out.meta?.cashFloat ?? 0,
+          cashFloatByDate: out.meta?.cashFloatByDate ?? {},
+          commissionsByDate: out.meta?.commissionsByDate ?? {},
+        },
+      });
+    }
 
-if (cashFloatsErr) {
-  console.error("SELECT cash_floats:", cashFloatsErr);
-} else if (cashFloatsData) {
-  const cashFloatByDate: Record<string, number> = {};
-  cashFloatsData.forEach((row: any) => {
-    cashFloatByDate[row.day] = parseNum(row.amount);
-  });
-  out.meta.cashFloatByDate = cashFloatByDate;
-}
-  // 👇👇👇 AGREGAR AQUÍ - Cargar fondos de Gabi
-const { data: gabiFundsData, error: gabiErr } = await supabase
-  .from("gabi_funds")
-  .select("*")
-  .order("day", { ascending: false });
-
-if (gabiErr) {
-  console.error("SELECT gabi_funds:", gabiErr);
-} else if (gabiFundsData) {
-  const gabiFundsByDate: Record<string, number> = {};
-  gabiFundsData.forEach((row: any) => {
-    gabiFundsByDate[row.day] = parseNum(row.initial_amount);
-  });
-  out.meta.gabiFundsByDate = gabiFundsByDate;
-  out.gabiFunds = gabiFundsData;
-}
-
-  // vendors (esto ya existe, DEJARLO COMO ESTÁ)
-  const { data: vendors, error: vendErr } = await supabase.from("vendors").select("*");
-  if (vendErr) { console.error("SELECT vendors:", vendErr); alert("No pude leer 'vendors' de Supabase."); }
-  if (vendors) out.vendors = vendors;
-  
-// clients
-const { data: clients, error: cliErr } = await supabase.from("clients").select("*");
-if (cliErr) { 
-  console.error("SELECT clients:", cliErr); 
-  alert("No pude leer 'clients' de Supabase."); 
-}
-if (clients) {
-  out.clients = clients.map((c: any) => ({
-    ...c,
-    creado_por: c.creado_por || "sistema",
-    fecha_creacion: c.fecha_creacion || c.date_iso || todayISO(),
-    deuda_manual: c.deuda_manual || false
-  }));
-}
-
-  // products
-  const { data: products, error: prodErr } = await supabase.from("products").select("*");
-  if (prodErr) { console.error("SELECT products:", prodErr); alert("No pude leer 'products' de Supabase."); }
-  if (products) {
-    out.products = products.map((p: any) => ({
-      ...p,
-      stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0,
-       precio_consumidor_final: p.precio_consumidor_final || p.precio_venta || 0,
-      precio_revendedor: p.precio_revendedor || (p.precio_venta ? p.precio_venta * 0.85 : 0)
-    }));
-  }
-
-  // invoices
-  const { data: invoices, error: invErr } = await supabase.from("invoices").select("*").order("number");
-  if (invErr) { console.error("SELECT invoices:", invErr); alert("No pude leer 'invoices' de Supabase."); }
-  if (invoices) out.invoices = invoices;
-
-  // 👇👇👇 AGREGAR AQUÍ - Cargar devoluciones
-  const { data: devoluciones, error: devErr } = await supabase
-    .from("devoluciones").select("*").order("date_iso", { ascending: false });
-  if (devErr) { 
-    console.error("SELECT devoluciones:", devErr); 
-    alert("No pude leer 'devoluciones' de Supabase."); 
-  }
-  if (devoluciones) out.devoluciones = devoluciones;
-  // 👆👆👆 HASTA AQUÍ
-    // 👇👇👇 AGREGAR AQUÍ - Cargar debt_payments
-  // 👇👇👇 DESCOMENTAR Y CORREGIR ESTA SECCIÓN - Cargar debt_payments
-  const { data: debtPayments, error: dpErr } = await supabase
-    .from("debt_payments")
-    .select("*")
-    .order("date_iso", { ascending: false });
-
-  if (dpErr) { 
-    console.error("SELECT debt_payments:", dpErr); 
-    alert("No pude leer 'debt_payments' de Supabase."); 
-  }
-  if (debtPayments) out.debt_payments = debtPayments;
-  // 👆👆👆 HASTA AQUÍ
-
-  // budgets
-  const { data: budgets, error: budErr } = await supabase.from("budgets").select("*").order("number");
-  if (budErr) { console.error("SELECT budgets:", budErr); alert("No pude leer 'budgets' de Supabase."); }
-  if (budgets) out.budgets = budgets;
-    // 👇👇👇 AGREGAR AQUÍ - Cargar pedidos
-  const { data: pedidos, error: pedidosErr } = await supabase
-    .from("pedidos")
-    .select("*")
-    .order("date_iso", { ascending: false });
-
-  if (pedidosErr) {
-    console.error("SELECT pedidos:", pedidosErr);
-  } else if (pedidos) {
-    out.pedidos = pedidos;
-  }
-  // 👆👆👆 HASTA AQUÍ
-
-  // Si está vacío, NO sembrar datos de ejemplo (nada de demo).
-  if (!out.vendors?.length && !out.clients?.length && !out.products?.length) {
-    // Solo aseguro counters en meta para que la app no falle.
-    await supabase.from("meta").upsert({
-      key: "counters",
-      value: {
-        invoiceCounter: 1,
-        budgetCounter: 1,
-        cashFloat: out.meta?.cashFloat ?? 0,
-        cashFloatByDate: out.meta?.cashFloatByDate ?? {},
-        commissionsByDate: out.meta?.commissionsByDate ?? {},
-      },
-    });
+  } catch (error) {
+    console.error("❌ Error general cargando datos desde Supabase:", error);
   }
 
   return out;
@@ -2811,8 +2816,8 @@ const toPay = Math.max(0, total - applied);
       value={priceList}
       onChange={setPriceList}
       options={[
-        { value: "1", label: "Mitobicel" },
-        { value: "2", label: "ElshoppingDlc" },
+        { value: "1", label: "Consumidor Final" },
+        { value: "2", label: "Revendedor" },
       ]}
     />
 
@@ -2832,7 +2837,7 @@ const toPay = Math.max(0, total - applied);
             <NumberInput label="Efectivo" value={payCash} onChange={setPayCash} placeholder="0" />
             <NumberInput label="Transferencia" value={payTransf} onChange={setPayTransf} placeholder="0" />
             <NumberInput label="Vuelto (efectivo)" value={payChange} onChange={setPayChange} placeholder="0" />
-            <Input label="Alias / CVU destino" value={alias} onChange={setAlias} placeholder="ej: mitobicel.algo.banco" />
+            <Input label="Alias / CVU destino" value={alias} onChange={setAlias} placeholder="ej: Vm-electronica1" />
             
             <div className="md:col-span-2 text-xs text-slate-300">
               Pagado: <span className="font-semibold">{money(paid)}</span> — 
@@ -6561,7 +6566,7 @@ ${cli.debt > 0 ? `Se aplicó saldo a favor a la deuda existente. Deuda actual: $
                       label="Alias / CVU destino"
                       value={alias}
                       onChange={setAlias}
-                      placeholder="ej: mitobicel.banco"
+                      placeholder="ej: Vm-electronica2"
                     />
                   </div>
                 </div>
@@ -6677,8 +6682,8 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
             value={priceList}
             onChange={setPriceList}
             options={[
-              { value: "1", label: "Mitobicel" },
-              { value: "2", label: "ElshoppingDlc" },
+              { value: "1", label: "Consumidor Final" },
+              { value: "2", label: "Revendedor" },
             ]}
           />
           <Select 
@@ -8305,91 +8310,124 @@ function PrintArea({ state }: any) {
     );
   }
 
-  // ==== 6. FACTURA (default) ====
-  const paidCash = parseNum(inv?.payments?.cash || 0);
-  const paidTransf = parseNum(inv?.payments?.transfer || 0);
-  const change = parseNum(inv?.payments?.change || 0);
-  const paid   = paidCash + paidTransf;
-  const net    = Math.max(0, paid - change);
-  const balance = Math.max(0, parseNum(inv.total) - net);
-  const fullyPaid = balance <= 0.009;
+ // ==== 6. FACTURA (default) ====
+const paidCash = parseNum(inv?.payments?.cash || 0);
+const paidTransf = parseNum(inv?.payments?.transfer || 0);
+const change = parseNum(inv?.payments?.change || 0);
+const paid   = paidCash + paidTransf;
+const net    = Math.max(0, paid - change);
+const balance = Math.max(0, parseNum(inv.total) - net);
+const fullyPaid = balance <= 0.009;
 
-  const clientDebtTotal = (() => {
-    if (inv?.client_id) {
-      const cliente = state.clients.find((c: any) => c.id === inv.client_id);
-      if (cliente) {
-        const detalleDeudas = calcularDetalleDeudas(state, inv.client_id);
-        return calcularDeudaTotal(detalleDeudas, cliente);
-      }
+// Obtener datos completos del cliente
+const clienteCompleto = state.clients.find((c: any) => c.id === inv.client_id);
+
+const clientDebtTotal = (() => {
+  if (inv?.client_id) {
+    const cliente = state.clients.find((c: any) => c.id === inv.client_id);
+    if (cliente) {
+      const detalleDeudas = calcularDetalleDeudas(state, inv.client_id);
+      return calcularDeudaTotal(detalleDeudas, cliente);
     }
-    return parseNum(inv?.client_debt_total ?? 0);
-  })();
+  }
+  return parseNum(inv?.client_debt_total ?? 0);
+})();
 
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <img 
-              src="/logo.png" 
-              alt="iPhone Store" 
-              className="h-20 w-20 rounded-sm"
-              style={{ 
-                filter: 'brightness(0) invert(0)'
-              }}
-            />
-            <div>
-              <div style={{ 
-                fontWeight: 800, 
-                letterSpacing: 1, 
-                fontSize: '18px',
-                marginBottom: '2px'
-              }}>
-                {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 6px" }} />
-
-        <div className="grid grid-cols-2 gap-2 text-sm">
+return (
+  <div className="only-print print-area p-14">
+    <div className="max-w-[780px] mx-auto text-black">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-4">
+          <img 
+            src="/logo.png" 
+            alt="iPhone Store" 
+            className="h-20 w-20 rounded-sm"
+            style={{ 
+              filter: 'brightness(0) invert(0)'
+            }}
+          />
           <div>
-            <div style={{ fontWeight: 700 }}>Cliente</div>
-            <div>{inv.client_name}</div>
-          </div>
-          <div className="text-right">
-            <div>
-              <b>Factura Nº:</b> {pad(inv.number)}
-            </div>
-            <div>
-              <b>Fecha:</b> {new Date(inv.date_iso).toLocaleDateString("es-AR")}
-            </div>
-            <div>
-              <b>Estado del pago:</b> {fullyPaid ? "Pagado" : "Pendiente"}
+            <div style={{ 
+              fontWeight: 800, 
+              letterSpacing: 1, 
+              fontSize: '18px',
+              marginBottom: '2px'
+            }}>
+              {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
             </div>
           </div>
         </div>
+      </div>
 
-        <table className="print-table text-sm" style={{ marginTop: 10 }}>
-          <thead>
-            <tr>
-              <th style={{ width: "6%" }}>#</th>
-              <th>Descripción de artículo</th>
-              <th style={{ width: "12%" }}>Cantidad</th>
-              <th style={{ width: "18%" }}>Precio</th>
-              <th style={{ width: "18%" }}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inv.items.map((it: any, i: number) => (
+      <div style={{ borderTop: "1px solid #000", margin: "10px 0 6px" }} />
+
+      {/* INFORMACIÓN COMPLETA DEL CLIENTE */}
+      <div className="grid grid-cols-2 gap-4 text-sm mb-4 p-3 border border-gray-300 rounded">
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '8px' }}>DATOS DEL CLIENTE</div>
+          <div><b>Nombre:</b> {inv.client_name} {clienteCompleto?.apellido || ''}</div>
+          <div><b>Teléfono:</b> {clienteCompleto?.telefono || 'No registrado'}</div>
+          <div><b>Email:</b> {clienteCompleto?.email || 'No registrado'}</div>
+        </div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '8px' }}>INFORMACIÓN ADICIONAL</div>
+          <div><b>DNI:</b> {clienteCompleto?.dni || 'No registrado'}</div>
+          <div><b>Dirección:</b> {clienteCompleto?.direccion || 'No registrada'}</div>
+          <div><b>N° Cliente:</b> {clienteCompleto?.number || 'N/A'}</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="text-right">
+          <div>
+            <b>Factura Nº:</b> {pad(inv.number)}
+          </div>
+          <div>
+            <b>Fecha:</b> {new Date(inv.date_iso).toLocaleDateString("es-AR")}
+          </div>
+          <div>
+            <b>Hora:</b> {new Date(inv.date_iso).toLocaleTimeString("es-AR")}
+          </div>
+          <div>
+            <b>Vendedor:</b> {inv.vendor_name || inv.vendedor_nombre}
+          </div>
+        </div>
+      </div>
+
+      <table className="print-table text-sm" style={{ marginTop: 10 }}>
+        <thead>
+          <tr>
+            <th style={{ width: "4%" }}>#</th>
+            <th style={{ width: "35%" }}>Descripción del Producto</th>
+            <th style={{ width: "10%" }}>Color</th>
+            <th style={{ width: "12%" }}>IMEI</th>
+            <th style={{ width: "8%" }}>Cantidad</th>
+            <th style={{ width: "12%" }}>Precio Unit.</th>
+            <th style={{ width: "12%" }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {inv.items.map((it: any, i: number) => {
+            // Buscar información completa del producto
+            const productoCompleto = state.products.find((p: any) => p.id === it.productId);
+            
+            return (
               <tr key={i}>
                 <td style={{ textAlign: "right" }}>{i + 1}</td>
                 <td>
-                  {it.name}
-                  <div style={{ fontSize: "10px", color: "#666", fontStyle: "italic" }}>
-                    {it.section || "General"}
+                  <div style={{ fontWeight: 600 }}>{it.name}</div>
+                  <div style={{ fontSize: "9px", color: "#666", fontStyle: "italic", lineHeight: "1.2" }}>
+                    {productoCompleto?.modelo || it.modelo || ''} 
+                    {productoCompleto?.capacidad && ` • ${productoCompleto.capacidad}`}
+                    {productoCompleto?.grado && ` • Grado: ${productoCompleto.grado}`}
+                    {productoCompleto?.bateria && ` • Batería: ${productoCompleto.bateria}`}
                   </div>
+                </td>
+                <td style={{ textAlign: "center", fontSize: "10px" }}>
+                  {productoCompleto?.color || it.color || 'N/A'}
+                </td>
+                <td style={{ textAlign: "center", fontSize: "9px", fontFamily: "monospace" }}>
+                  {productoCompleto?.imei || it.imei || 'N/A'}
                 </td>
                 <td style={{ textAlign: "right" }}>{parseNum(it.qty)}</td>
                 <td style={{ textAlign: "right" }}>{money(parseNum(it.unitPrice))}</td>
@@ -8397,95 +8435,103 @@ function PrintArea({ state }: any) {
                   {money(parseNum(it.qty) * parseNum(it.unitPrice))}
                 </td>
               </tr>
-            ))}
-          </tbody>
+            );
+          })}
+        </tbody>
 
-          <tfoot>
-            <tr>
-              <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
-                Total
-              </td>
-              <td style={{ textAlign: "right", fontWeight: 700 }}>{money(inv.total)}</td>
-            </tr>
+        <tfoot>
+          <tr>
+            <td colSpan={6} style={{ textAlign: "right", fontWeight: 600 }}>
+              Subtotal
+            </td>
+            <td style={{ textAlign: "right", fontWeight: 700 }}>{money(inv.total)}</td>
+          </tr>
 
-            {typeof inv?.payments?.saldo_aplicado === "number" &&
-              inv.payments.saldo_aplicado > 0 && (
-                <>
-                  <tr>
-                    <td colSpan={4} style={{ textAlign: "right" }}>
-                      Saldo a favor aplicado
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      {money(parseNum(inv.payments.saldo_aplicado))}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td colSpan={4} style={{ textAlign: "right", fontWeight: 600 }}>
-                      Total luego de saldo
-                    </td>
-                    <td style={{ textAlign: "right", fontWeight: 700 }}>
-                      {money(
-                        parseNum(
-                          inv.total_after_credit ??
-                            (inv.total - inv.payments.saldo_aplicado)
-                        )
-                      )}
-                    </td>
-                  </tr>
-                </>
-              )}
-          </tfoot>
-        </table>
-
-        <div className="grid grid-cols-2 gap-2 text-sm" style={{ marginTop: 8 }}>
-          <div />
-          <div>
-            <div>
-              <b>Método de pago:</b>
-            </div>
-            <div>CONTADO: {money(paidCash)}</div>
-            <div>TRANSFERENCIA: {money(paidTransf)}</div>
-            {inv?.payments?.change ? (
-              <div>VUELTO: {money(parseNum(inv.payments.change))}</div>
-            ) : null}
-            {inv?.payments?.alias && (
-              <div>Alias/CVU destino: {inv.payments.alias}</div>
+          {typeof inv?.payments?.saldo_aplicado === "number" &&
+            inv.payments.saldo_aplicado > 0 && (
+              <>
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "right" }}>
+                    Saldo a favor aplicado
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    -{money(parseNum(inv.payments.saldo_aplicado))}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "right", fontWeight: 600 }}>
+                    Total a pagar
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 700 }}>
+                    {money(parseNum(inv.total) - parseNum(inv.payments.saldo_aplicado))}
+                  </td>
+                </tr>
+              </>
             )}
-            <div style={{ marginTop: 6 }}>
-              <b>Cantidad pagada:</b> {money(paid)}
-            </div>
+        </tfoot>
+      </table>
 
-            <div>
-              <b>Cantidad adeudada:</b> {money(balance)}
-            </div>
-            <div style={{ marginTop: 6 }}>
-              <b>Total adeudado como cliente:</b> {money(clientDebtTotal)}
-            </div>
+      {/* RESUMEN DE PAGOS */}
+      <div className="grid grid-cols-2 gap-4 text-sm mt-6 p-3 border border-gray-300 rounded">
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>RESUMEN DE PAGOS</div>
+          <div>Efectivo: {money(paidCash)}</div>
+          <div>Transferencia: {money(paidTransf)}</div>
+          {inv?.payments?.change ? (
+            <div>Vuelto: {money(parseNum(inv.payments.change))}</div>
+          ) : null}
+          {inv?.payments?.alias && (
+            <div>Alias/CVU: {inv.payments.alias}</div>
+          )}
+          {inv?.payments?.saldo_aplicado > 0 && (
+            <div>Saldo a favor aplicado: {money(parseNum(inv.payments.saldo_aplicado))}</div>
+          )}
+        </div>
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: '8px' }}>ESTADO</div>
+          <div>Total factura: {money(inv.total)}</div>
+          <div>Total pagado: {money(paid)}</div>
+          <div>Saldo pendiente: {money(balance)}</div>
+          <div style={{ fontWeight: 700, color: fullyPaid ? '#059669' : '#d97706' }}>
+            {fullyPaid ? "✅ PAGADO COMPLETAMENTE" : "⏳ PENDIENTE DE PAGO"}
           </div>
         </div>
+      </div>
 
-        {fullyPaid && (
-          <div
-            style={{
-              position: "fixed",
-              top: "55%",
-              left: "50%",
-              transform: "translate(-50%, -50%) rotate(-20deg)",
-              fontSize: 64,
-              fontWeight: 900,
-              letterSpacing: 4,
-              opacity: 0.08,
-            }}
-          >
-            PAGADO
-          </div>
-        )}
+      {/* INFORMACIÓN DE GARANTÍA Y CONTACTO */}
+      <div className="mt-6 p-3 border border-gray-300 rounded text-xs">
+        <div style={{ fontWeight: 700, marginBottom: '4px' }}>INFORMACIÓN DE GARANTÍA</div>
+        <div>• Todos nuestros productos incluyen 1 mes de garantía por defectos de fábrica</div>
+        <div>• La garantía no cubre daños por mal uso, caídas o contacto con líquidos</div>
+        <div>• Presente esta factura para cualquier reclamo de garantía</div>
+        <div style={{ marginTop: '8px', fontWeight: 600 }}>
+          Para consultas o reclamos: +54 1154368684 | contacto@vm-electronica.com
+        </div>
+      </div>
 
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
+      {fullyPaid && (
+        <div
+          style={{
+            position: "fixed",
+            top: "55%",
+            left: "50%",
+            transform: "translate(-50%, -50%) rotate(-20deg)",
+            fontSize: 64,
+            fontWeight: 900,
+            letterSpacing: 4,
+            opacity: 0.08,
+          }}
+        >
+          PAGADO
+        </div>
+      )}
+
+      <div className="mt-10 text-xs text-center">
+        {APP_TITLE} • Impreso el: {new Date().toLocaleDateString('es-AR')} a las {new Date().toLocaleTimeString('es-AR')}
       </div>
     </div>
-  );
-}
+  </div>
+);
 function Login({ onLogin, vendors, adminKey, clients }: any) {
   const [role, setRole] = useState("vendedor");
   const [email, setEmail] = useState("");
@@ -8686,94 +8732,185 @@ export default function Page() {
   const [tab, setTab] = useState("Facturación");
 
   useEffect(() => {
-    if (!hasSupabase) return;
-    (async () => {
-      const s = await loadFromSupabase(seedState());
-      setState(s);
-    })();
+  if (!hasSupabase) return;
+  
+  (async () => {
+    const s = await loadFromSupabase(seedState());
+    setState(s);
+  })();
 
-    // Agregar esta parte para sincronización en tiempo real:
-    if (hasSupabase) {
-      // Suscripción para presupuestos
-      const budgetSubscription = supabase
-        .channel('budgets-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'budgets'
-          },
-          async () => {
-            // Recargar los presupuestos cuando haya cambios
-            const refreshedState = await loadFromSupabase(seedState());
-            setState(refreshedState);
-          }
-        )
-        .subscribe();
+  if (hasSupabase) {
+    // Suscripción para presupuestos
+    const budgetSubscription = supabase
+      .channel('budgets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'budgets'
+        },
+        async () => {
+          console.log("🔄 Cambios en budgets detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
 
-      // 👇👇👇 AGREGAR ESTA SUSCRIPCIÓN PARA FACTURAS
-      const invoicesSubscription = supabase
-        .channel('invoices-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'invoices'
-          },
-          async () => {
-            // Recargar las facturas cuando haya cambios
-            const refreshedState = await loadFromSupabase(seedState());
-            setState(refreshedState);
-          }
-        )
-        .subscribe();
+    // Suscripción para facturas
+    const invoicesSubscription = supabase
+      .channel('invoices-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'invoices'
+        },
+        async () => {
+          console.log("🔄 Cambios en invoices detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
 
-      // 👇👇👇 NUEVA SUSCRIPCIÓN PARA PEDIDOS ONLINE
-      const pedidosSubscription = supabase
-        .channel('pedidos-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'pedidos'
-          },
-          async () => {
-            // Recargar los pedidos cuando haya cambios
-            const refreshedState = await loadFromSupabase(seedState());
-            setState(refreshedState);
-          }
-        )
-        .subscribe();
-       
-      // 👇👇👇 NUEVA SUSCRIPCIÓN PARA DEBT_PAYMENTS
-      const debtPaymentsSubscription = supabase
-        .channel('debt-payments-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'debt_payments'
-          },
-          async () => {
-            console.log("🔄 Cambios en debt_payments detectados, recargando...");
-            const refreshedState = await loadFromSupabase(seedState());
-            setState(refreshedState);
-          }
-        )
-        .subscribe();
+    // Suscripción para pedidos online
+    const pedidosSubscription = supabase
+      .channel('pedidos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pedidos'
+        },
+        async () => {
+          console.log("🔄 Cambios en pedidos detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
+     
+    // Suscripción para debt_payments
+    const debtPaymentsSubscription = supabase
+      .channel('debt-payments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'debt_payments'
+        },
+        async () => {
+          console.log("🔄 Cambios en debt_payments detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(budgetSubscription);
-        supabase.removeChannel(invoicesSubscription);
-        supabase.removeChannel(pedidosSubscription);
-        supabase.removeChannel(debtPaymentsSubscription);
-      };
-    }
-  }, []);
+    // 👇👇👇 NUEVAS SUSCRIPCIONES PARA SINCRONIZACIÓN COMPLETA
+    const gastosSubscription = supabase
+      .channel('gastos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'gastos'
+        },
+        async () => {
+          console.log("🔄 Cambios en gastos detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
+
+    const devolucionesSubscription = supabase
+      .channel('devoluciones-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'devoluciones'
+        },
+        async () => {
+          console.log("🔄 Cambios en devoluciones detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
+
+    const clientsSubscription = supabase
+      .channel('clients-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clients'
+        },
+        async () => {
+          console.log("🔄 Cambios en clients detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
+
+    const productsSubscription = supabase
+      .channel('products-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'products'
+        },
+        async () => {
+          console.log("🔄 Cambios en products detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
+
+    const turnosSubscription = supabase
+      .channel('turnos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'turnos'
+        },
+        async () => {
+          console.log("🔄 Cambios en turnos detectados, recargando...");
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(budgetSubscription);
+      supabase.removeChannel(invoicesSubscription);
+      supabase.removeChannel(pedidosSubscription);
+      supabase.removeChannel(debtPaymentsSubscription);
+      supabase.removeChannel(gastosSubscription);
+      supabase.removeChannel(devolucionesSubscription);
+      supabase.removeChannel(clientsSubscription);
+      supabase.removeChannel(productsSubscription);
+      supabase.removeChannel(turnosSubscription);
+    };
+  }
+}, []);
 
   function onLogin(user: any) {
     setSession(user);
