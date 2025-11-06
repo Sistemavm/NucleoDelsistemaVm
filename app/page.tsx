@@ -7706,14 +7706,7 @@ function PrintArea({ state }: any) {
 
     // ==== 2. REPORTE COMPLETO (Ventas y Performance) ====
     // Este se ejecuta SOLO para "ventas" o cualquier otro subtipo no específico
-    const rangoStr = (() => {
-      const s = new Date(inv?.rango?.start || Date.now());
-      const e = new Date(inv?.rango?.end || Date.now());
-      const toDate = (d: Date) => d.toLocaleString("es-AR");
-      return `${toDate(s)}  —  ${toDate(e)}`;
-    })();
-
-    return (
+       return (
       <div className="only-print print-area p-14">
         <div className="max-w-[780px] mx-auto text-black">
           <div className="flex items-start justify-between">
@@ -7750,8 +7743,113 @@ function PrintArea({ state }: any) {
             </div>
           </div>
 
+          {/* FLUJO DE CAJA EN EFECTIVO - DETALLE COMPLETO */}
+          <div style={{ borderTop: "2px solid #000", margin: "16px 0 8px", paddingTop: 8 }} />
+          <div className="text-center" style={{ fontWeight: 900, fontSize: 20, letterSpacing: 1, marginBottom: 12 }}>
+            FLUJO DE CAJA EN EFECTIVO - DETALLE
+          </div>
+
+          {/* CÁLCULO DETALLADO DEL FLUJO DE EFECTIVO */}
+          <div className="grid grid-cols-2 gap-4 text-sm mb-6 p-4 border border-gray-300 rounded">
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#059669" }}>INGRESOS EN EFECTIVO</div>
+              
+              {/* Efectivo de Ventas */}
+              <div className="flex justify-between mb-2">
+                <span>Ventas en Efectivo:</span>
+                <span style={{ fontWeight: 600 }}>
+                  {fmt((inv.ventas || []).reduce((sum: number, f: any) => 
+                    sum + parseNum(f?.payments?.cash || 0), 0))}
+                </span>
+              </div>
+              
+              {/* Efectivo de Pagos de Deuda */}
+              <div className="flex justify-between mb-2">
+                <span>Pagos Deuda en Efectivo:</span>
+                <span style={{ fontWeight: 600 }}>
+                  {fmt((inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => 
+                    sum + parseNum(p.efectivo || 0), 0))}
+                </span>
+              </div>
+              
+              <div className="flex justify-between pt-2 border-t border-gray-300 mt-2">
+                <span style={{ fontWeight: 700 }}>Total Ingresos:</span>
+                <span style={{ fontWeight: 700, color: "#059669" }}>
+                  {fmt(
+                    (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.cash || 0), 0) +
+                    (inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => sum + parseNum(p.efectivo || 0), 0)
+                  )}
+                </span>
+              </div>
+            </div>
+            
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 8, color: "#dc2626" }}>EGRESOS EN EFECTIVO</div>
+              
+              {/* Gastos en Efectivo */}
+              <div className="flex justify-between mb-2">
+                <span>Gastos en Efectivo:</span>
+                <span style={{ fontWeight: 600, color: '#dc2626' }}>
+                  {fmt((inv.gastos || []).reduce((sum: number, g: any) => 
+                    sum + parseNum(g.efectivo || 0), 0))}
+                </span>
+              </div>
+              
+              {/* Devoluciones en Efectivo */}
+              <div className="flex justify-between mb-2">
+                <span>Devoluciones en Efectivo:</span>
+                <span style={{ fontWeight: 600, color: '#dc2626' }}>
+                  {fmt((inv.devoluciones || []).reduce((sum: number, d: any) => 
+                    sum + parseNum(d.efectivo || 0), 0))}
+                </span>
+              </div>
+              
+              {/* Vuelto Entregado */}
+              <div className="flex justify-between mb-2">
+                <span>Vuelto Entregado:</span>
+                <span style={{ fontWeight: 600, color: '#dc2626' }}>
+                  {fmt((inv.ventas || []).reduce((sum: number, f: any) => 
+                    sum + parseNum(f?.payments?.change || 0), 0))}
+                </span>
+              </div>
+              
+              <div className="flex justify-between pt-2 border-t border-gray-300 mt-2">
+                <span style={{ fontWeight: 700 }}>Total Egresos:</span>
+                <span style={{ fontWeight: 700, color: '#dc2626' }}>
+                  {fmt(
+                    (inv.gastos || []).reduce((sum: number, g: any) => sum + parseNum(g.efectivo || 0), 0) +
+                    (inv.devoluciones || []).reduce((sum: number, d: any) => sum + parseNum(d.efectivo || 0), 0) +
+                    (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.change || 0), 0)
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* TOTAL FINAL FLUJO DE CAJA EN EFECTIVO */}
+          <div style={{ borderTop: "2px solid #000", margin: "12px 0 8px", paddingTop: 8 }} />
+          <div className="text-center" style={{ 
+            fontWeight: 900, 
+            fontSize: 24, 
+            letterSpacing: 1,
+            backgroundColor: '#f0f9ff',
+            padding: '12px',
+            border: '2px solid #0369a1',
+            borderRadius: '8px'
+          }}>
+            FLUJO DE CAJA NETO EN EFECTIVO: {fmt(
+              // Ingresos
+              (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.cash || 0), 0) +
+              (inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => sum + parseNum(p.efectivo || 0), 0) -
+              // Egresos  
+              (inv.gastos || []).reduce((sum: number, g: any) => sum + parseNum(g.efectivo || 0), 0) -
+              (inv.devoluciones || []).reduce((sum: number, d: any) => sum + parseNum(d.efectivo || 0), 0) -
+              (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.change || 0), 0)
+            )}
+          </div>
+
           {/* DEUDA DEL DÍA */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>📋 Facturas con Deuda del Día</div>
           
           {inv.deudaDelDiaDetalle && inv.deudaDelDiaDetalle.length > 0 ? (
@@ -7792,7 +7890,7 @@ function PrintArea({ state }: any) {
           )}
 
           {/* DEUDORES ACTIVOS */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>👥 Deudores Activos</div>
           
           {inv.deudoresActivos && inv.deudoresActivos.length > 0 ? (
@@ -7833,7 +7931,7 @@ function PrintArea({ state }: any) {
           )}
 
           {/* PAGOS DE DEUDORES CON DETALLE */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>💳 Pagos de Deudores Registrados</div>
           
           {inv.pagosDeudoresDetallados && inv.pagosDeudoresDetallados.length > 0 ? (
@@ -7875,7 +7973,7 @@ function PrintArea({ state }: any) {
           )}
 
           {/* VENTAS */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Ventas del período</div>
           <table className="print-table text-sm">
             <thead>
@@ -7913,7 +8011,7 @@ function PrintArea({ state }: any) {
           </table>
 
           {/* GASTOS */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Gastos</div>
           <table className="print-table text-sm">
             <thead>
@@ -7942,7 +8040,7 @@ function PrintArea({ state }: any) {
           </table>
 
           {/* DEVOLUCIONES */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Devoluciones</div>
           <table className="print-table text-sm">
             <thead>
@@ -7973,7 +8071,7 @@ function PrintArea({ state }: any) {
           </table>
 
           {/* TRANSFERENCIAS POR ALIAS */}
-          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div style={{ borderTop: "1px solid #000", margin: "16px 0 6px" }} />
           <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Transferencias por alias (ventas)</div>
           <table className="print-table text-sm">
             <thead>
@@ -7994,12 +8092,6 @@ function PrintArea({ state }: any) {
               )}
             </tbody>
           </table>
-
-          {/* FLUJO DE CAJA */}
-          <div style={{ borderTop: "1px solid #000", margin: "14px 0 8px" }} />
-          <div className="text-center" style={{ fontWeight: 900, fontSize: 24, letterSpacing: 1 }}>
-            FLUJO DE CAJA (EFECTIVO): {fmt(inv.resumen.flujoCajaEfectivo)}
-          </div>
 
           <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
         </div>
