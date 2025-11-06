@@ -2268,8 +2268,8 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
     // Obtener el detalle REAL de deudas del cliente para este pago
     const detalleDeudasCliente = calcularDetalleDeudas(state, pago.client_id);
     
-    // Calcular deuda total ANTES del pago
-    const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, cliente) : 0;
+    // Calcular deuda total ANTES del pago - CON parseNum
+    const deudaTotalAntes = parseNum(cliente ? calcularDeudaTotal(detalleDeudasCliente, cliente) : 0);
     
     // Reconstruir las aplicaciones con información completa
     const aplicacionesCompletas = pago.aplicaciones?.map((app: any) => {
@@ -2280,10 +2280,10 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
         factura_id: app.factura_id,
         factura_numero: app.factura_numero || factura?.number || "N/E",
         fecha_factura: factura?.date_iso || pago.date_iso,
-        total_factura: deudaFactura?.monto_total || factura?.total || 0,
-        deuda_antes: app.deuda_antes || deudaFactura?.monto_debe || 0,
-        monto_aplicado: app.monto_aplicado,
-        deuda_despues: app.deuda_despues || Math.max(0, (deudaFactura?.monto_debe || 0) - app.monto_aplicado),
+        total_factura: parseNum(deudaFactura?.monto_total || factura?.total || 0),
+        deuda_antes: parseNum(app.deuda_antes || deudaFactura?.monto_debe || 0),
+        monto_aplicado: parseNum(app.monto_aplicado),
+        deuda_despues: parseNum(app.deuda_despues || Math.max(0, parseNum(deudaFactura?.monto_debe || 0) - parseNum(app.monto_aplicado))),
         tipo: "pago_factura"
       };
     }) || [];
@@ -2294,16 +2294,16 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
         factura_numero: "No especificado",
         fecha_factura: pago.date_iso,
         total_factura: 0,
-        deuda_antes: pago.debt_before || 0,
-        monto_aplicado: pago.total_amount,
-        deuda_despues: pago.debt_after || 0,
+        deuda_antes: parseNum(pago.debt_before || 0),
+        monto_aplicado: parseNum(pago.total_amount),
+        deuda_despues: parseNum(pago.debt_after || 0),
         descripcion: "Pago aplicado globalmente",
         tipo: "global"
       });
     }
 
-    // Calcular total aplicado y deuda pendiente
-    const totalAplicado = aplicacionesCompletas.reduce((sum: number, app: any) => sum + app.monto_aplicado, 0);
+    // Calcular total aplicado y deuda pendiente - CON parseNum
+    const totalAplicado = aplicacionesCompletas.reduce((sum: number, app: any) => sum + parseNum(app.monto_aplicado), 0);
     const deudaPendiente = Math.max(0, deudaTotalAntes - totalAplicado);
 
     detallePagos.push({
@@ -2311,9 +2311,9 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
       cliente: pago.client_name,
       cliente_id: pago.client_id,
       fecha_pago: pago.date_iso,
-      total_pagado: pago.total_amount,
-      efectivo: pago.cash_amount,
-      transferencia: pago.transfer_amount,
+      total_pagado: parseNum(pago.total_amount),
+      efectivo: parseNum(pago.cash_amount),
+      transferencia: parseNum(pago.transfer_amount),
       alias: pago.alias || "",
       
       // INFORMACIÓN COMPLETA DE LA DEUDA
@@ -2321,8 +2321,8 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
       total_aplicado: totalAplicado,      // Total realmente aplicado
       deuda_pendiente: deudaPendiente,    // Lo que queda pendiente
       
-      deuda_antes_pago: pago.debt_before,
-      deuda_despues_pago: pago.debt_after,
+      deuda_antes_pago: parseNum(pago.debt_before),
+      deuda_despues_pago: parseNum(pago.debt_after),
       
       // DETALLE POR FACTURA
       aplicaciones: aplicacionesCompletas,
@@ -2336,7 +2336,6 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
   // ✅ FILTRAR: Solo devolver pagos de clientes que aún tengan deuda pendiente
   return detallePagos.filter(pago => pago.tiene_deuda_pendiente);
 }
-
  function Navbar({ current, setCurrent, role, onLogout }: any) {
  const TABS = [
   "Facturación",
