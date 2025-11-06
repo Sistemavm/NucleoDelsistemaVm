@@ -8532,7 +8532,9 @@ return (
     </div>
   </div>
 );
-function Login({ onLogin, vendors, adminKey, clients }: any) {
+
+
+ function Login({ onLogin, vendors, adminKey, clients }: any) {
   const [role, setRole] = useState("vendedor");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -8612,7 +8614,7 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
     }
   }
 
-   return (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-800 to-green-900 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl p-8 border border-emerald-500/30">
         {/* Logo agrandado */}
@@ -8723,8 +8725,6 @@ function Login({ onLogin, vendors, adminKey, clients }: any) {
     </div>
   );
 }
-// ... código anterior ...
-
 /* ===== Página principal ===== */
 export default function Page() {
   const [state, setState] = useState<any>(seedState());
