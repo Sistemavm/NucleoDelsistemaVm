@@ -8532,6 +8532,7 @@ return (
     </div>
   </div>
 );
+  }
 
 
  function Login({ onLogin, vendors, adminKey, clients }: any) {
