@@ -6038,8 +6038,7 @@ async function convertirAFactura(b: any) {
   window.print();
 }
 
-  const total = calcInvoiceTotal(items);
-  return (
+ 
     <div className="max-w-6xl mx-auto p-4 space-y-4">
       <Card title="Nuevo presupuesto">
         <div className="grid md:grid-cols-4 gap-3">
@@ -6940,9 +6939,6 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
     showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté listo.");
   }
 
-  const total = calcInvoiceTotal(items);
-
-  return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
       <Card title={`Hacer Pedido Online - Cliente: ${session.name} (N° ${session.number})`}>
         <div className="grid md:grid-cols-4 gap-3 mb-4">
