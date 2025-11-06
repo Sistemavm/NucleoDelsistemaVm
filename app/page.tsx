@@ -7317,6 +7317,7 @@ function nextPaint() {
 
 /* ===== Área de impresión ===== */
 /* ===== Área de impresión ===== */
+/* ===== Área de impresión ===== */
 function PrintArea({ state }: any) {
   const [inv, setInv] = useState<any | null>(null);
   const [ticket, setTicket] = useState<any | null>(null);
@@ -7348,6 +7349,63 @@ function PrintArea({ state }: any) {
   }, []);
 
   if (!inv && !ticket) return null;
+
+  // ==== 7. CÁLCULO DE ENVÍOS ====
+  if (inv?.type === "CalculoEnvio") {
+    const fmt = (n: number) => money(parseNum(n));
+    
+    return (
+      <div className="only-print print-area p-14">
+        <div className="max-w-[780px] mx-auto text-black">
+          <div className="text-center">
+            <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
+              CÁLCULO DE COSTOS DE ENVÍO
+            </div>
+            <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
+          </div>
+
+          <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
+
+          {/* Resumen */}
+          <div className="grid grid-cols-2 gap-4 text-sm mb-6">
+            <div>
+              <div><b>Costo por Kilo:</b> {fmt(inv.calculo.costoPorKilo)}</div>
+              <div><b>Peso Total:</b> {inv.calculo.pesoTotal}g ({inv.calculo.pesoTotal / 1000} kg)</div>
+            </div>
+            <div>
+              <div><b>Costo Total Envío:</b> {fmt(inv.calculo.costoTotalEnvio)}</div>
+              <div><b>Costo Promedio por Equipo:</b> {fmt(inv.calculo.costoUnitarioPromedio)}</div>
+            </div>
+          </div>
+
+          {/* Detalle por modelo */}
+          <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
+          <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Desglose por Modelo</div>
+          
+          <table className="print-table text-sm">
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Modelo</th>
+                <th style={{ textAlign: "right" }}>Costo Unitario</th>
+                <th style={{ textAlign: "right" }}>Costo Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inv.calculo.costosPorModelo.map((costo: any, index: number) => (
+                <tr key={index}>
+                  <td>{costo.modelo}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(costo.costoUnitario)}</td>
+                  <td style={{ textAlign: "right" }}>{fmt(costo.costoTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
+        </div>
+      </div>
+    );
+  }
 
   // ==== 1. PRIMERO LOS 4 REPORTES ESPECÍFICOS ====
   if (inv?.type === "Reporte") {
@@ -8476,63 +8534,6 @@ function PrintArea({ state }: any) {
     </div>
   );
 }
-// ==== 7. CÁLCULO DE ENVÍOS ====
-if (inv?.type === "CalculoEnvio") {
-  const fmt = (n: number) => money(parseNum(n));
-  
-  return (
-    <div className="only-print print-area p-14">
-      <div className="max-w-[780px] mx-auto text-black">
-        <div className="text-center">
-          <div style={{ fontWeight: 800, letterSpacing: 1, fontSize: '20px' }}>
-            CÁLCULO DE COSTOS DE ENVÍO
-          </div>
-          <div style={{ marginTop: 2 }}>VM-ELECTRONICA</div>
-        </div>
-
-        <div style={{ borderTop: "1px solid #000", margin: "10px 0 8px" }} />
-
-        {/* Resumen */}
-        <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-          <div>
-            <div><b>Costo por Kilo:</b> {fmt(inv.calculo.costoPorKilo)}</div>
-            <div><b>Peso Total:</b> {inv.calculo.pesoTotal}g ({inv.calculo.pesoTotal / 1000} kg)</div>
-          </div>
-          <div>
-            <div><b>Costo Total Envío:</b> {fmt(inv.calculo.costoTotalEnvio)}</div>
-            <div><b>Costo Promedio por Equipo:</b> {fmt(inv.calculo.costoUnitarioPromedio)}</div>
-          </div>
-        </div>
-
-        {/* Detalle por modelo */}
-        <div style={{ borderTop: "1px solid #000", margin: "12px 0 6px" }} />
-        <div className="text-sm" style={{ fontWeight: 700, marginBottom: 6 }}>Desglose por Modelo</div>
-        
-        <table className="print-table text-sm">
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left" }}>Modelo</th>
-              <th style={{ textAlign: "right" }}>Costo Unitario</th>
-              <th style={{ textAlign: "right" }}>Costo Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inv.calculo.costosPorModelo.map((costo: any, index: number) => (
-              <tr key={index}>
-                <td>{costo.modelo}</td>
-                <td style={{ textAlign: "right" }}>{fmt(costo.costoUnitario)}</td>
-                <td style={{ textAlign: "right" }}>{fmt(costo.costoTotal)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="mt-10 text-xs text-center">{APP_TITLE}</div>
-      </div>
-    </div>
-  );
-}
-
 function Login({ onLogin, vendors, adminKey, clients }: any) {
   const [role, setRole] = useState("vendedor");
   const [email, setEmail] = useState("");
