@@ -3745,15 +3745,7 @@ async function cancelarDeuda(clienteId: string) {
 
 function DeudoresTab({ state, setState, session, showError, showSuccess, showInfo }: any) {// ✅ FILTRAR MEJORADO: Incluye deuda manual Y deuda de facturas
 // ✅ FILTRAR: Solo clientes con deuda NETA > 0 (después de aplicar saldo)
-const clients = state.clients.filter((c: any) => {
-  if (!c || !c.id) return false;
-  
-  const detalleDeudas = calcularDetalleDeudas(state, c.id);
-  const deudaNeta = calcularDeudaTotal(detalleDeudas, c); // ← Esto YA aplica saldo
-  
-  // Mostrar solo si tiene deuda NETA pendiente
-  return deudaNeta > 0.01;
-});
+const clients = obtenerDeudoresActivos(state);
   const [active, setActive] = useState<string | null>(null);
   const [cash, setCash] = useState("");
   const [transf, setTransf] = useState("");
@@ -4594,14 +4586,8 @@ const deudaDelDiaDetalle = (state.invoices || [])
   })
   .filter((f: any) => f.monto_debe > 0.01);
 
-const clients = state.clients.filter((c: any) => {
-  if (!c || !c.id) return false;
-  
-  const detalleDeudas = calcularDetalleDeudas(state, c.id);
-  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-  
-  return deudaNeta > 0.01;
-});
+// 2. DEUDORES ACTIVOS - Clientes con deuda REAL
+const deudoresActivos = obtenerDeudoresActivos(state);
 
 // 3. PAGOS DE DEUDORES - Todos los pagos del período
 const pagosDeudoresDetallados = (state.debt_payments || [])
