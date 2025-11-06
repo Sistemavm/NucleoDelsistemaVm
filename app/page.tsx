@@ -8616,7 +8616,6 @@ function PrintArea({ state }: any) {
       </div>
     );
   }
-
  // ==== 6. FACTURA (default) ====
 const paidCash = parseNum(inv?.payments?.cash || 0);
 const paidTransf = parseNum(inv?.payments?.transfer || 0);
@@ -8661,6 +8660,9 @@ return (
               marginBottom: '2px'
             }}>
               {inv?.type === "Presupuesto" ? "PRESUPUESTO" : "FACTURA"}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              Sistema de gestión y facturación By Tobías Carrizo
             </div>
           </div>
         </div>
@@ -8812,7 +8814,7 @@ return (
         <div>• La garantía no cubre daños por mal uso, caídas o contacto con líquidos</div>
         <div>• Presente esta factura para cualquier reclamo de garantía</div>
         <div style={{ marginTop: '8px', fontWeight: 600 }}>
-          Para consultas o reclamos: +54 1154368684 | contacto@vm-electronica.com
+          Para consultas o reclamos: +54 9 11 5343-7699 | rapipuey@gmail.com
         </div>
       </div>
 
