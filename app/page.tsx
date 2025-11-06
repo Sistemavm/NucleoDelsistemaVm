@@ -702,8 +702,42 @@ const nuevoProducto: Producto = {
     setState(st);
 
     if (hasSupabase) {
-      await supabase.from("products").insert(nuevoProducto);
+  try {
+    // ✅ INSERTAR CON EL NOMBRE EXACTO DE LOS CAMPOS DE SUPABASE
+    const { error } = await supabase.from("products").insert({
+      id: nuevoProducto.id,
+      name: nuevoProducto.name,
+      modelo: nuevoProducto.modelo,
+      capacidad: nuevoProducto.capacidad,
+      imei: nuevoProducto.imei,
+      grado: nuevoProducto.grado,
+      estado: nuevoProducto.estado,
+      ubicacion: nuevoProducto.ubicacion,
+      color: nuevoProducto.color,
+      precio_compra: nuevoProducto.precio_compra, // ✅ ESTE ES EL COSTO
+      precio_venta: nuevoProducto.precio_venta,
+      precio_consumidor_final: nuevoProducto.precio_consumidor_final,
+      precio_revendedor: nuevoProducto.precio_revendedor,
+      costo_reparacion: nuevoProducto.costo_reparacion,
+      descripcion: nuevoProducto.descripcion,
+      fecha_ingreso: nuevoProducto.fecha_ingreso,
+      bateria: nuevoProducto.bateria,
+      lista_precio: nuevoProducto.lista_precio
+    });
+
+    if (error) {
+      console.error("❌ Error al guardar producto en Supabase:", error);
+      showError(`Error al guardar en la base de datos: ${error.message}`);
+      return;
     }
+    
+    console.log("✅ Producto guardado en Supabase con costo:", nuevoProducto.precio_compra);
+  } catch (error) {
+    console.error("❌ Error general al guardar producto:", error);
+    showError("Error al conectar con la base de datos");
+    return;
+  }
+}
 
     // Limpiar formulario
     setModelo("");
@@ -2132,6 +2166,7 @@ function gastoMesCliente(state: any, clientId: string, refDate = new Date()) {
 // === Detalle de deudas por cliente - CORREGIDA ===
 // === Detalle de deudas por cliente - CORREGIDA DEFINITIVAMENTE ===
 // === Detalle de deudas por cliente - CORREGIDA DEFINITIVAMENTE ===
+// 👇👇👇 FUNCIÓN CORREGIDA - MEJOR CÁLCULO DE DEUDAS
 function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
   if (!clientId) return [];
   
@@ -2145,13 +2180,13 @@ function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
   const detalleDeudas = todasFacturas.map((factura: any) => {
     const totalFactura = parseNum(factura.total);
     
-    // 1. Pagos DIRECTOS de la factura (al momento de la compra)
+    // 1. Pagos DIRECTOS de la factura
     const pagosDirectos = 
       parseNum(factura?.payments?.cash || 0) + 
       parseNum(factura?.payments?.transfer || 0) + 
       parseNum(factura?.payments?.saldo_aplicado || 0);
 
-    // 2. Pagos ADICIONALES desde debt_payments para ESTA factura específica
+    // 2. Pagos ADICIONALES desde debt_payments
     const pagosAdicionales = (state.debt_payments || [])
       .filter((pago: any) => {
         return pago.client_id === clientId && 
@@ -2162,21 +2197,8 @@ function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
         return aplicacion ? sum + parseNum(aplicacion.monto_aplicado) : sum;
       }, 0);
 
-    // 3. Devoluciones que afectan esta factura específica
-    const devolucionesFactura = (state.devoluciones || [])
-      .filter((dev: any) => {
-        if (dev.client_id !== clientId) return false;
-        // Buscar si esta devolución incluye productos de esta factura
-        return dev.items?.some((item: any) => item.facturaId === factura.id);
-      })
-      .reduce((sum: number, dev: any) => {
-        const itemsEstaFactura = dev.items?.filter((item: any) => item.facturaId === factura.id) || [];
-        return sum + itemsEstaFactura.reduce((s: number, item: any) => 
-          s + (parseNum(item.qtyDevuelta) * parseNum(item.unitPrice)), 0);
-      }, 0);
-
     const totalPagos = pagosDirectos + pagosAdicionales;
-    const montoDebe = Math.max(0, totalFactura - totalPagos - devolucionesFactura);
+    const montoDebe = Math.max(0, totalFactura - totalPagos);
 
     return {
       factura_id: factura.id,
@@ -2185,8 +2207,7 @@ function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
       monto_total: totalFactura,
       monto_pagado: totalPagos,
       monto_debe: montoDebe,
-      items: factura.items || [],
-      devoluciones: devolucionesFactura
+      items: factura.items || []
     };
   });
 
@@ -2196,7 +2217,8 @@ function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
 // === Deuda total del cliente - CORREGIDA DEFINITIVAMENTE ===
 // === Deuda total del cliente - CON SALDO A FAVOR APLICADO ===
 // === Deuda total del cliente - CON SALDO A FAVOR APLICADO ===
-function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): number {
+// 👇👇👇 FUNCIÓN CORREGIDA - ACTUALIZA SUPABASE
+async function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): Promise<number> {
   if (!cliente) return 0;
   
   // ✅ Deuda de facturas pendientes
@@ -2208,13 +2230,31 @@ function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): number
   // ✅ Saldo a favor del cliente
   const saldoFavor = parseNum(cliente.saldo_favor || 0);
   
-  // ✅ CALCULAR DEUDA NETA: (Deuda total - Saldo a favor) - No puede ser negativo
+  // ✅ CALCULAR DEUDA NETA: (Deuda total - Saldo a favor)
   const deudaBruta = deudaFacturas + deudaManual;
   const deudaNeta = Math.max(0, deudaBruta - saldoFavor);
   
   console.log(`💰 Cliente ${cliente.name}: Facturas=${deudaFacturas}, Manual=${deudaManual}, SaldoFavor=${saldoFavor}, Bruta=${deudaBruta}, Neta=${deudaNeta}`);
   
-  return deudaNeta; // ← Devuelve la DEUDA NETA después de aplicar saldo a favor
+  // ✅ ACTUALIZAR EN SUPABASE
+  if (hasSupabase && cliente.id) {
+    try {
+      await supabase
+        .from("clients")
+        .update({ 
+          deuda_total: deudaNeta,
+          debt: deudaManual, // Mantener la deuda manual
+          saldo_favor: saldoFavor
+        })
+        .eq("id", cliente.id);
+      
+      console.log(`✅ Deuda guardada en Supabase: ${money(deudaNeta)} para ${cliente.name}`);
+    } catch (error) {
+      console.error("❌ Error al guardar deuda en Supabase:", error);
+    }
+  }
+  
+  return deudaNeta;
 }
 // 👇👇👇 AGREGAR ESTA FUNCIÓN NUEVA
 // 👇👇👇 AGREGAR ESTA FUNCIÓN NUEVA
@@ -2599,6 +2639,12 @@ async function saveAndPrint() {
 
   // Actualizar cliente
   cl.saldo_favor = saldoActual - saldoAplicado;
+  // ✅ ACTUALIZAR DEUDA_TOTAL EN SUPABASE DESPUÉS DE LA FACTURA
+if (hasSupabase) {
+  // Recalcular y guardar la deuda total actualizada
+  const detalleDeudasActualizado = calcularDetalleDeudas(st, client.id);
+  await calcularDeudaTotal(detalleDeudasActualizado, cl);
+}
 
   // ✅ MODIFICACIÓN: Actualizar estado de iPhones (no stock numérico)
   items.forEach(item => {
