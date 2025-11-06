@@ -2012,21 +2012,7 @@ function obtenerDeudoresActivos(state: any) {
       
       return deudaNeta > 0.01;
     })
-    .map((cliente: any) => {
-      const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
-      const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
-      
-      return {
-        ...cliente,
-        deuda_neta: deudaNeta,
-        deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
-        saldo_favor: parseNum(cliente.saldo_favor || 0),
-        cantidad_facturas: detalleDeudas.length,
-        detalle_facturas: detalleDeudas
-      };
-    })
-    .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
-}
+   
 
 // ✅ NUEVA FUNCIÓN: Validar stock disponible
 function validarStockDisponible(products: any[], items: any[]): { valido: boolean; productosSinStock: string[] } {
