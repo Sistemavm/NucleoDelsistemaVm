@@ -7706,7 +7706,33 @@ function PrintArea({ state }: any) {
 
     // ==== 2. REPORTE COMPLETO (Ventas y Performance) ====
     // Este se ejecuta SOLO para "ventas" o cualquier otro subtipo no específico
-       return (
+        // DEFINIR rangoStr ANTES del return - CORRECCIÓN DEL ERROR
+    const rangoStr = (() => {
+      const s = new Date(inv?.rango?.start || Date.now());
+      const e = new Date(inv?.rango?.end || Date.now());
+      const toDate = (d: Date) => d.toLocaleString("es-AR");
+      return `${toDate(s)}  —  ${toDate(e)}`;
+    })();
+
+    // CÁLCULOS REALES PARA FLUJO DE CAJA - USANDO DATOS REALES DE SUPABASE
+    const efectivoVentas = (inv.ventas || []).reduce((sum: number, f: any) => 
+      sum + parseNum(f?.payments?.cash || 0), 0);
+    
+    const efectivoPagosDeuda = (inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => 
+      sum + parseNum(p.efectivo || 0), 0);
+    
+    const gastosEfectivo = (inv.gastos || []).reduce((sum: number, g: any) => 
+      sum + parseNum(g.efectivo || 0), 0);
+    
+    const devolucionesEfectivo = (inv.devoluciones || []).reduce((sum: number, d: any) => 
+      sum + parseNum(d.efectivo || 0), 0);
+    
+    const vueltoEntregado = (inv.ventas || []).reduce((sum: number, f: any) => 
+      sum + parseNum(f?.payments?.change || 0), 0);
+
+    const flujoCajaNeto = efectivoVentas + efectivoPagosDeuda - gastosEfectivo - devolucionesEfectivo - vueltoEntregado;
+
+    return (
       <div className="only-print print-area p-14">
         <div className="max-w-[780px] mx-auto text-black">
           <div className="flex items-start justify-between">
@@ -7758,8 +7784,7 @@ function PrintArea({ state }: any) {
               <div className="flex justify-between mb-2">
                 <span>Ventas en Efectivo:</span>
                 <span style={{ fontWeight: 600 }}>
-                  {fmt((inv.ventas || []).reduce((sum: number, f: any) => 
-                    sum + parseNum(f?.payments?.cash || 0), 0))}
+                  {fmt(efectivoVentas)}
                 </span>
               </div>
               
@@ -7767,18 +7792,14 @@ function PrintArea({ state }: any) {
               <div className="flex justify-between mb-2">
                 <span>Pagos Deuda en Efectivo:</span>
                 <span style={{ fontWeight: 600 }}>
-                  {fmt((inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => 
-                    sum + parseNum(p.efectivo || 0), 0))}
+                  {fmt(efectivoPagosDeuda)}
                 </span>
               </div>
               
               <div className="flex justify-between pt-2 border-t border-gray-300 mt-2">
                 <span style={{ fontWeight: 700 }}>Total Ingresos:</span>
                 <span style={{ fontWeight: 700, color: "#059669" }}>
-                  {fmt(
-                    (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.cash || 0), 0) +
-                    (inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => sum + parseNum(p.efectivo || 0), 0)
-                  )}
+                  {fmt(efectivoVentas + efectivoPagosDeuda)}
                 </span>
               </div>
             </div>
@@ -7790,8 +7811,7 @@ function PrintArea({ state }: any) {
               <div className="flex justify-between mb-2">
                 <span>Gastos en Efectivo:</span>
                 <span style={{ fontWeight: 600, color: '#dc2626' }}>
-                  {fmt((inv.gastos || []).reduce((sum: number, g: any) => 
-                    sum + parseNum(g.efectivo || 0), 0))}
+                  {fmt(gastosEfectivo)}
                 </span>
               </div>
               
@@ -7799,8 +7819,7 @@ function PrintArea({ state }: any) {
               <div className="flex justify-between mb-2">
                 <span>Devoluciones en Efectivo:</span>
                 <span style={{ fontWeight: 600, color: '#dc2626' }}>
-                  {fmt((inv.devoluciones || []).reduce((sum: number, d: any) => 
-                    sum + parseNum(d.efectivo || 0), 0))}
+                  {fmt(devolucionesEfectivo)}
                 </span>
               </div>
               
@@ -7808,19 +7827,14 @@ function PrintArea({ state }: any) {
               <div className="flex justify-between mb-2">
                 <span>Vuelto Entregado:</span>
                 <span style={{ fontWeight: 600, color: '#dc2626' }}>
-                  {fmt((inv.ventas || []).reduce((sum: number, f: any) => 
-                    sum + parseNum(f?.payments?.change || 0), 0))}
+                  {fmt(vueltoEntregado)}
                 </span>
               </div>
               
               <div className="flex justify-between pt-2 border-t border-gray-300 mt-2">
                 <span style={{ fontWeight: 700 }}>Total Egresos:</span>
                 <span style={{ fontWeight: 700, color: '#dc2626' }}>
-                  {fmt(
-                    (inv.gastos || []).reduce((sum: number, g: any) => sum + parseNum(g.efectivo || 0), 0) +
-                    (inv.devoluciones || []).reduce((sum: number, d: any) => sum + parseNum(d.efectivo || 0), 0) +
-                    (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.change || 0), 0)
-                  )}
+                  {fmt(gastosEfectivo + devolucionesEfectivo + vueltoEntregado)}
                 </span>
               </div>
             </div>
@@ -7837,15 +7851,7 @@ function PrintArea({ state }: any) {
             border: '2px solid #0369a1',
             borderRadius: '8px'
           }}>
-            FLUJO DE CAJA NETO EN EFECTIVO: {fmt(
-              // Ingresos
-              (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.cash || 0), 0) +
-              (inv.pagosDeudoresDetallados || []).reduce((sum: number, p: any) => sum + parseNum(p.efectivo || 0), 0) -
-              // Egresos  
-              (inv.gastos || []).reduce((sum: number, g: any) => sum + parseNum(g.efectivo || 0), 0) -
-              (inv.devoluciones || []).reduce((sum: number, d: any) => sum + parseNum(d.efectivo || 0), 0) -
-              (inv.ventas || []).reduce((sum: number, f: any) => sum + parseNum(f?.payments?.change || 0), 0)
-            )}
+            FLUJO DE CAJA NETO EN EFECTIVO: {fmt(flujoCajaNeto)}
           </div>
 
           {/* DEUDA DEL DÍA */}
@@ -8098,7 +8104,6 @@ function PrintArea({ state }: any) {
       </div>
     );
   }
-
   // ==== 3. DETALLE DE DEUDAS ====
   if (inv?.type === "DetalleDeuda") {
     const fmt = (n: number) => money(parseNum(n));
