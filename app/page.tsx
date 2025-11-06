@@ -3070,59 +3070,60 @@ const toPay = Math.max(0, total - applied);
     </div>
   )}
 </div>
-
-          {/* CARRITO - IGUAL QUE ANTES */}
-          <div className="space-y-3">
-            <div className="text-sm font-semibold">Carrito ({items.length} producto(s))</div>
-            <div className="rounded-xl border border-slate-800 divide-y divide-slate-800 max-h-[400px] overflow-y-auto">
-              {items.length === 0 && (
-                <div className="p-6 text-center text-slate-400">
-                  <div>🛒 El carrito está vacío</div>
-                  <div className="text-xs mt-1">Agregá productos del listado</div>
-                </div>
-              )}
-              {items.map((it, idx) => (
-                <div key={idx} className="p-3 hover:bg-slate-800/20 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{it.name}</div>
-                      <div className="text-xs text-slate-400">{it.section}</div>
-                    </div>
-                    <button 
-                      onClick={() => setItems(items.filter((_: any, i: number) => i !== idx))}
-                      className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
-                      title="Eliminar producto"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumberInput
-                      label="Cant."
-                      value={it.qty}
-                      onChange={(v: any) => {
-                        const q = Math.max(0, parseNum(v));
-                        setItems(items.map((x, i) => (i === idx ? { ...x, qty: q } : x)));
-                      }}
-                      className="text-xs"
-                    />
-                    <NumberInput
-                      label="Precio"
-                      value={it.unitPrice}
-                      onChange={(v: any) => {
-                        const q = Math.max(0, parseNum(v));
-                        setItems(items.map((x, i) => (i === idx ? { ...x, unitPrice: q } : x)));
-                      }}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="text-right text-xs text-slate-300 pt-1">
-                    Subtotal: <span className="font-semibold">
-                      {money(parseNum(it.qty) * parseNum(it.unitPrice))}
-                    </span>
-                  </div>
-                </div>
-              ))}
+{/* CARRITO CORREGIDO - SIN MODIFICAR CANTIDAD NI PRECIO */}
+<div className="space-y-3">
+  <div className="text-sm font-semibold">🛒 Carrito ({items.length} producto(s))</div>
+  <div className="rounded-xl border border-slate-800 divide-y divide-slate-800 max-h-[400px] overflow-y-auto">
+    {items.length === 0 && (
+      <div className="p-6 text-center text-slate-400">
+        <div>🛒 El carrito está vacío</div>
+        <div className="text-xs mt-1">Agregá productos del listado</div>
+      </div>
+    )}
+    {items.map((it, idx) => (
+      <div key={idx} className="p-3 hover:bg-slate-800/20 transition-colors">
+        <div className="flex justify-between items-start">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{it.name}</div>
+            <div className="text-xs text-slate-400">
+              {it.modelo} • {it.capacidad} • {it.color}
+            </div>
+            {it.imei && (
+              <div className="text-xs text-slate-500 font-mono mt-1">
+                IMEI: {it.imei}
+              </div>
+            )}
+            <div className="text-xs text-slate-300 mt-2">
+              Cantidad: <span className="font-semibold">{it.qty}</span> • 
+              Precio: <span className="font-semibold">{money(it.unitPrice)}</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => setItems(items.filter((_: any, i: number) => i !== idx))}
+            className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
+            title="Eliminar producto"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="text-right text-xs text-slate-300 pt-2">
+          Subtotal: <span className="font-semibold">
+            {money(parseNum(it.qty) * parseNum(it.unitPrice))}
+          </span>
+        </div>
+      </div>
+    ))}
+    
+    {items.length > 0 && (
+      <div className="p-3 bg-slate-800/50 border-t border-slate-700">
+        <div className="flex justify-between items-center font-semibold">
+          <span>Total del Pedido:</span>
+          <span className="text-lg">{money(total)}</span>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
               
               {items.length > 0 && (
                 <div className="p-3 bg-slate-800/50 border-t border-slate-700">
@@ -6338,11 +6339,12 @@ showError("Debes seleccionar un producto nuevo y la cantidad.");
 
     // Actualizar cliente (deuda y saldo_favor)
     await supabase.from("clients")
-      .update({ 
-        debt: cli.debt,
-        saldo_favor: cli.saldo_favor
-      })
-      .eq("id", clienteSeleccionado);
+  .update({ 
+    debt: cliente.debt,
+    saldo_favor: cliente.saldo_favor,
+    deuda_total: cliente.deuda_total  // 👈 AGREGAR ESTE CAMPO
+  })
+  .eq("id", cliente.id);
 
     // Persistir stocks tocados
     for (const it of productosDevueltos) {
@@ -6934,99 +6936,85 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
             </div>
           </div>
 
-          {/* CARRITO DE PEDIDO - MEJORADO */}
-          <div className="space-y-4">
-            <div className="text-sm font-semibold">🛒 Tu Pedido ({items.length} producto(s))</div>
-            <div className="rounded-xl border border-slate-800 divide-y divide-slate-800 max-h-[400px] overflow-y-auto">
-              {items.length === 0 && (
-                <div className="p-6 text-center text-slate-400">
-                  <div>🛒 El carrito está vacío</div>
-                  <div className="text-xs mt-1">Agregá productos del listado</div>
-                </div>
-              )}
-              {items.map((it, idx) => (
-                <div key={idx} className="p-3 hover:bg-slate-800/20 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{it.name}</div>
-                      <div className="text-xs text-slate-400">
-                        {it.modelo} • {it.capacidad} • {it.color}
-                      </div>
-                      {it.imei && (
-                        <div className="text-xs text-slate-500 font-mono">
-                          IMEI: {it.imei}
-                        </div>
-                      )}
-                    </div>
-                    <button 
-                      onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                      className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
-                      title="Eliminar producto"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumberInput
-                      label="Cant."
-                      value={it.qty}
-                      onChange={(v: any) => {
-                        const q = Math.max(0, parseNum(v));
-                        setItems(items.map((x, i) => (i === idx ? { ...x, qty: q } : x)));
-                      }}
-                      className="text-xs"
-                    />
-                    <NumberInput
-                      label="Precio"
-                      value={it.unitPrice}
-                      onChange={(v: any) => {
-                        const q = Math.max(0, parseNum(v));
-                        setItems(items.map((x, i) => (i === idx ? { ...x, unitPrice: q } : x)));
-                      }}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="text-right text-xs text-slate-300 pt-1">
-                    Subtotal: <span className="font-semibold">
-                      {money(parseNum(it.qty) * parseNum(it.unitPrice))}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              
-              {items.length > 0 && (
-                <div className="p-3 bg-slate-800/50 border-t border-slate-700">
-                  <div className="flex justify-between items-center font-semibold">
-                    <span>Total del Pedido:</span>
-                    <span className="text-lg">{money(total)}</span>
-                  </div>
-                </div>
-              )}
+       {/* CARRITO DE PEDIDO - CORREGIDO SIN MODIFICAR CANTIDAD NI PRECIO */}
+<div className="space-y-4">
+  <div className="text-sm font-semibold">🛒 Tu Pedido ({items.length} producto(s))</div>
+  <div className="rounded-xl border border-slate-800 divide-y divide-slate-800 max-h-[400px] overflow-y-auto">
+    {items.length === 0 && (
+      <div className="p-6 text-center text-slate-400">
+        <div>🛒 El carrito está vacío</div>
+        <div className="text-xs mt-1">Agregá productos del listado</div>
+      </div>
+    )}
+    {items.map((it, idx) => (
+      <div key={idx} className="p-3 hover:bg-slate-800/20 transition-colors">
+        <div className="flex justify-between items-start">
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{it.name}</div>
+            <div className="text-xs text-slate-400">
+              {it.modelo} • {it.capacidad} • {it.color}
             </div>
-
-            {/* OBSERVACIONES Y BOTÓN */}
-            {items.length > 0 && (
-              <div className="space-y-3">
-                <Input
-                  label="Observaciones (opcional)"
-                  value={observaciones}
-                  onChange={setObservaciones}
-                  placeholder="Ej: Urgente, color específico, accesorios incluidos, etc."
-                />
-                
-                <Button 
-                  onClick={hacerPedido} 
-                  className="w-full py-3 text-base"
-                >
-                  🚀 Confirmar Pedido
-                </Button>
-
-                <div className="text-xs text-slate-400 text-center">
-                  ✅ Tu pedido será revisado y te contactaremos para coordinar el pago y entrega.
-                </div>
+            {it.imei && (
+              <div className="text-xs text-slate-500 font-mono mt-1">
+                IMEI: {it.imei}
               </div>
             )}
+            {/* 👇👇👇 MOSTRAR CANTIDAD Y PRECIO FIJO - NO EDITABLE */}
+            <div className="text-xs text-slate-300 mt-2">
+              Cantidad: <span className="font-semibold">{it.qty}</span> • 
+              Precio: <span className="font-semibold">{money(it.unitPrice)}</span>
+            </div>
           </div>
+          <button 
+            onClick={() => setItems(items.filter((_, i) => i !== idx))}
+            className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
+            title="Eliminar producto"
+          >
+            ✕
+          </button>
+        </div>
+        {/* 👇👇👇 ELIMINAR LOS NUMBERINPUT Y MOSTRAR SOLO SUBTOTAL */}
+        <div className="text-right text-xs text-slate-300 pt-2">
+          Subtotal: <span className="font-semibold">
+            {money(parseNum(it.qty) * parseNum(it.unitPrice))}
+          </span>
+        </div>
+      </div>
+    ))}
+    
+    {items.length > 0 && (
+      <div className="p-3 bg-slate-800/50 border-t border-slate-700">
+        <div className="flex justify-between items-center font-semibold">
+          <span>Total del Pedido:</span>
+          <span className="text-lg">{money(total)}</span>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* OBSERVACIONES Y BOTÓN */}
+  {items.length > 0 && (
+    <div className="space-y-3">
+      <Input
+        label="Observaciones (opcional)"
+        value={observaciones}
+        onChange={setObservaciones}
+        placeholder="Ej: Urgente, color específico, accesorios incluidos, etc."
+      />
+      
+      <Button 
+        onClick={hacerPedido} 
+        className="w-full py-3 text-base"
+      >
+        🚀 Confirmar Pedido
+      </Button>
+
+      <div className="text-xs text-slate-400 text-center">
+        ✅ Tu pedido será revisado y te contactaremos para coordinar el pago y entrega.
+      </div>
+    </div>
+  )}
+</div>
         </div>
       </Card>
 
@@ -7196,11 +7184,13 @@ const vendedorOnline = obtenerVendedorOnline(st);
     // Calcular deuda resultante
     const debtDelta = Math.max(0, totalTrasSaldo - applied);
     const status = debtDelta > 0 ? "No Pagada" : "Pagada";
+// ACTUALIZAR CLIENTE
+const deudaAnterior = parseNum(cliente.debt);
+cliente.saldo_favor = saldoActual - saldoAplicado;
+cliente.debt = deudaAnterior + debtDelta;
 
-    // ACTUALIZAR CLIENTE
-    const deudaAnterior = parseNum(cliente.debt);
-    cliente.saldo_favor = saldoActual - saldoAplicado;
-    cliente.debt = deudaAnterior + debtDelta;
+// ✅ ACTUALIZAR DEUDA_TOTAL EN EL CLIENTE (AGREGAR ESTA LÍNEA)
+cliente.deuda_total = calcularDeudaTotal(calcularDetalleDeudas(st, cliente.id), cliente);
 
     // DESCONTAR STOCK
     pedido.items.forEach((item: any) => {
@@ -7211,29 +7201,35 @@ const vendedorOnline = obtenerVendedorOnline(st);
     });
 
     // Crear la factura con VENDEDOR CORRECTO
-    const invoice = {
-      id,
-      number,
-      date_iso: todayISO(),
-      client_id: pedido.client_id,
-      client_name: pedido.client_name,
-      vendor_id: vendorId, // ⭐ Usamos el vendedor asignado
-      vendor_name: vendorName, // ⭐ Nombre del vendedor
-      items: pedido.items,
-      total: totalPedido,
-      total_after_credit: totalTrasSaldo,
-      cost: calcInvoiceCost(pedido.items),
-      payments: { 
-        cash: efectivo, 
-        transfer: transferencia, 
-        change: vuelto, 
-        alias: alias,
-        saldo_aplicado: saldoAplicado 
-      },
-      status,
-      type: "Factura",
-      client_debt_total: cliente.debt
-    };
+// Crear la factura con VENDEDOR CORRECTO
+const invoice = {
+  id,
+  number,
+  date_iso: todayISO(),
+  client_id: pedido.client_id,
+  client_name: pedido.client_name,
+  vendor_id: vendorId,
+  vendor_name: vendorName,
+  items: pedido.items,
+  total: totalPedido,
+  cost: calcInvoiceCost(pedido.items),
+  payments: { 
+    cash: efectivo, 
+    transfer: transferencia, 
+    change: vuelto, 
+    alias: alias,
+    saldo_aplicado: saldoAplicado 
+  },
+  status,
+  type: "Factura",
+  // 👇👇👇 USAR CAMPOS COMPATIBLES CON TU SCHEMA
+  costo_total: calcInvoiceCost(pedido.items),
+  ganancia: totalPedido - calcInvoiceCost(pedido.items),
+  comisiones_total: 0,
+  vendedor_id: vendorId,
+  vendedor_nombre: vendorName,
+  tipo: "Venta"
+};
 
     console.log("🔍 Factura con vendedor:", vendorId, vendorName);
 
