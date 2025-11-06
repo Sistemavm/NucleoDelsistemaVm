@@ -1986,6 +1986,32 @@ function calcInvoiceTotal(items: any[]) {
 function calcInvoiceCost(items: any[]) {
   return items.reduce((s, it) => s + parseNum(it.qty) * parseNum(it.cost || 0), 0);
 }
+// Agregar esta función con las otras funciones helpers
+function obtenerDeudoresActivos(state: any) {
+  return state.clients
+    .filter((c: any) => {
+      if (!c || !c.id) return false;
+      
+      const detalleDeudas = calcularDetalleDeudas(state, c.id);
+      const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+      
+      return deudaNeta > 0.01;
+    })
+    .map((cliente: any) => {
+      const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
+      const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
+      
+      return {
+        ...cliente,
+        deuda_neta: deudaNeta,
+        deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
+        saldo_favor: parseNum(cliente.saldo_favor || 0),
+        cantidad_facturas: detalleDeudas.length,
+        detalle_facturas: detalleDeudas
+      };
+    })
+    .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
+}
 
 // ✅ NUEVA FUNCIÓN: Validar stock disponible
 function validarStockDisponible(products: any[], items: any[]): { valido: boolean; productosSinStock: string[] } {
@@ -3721,15 +3747,8 @@ async function cancelarDeuda(clienteId: string) {
 
 function DeudoresTab({ state, setState, session, showError, showSuccess, showInfo }: any) {// ✅ FILTRAR MEJORADO: Incluye deuda manual Y deuda de facturas
 // ✅ FILTRAR: Solo clientes con deuda NETA > 0 (después de aplicar saldo)
-const clients = state.clients.filter((c: any) => {
-  if (!c || !c.id) return false;
-  
-  const detalleDeudas = calcularDetalleDeudas(state, c.id);
-  const deudaNeta = calcularDeudaTotal(detalleDeudas, c); // ← Esto YA aplica saldo
-  
-  // Mostrar solo si tiene deuda NETA pendiente
-  return deudaNeta > 0.01;
-});
+const clients = obtenerDeudoresActivos(state);
+
   const [active, setActive] = useState<string | null>(null);
   const [cash, setCash] = useState("");
   const [transf, setTransf] = useState("");
@@ -4571,30 +4590,9 @@ const deudaDelDiaDetalle = (state.invoices || [])
   .filter((f: any) => f.monto_debe > 0.01);
 
 // 2. DEUDORES ACTIVOS - Clientes con deuda REAL
-const deudoresActivos = state.clients
-  .filter((c: any) => {
-    if (!c || !c.id) return false;
-    
-    const detalleDeudas = calcularDetalleDeudas(state, c.id);
-    const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-    
-    // MISMA condición que en DeudoresTab
-    return deudaNeta > 0.01;
-  })
-  .map((cliente: any) => {
-    const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
-    const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
-    
-    return {
-      ...cliente,
-      deuda_neta: deudaNeta,
-      deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
-      saldo_favor: parseNum(cliente.saldo_favor || 0),
-      cantidad_facturas: detalleDeudas.length,
-      detalle_facturas: detalleDeudas
-    };
-  })
-  .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
+// 2. DEUDORES ACTIVOS - Clientes con deuda REAL
+const deudoresActivos = obtenerDeudoresActivos(state);
+
 
 // 3. PAGOS DE DEUDORES - Todos los pagos del período
 const pagosDeudoresDetallados = (state.debt_payments || [])
