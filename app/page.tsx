@@ -2131,6 +2131,7 @@ function gastoMesCliente(state: any, clientId: string, refDate = new Date()) {
 }
 // === Detalle de deudas por cliente - CORREGIDA ===
 // === Detalle de deudas por cliente - CORREGIDA DEFINITIVAMENTE ===
+// === Detalle de deudas por cliente - CORREGIDA DEFINITIVAMENTE ===
 function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
   if (!clientId) return [];
   
@@ -2194,6 +2195,7 @@ function calcularDetalleDeudas(state: any, clientId: string): DetalleDeuda[] {
 }
 // === Deuda total del cliente - CORREGIDA DEFINITIVAMENTE ===
 // === Deuda total del cliente - CON SALDO A FAVOR APLICADO ===
+// === Deuda total del cliente - CON SALDO A FAVOR APLICADO ===
 function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): number {
   if (!cliente) return 0;
   
@@ -2215,6 +2217,7 @@ function calcularDeudaTotal(detalleDeudas: DetalleDeuda[], cliente: any): number
   return deudaNeta; // ← Devuelve la DEUDA NETA después de aplicar saldo a favor
 }
 // 👇👇👇 AGREGAR ESTA FUNCIÓN NUEVA
+// 👇👇👇 AGREGAR ESTA FUNCIÓN NUEVA
 function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
   const detallePagos: any[] = [];
 
@@ -2226,7 +2229,7 @@ function obtenerDetallePagosAplicados(pagosDeudores: any[], state: any) {
     const detalleDeudasCliente = calcularDetalleDeudas(state, pago.client_id);
     
     // Calcular deuda total ANTES del pago
-const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, cliente) : 0;
+    const deudaTotalAntes = cliente ? calcularDeudaTotal(detalleDeudasCliente, cliente) : 0;
     
     // Reconstruir las aplicaciones con información completa
     const aplicacionesCompletas = pago.aplicaciones?.map((app: any) => {
@@ -4886,9 +4889,10 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
     return fechaDev >= fechaInicio && fechaDev <= fechaFin;
   });
 
-  const pagosDeudores = state.invoices.filter((f: any) => {
-    const fechaPago = new Date(f.date_iso).toISOString().split('T')[0];
-    return f.tipo === "PagoDeuda" && fechaPago >= fechaInicio && fechaPago <= fechaFin;
+ const pagosDeudores = obtenerDetallePagosAplicados(state.debt_payments || [], state)
+  .filter((pago: any) => {
+    const fechaPago = new Date(pago.fecha_pago).toISOString().split('T')[0];
+    return fechaPago >= fechaInicio && fechaPago <= fechaFin;
   });
 
   const gastosPeriodo = state.gastos.filter((g: any) => {
@@ -6192,6 +6196,7 @@ showError("Debes seleccionar un producto nuevo y la cantidad.");
 
   const st = clone(state);
   st.devoluciones.push(devolucion);
+    
 
   // OBTENER EL CLIENTE
   const cli = st.clients.find((c: any) => c.id === clienteSeleccionado);
@@ -8805,8 +8810,7 @@ export default function Page() {
         }
       )
       .subscribe();
-     
-    // Suscripción para debt_payments
+     // Suscripción para debt_payments
     const debtPaymentsSubscription = supabase
       .channel('debt-payments-changes')
       .on(
@@ -8823,6 +8827,8 @@ export default function Page() {
         }
       )
       .subscribe();
+     
+
 
     // 👇👇👇 NUEVAS SUSCRIPCIONES PARA SINCRONIZACIÓN COMPLETA
     const gastosSubscription = supabase
