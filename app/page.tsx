@@ -5512,73 +5512,91 @@ const recomendaciones = obtenerRecomendaciones();
       </Card>
 
       {/* 👇👇👇 LISTADO DE DEUDORES - AGREGAR ESTA CARD */}
-      <Card title="👥 Listado de Deudores Activos">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-slate-400">
-              <tr>
-                <th className="py-2 pr-3">Cliente</th>
-                <th className="py-2 pr-3">N°</th>
-                <th className="py-2 pr-3">Deuda Total</th>
-                <th className="py-2 pr-3">Saldo a Favor</th>
-                <th className="py-2 pr-3">Facturas Pend.</th>
-                <th className="py-2 pr-3">Deuda Neta</th>
+    <Card title="👥 Listado de Deudores Activos">
+  <div className="overflow-x-auto">
+    <table className="min-w-full text-sm">
+      <thead className="text-left text-slate-400">
+        <tr>
+          <th className="py-2 pr-3">Cliente</th>
+          <th className="py-2 pr-3">N°</th>
+          <th className="py-2 pr-3">Deuda Total</th>
+          <th className="py-2 pr-3">Saldo a Favor</th>
+          <th className="py-2 pr-3">Facturas Pend.</th>
+          <th className="py-2 pr-3">Deuda Neta</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-800">
+        {state.clients
+          .filter((c: any) => {
+            const detalleDeudas = calcularDetalleDeudas(state, c.id);
+            const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+            
+            // ✅ FILTRO CORREGIDO - Mostrar clientes con:
+            // 1. Deuda neta > 0 O
+            // 2. Deuda manual > 0 O  
+            // 3. Facturas pendientes > 0
+            return deudaNeta > 0.01 || 
+                   parseNum(c.debt || 0) > 0.01 ||
+                   detalleDeudas.length > 0;
+          })
+          .sort((a: any, b: any) => {
+            const deudaA = calcularDeudaTotal(calcularDetalleDeudas(state, a.id), a);
+            const deudaB = calcularDeudaTotal(calcularDetalleDeudas(state, b.id), b);
+            return deudaB - deudaA;
+          })
+          .map((c: any) => {
+            const detalleDeudas = calcularDetalleDeudas(state, c.id);
+            const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+            
+            return (
+              <tr key={c.id}>
+                <td className="py-2 pr-3">
+                  <div className="flex items-center gap-2">
+                    {c.name}
+                    {c.deuda_manual && parseNum(c.debt) > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-amber-800 text-amber-200 border border-amber-700">
+                        ⚠️ Manual
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-2 pr-3">{c.number}</td>
+                <td className="py-2 pr-3">
+                  <span className="text-amber-400">
+                    {money(parseNum(c.debt))}
+                  </span>
+                </td>
+                <td className="py-2 pr-3">
+                  <span className="text-emerald-400">
+                    {money(parseNum(c.saldo_favor || 0))}
+                  </span>
+                </td>
+                <td className="py-2 pr-3">{detalleDeudas.length}</td>
+                <td className="py-2 pr-3">
+                  <span className="text-red-400 font-semibold">
+                    {money(deudaNeta)}
+                  </span>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {state.clients
-                .filter((c: any) => {
-                  const detalleDeudas = calcularDetalleDeudas(state, c.id);
-                  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-                  return deudaNeta > 0.01;
-                })
-                .sort((a: any, b: any) => {
-                  const deudaA = calcularDeudaTotal(calcularDetalleDeudas(state, a.id), a);
-                  const deudaB = calcularDeudaTotal(calcularDetalleDeudas(state, b.id), b);
-                  return deudaB - deudaA;
-                })
-                .map((c: any) => {
-                  const detalleDeudas = calcularDetalleDeudas(state, c.id);
-                  const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-                  
-                  return (
-                    <tr key={c.id}>
-                      <td className="py-2 pr-3">{c.name}</td>
-                      <td className="py-2 pr-3">{c.number}</td>
-                      <td className="py-2 pr-3">
-                        <span className="text-amber-400">
-                          {money(parseNum(c.debt))}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className="text-emerald-400">
-                          {money(parseNum(c.saldo_favor || 0))}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">{detalleDeudas.length}</td>
-                      <td className="py-2 pr-3">
-                        <span className="text-red-400 font-semibold">
-                          {money(deudaNeta)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              {state.clients.filter((c: any) => {
-                const detalleDeudas = calcularDetalleDeudas(state, c.id);
-                const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-                return deudaNeta > 0.01;
-              }).length === 0 && (
-                <tr>
-                  <td className="py-3 text-slate-400" colSpan={6}>
-                    No hay deudores activos.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+            );
+          })}
+        {state.clients.filter((c: any) => {
+          const detalleDeudas = calcularDetalleDeudas(state, c.id);
+          const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+          return deudaNeta > 0.01 || 
+                 parseNum(c.debt || 0) > 0.01 ||
+                 detalleDeudas.length > 0;
+        }).length === 0 && (
+          <tr>
+            <td className="py-3 text-slate-400" colSpan={6}>
+              No hay deudores activos.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</Card>
 
       {/* 👇👇👇 PAGO DE DEUDORES - AGREGAR ESTA CARD */}
       <Card title="💳 Listado de Pagos de Deudores">
