@@ -2517,15 +2517,24 @@ function addItem(p: any) {
     unit = p.precio_revendedor || p.price2;
   }
   
-  if (existing) setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
-  else setItems([...items, { 
-    productId: p.id, 
-    name: p.name, 
-    section: p.section, 
-    qty: 1, 
-    unitPrice: unit, 
-    cost: p.cost 
-  }]);
+  if (existing) {
+    setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
+  } else {
+    setItems([...items, { 
+      productId: p.id, 
+      name: p.name, 
+      section: p.section, 
+      qty: 1, 
+      unitPrice: unit, 
+      cost: p.cost,
+      // 👇👇👇 AGREGAR ESTOS CAMPOS NUEVOS
+      modelo: p.modelo,
+      capacidad: p.capacidad,
+      color: p.color,
+      grado: p.grado,
+      imei: p.imei
+    }]);
+  }
 }
 
 async function saveAndPrint() {
@@ -4889,12 +4898,20 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
     return fechaDev >= fechaInicio && fechaDev <= fechaFin;
   });
 
- const pagosDeudores = obtenerDetallePagosAplicados(state.debt_payments || [], state)
+// ✅ MOSTRAR TODOS LOS PAGOS DEL PERÍODO (no solo de deudores activos)
+const pagosDeudores = (state.debt_payments || [])
   .filter((pago: any) => {
-    const fechaPago = new Date(pago.fecha_pago).toISOString().split('T')[0];
-    return fechaPago >= fechaInicio && fechaPago <= fechaFin;
-  });
+    try {
+      const fechaPago = new Date(pago.date_iso).toISOString().split('T')[0];
+      return fechaPago >= fechaInicio && fechaPago <= fechaFin;
+    } catch (error) {
+      console.error("Error procesando fecha de pago:", pago);
+      return false;
+    }
+  })
+  .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime());
 
+console.log("📋 Pagos encontrados:", pagosDeudores.length);
   const gastosPeriodo = state.gastos.filter((g: any) => {
     const fechaGasto = new Date(g.date_iso).toISOString().split('T')[0];
     return fechaGasto >= fechaInicio && fechaGasto <= fechaFin;
