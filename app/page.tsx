@@ -233,7 +233,7 @@ function seedState() {
       commissionsByDate: {} as Record<string, number>,
       gabiFundsByDate: {} as Record<string, number>,
     },
-    auth: { adminKey: "46892389" },
+    auth: { adminKey: "estrada2249" },
     vendors: [] as any[],
     clients: [] as any[],
     products: [] as any[],
