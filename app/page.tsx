@@ -1986,33 +1986,6 @@ function calcInvoiceTotal(items: any[]) {
 function calcInvoiceCost(items: any[]) {
   return items.reduce((s, it) => s + parseNum(it.qty) * parseNum(it.cost || 0), 0);
 }
-/* ===== helpers de negocio ===== */
-function ensureUniqueNumber(clients: any[]) {
-  if (!clients || clients.length === 0) return 1000;
-  const max = clients.reduce((m, c) => Math.max(m, c.number || 0), 1000);
-  return max + 1;
-}
-
-function calcInvoiceTotal(items: any[]) {
-  return items.reduce((s, it) => s + parseNum(it.qty) * parseNum(it.unitPrice), 0);
-}
-
-function calcInvoiceCost(items: any[]) {
-  return items.reduce((s, it) => s + parseNum(it.qty) * parseNum(it.cost || 0), 0);
-}
-
-// 👇👇👇 AGREGAR ESTA NUEVA FUNCIÓN AQUÍ
-function obtenerDeudoresActivos(state: any) {
-  return state.clients
-    .filter((c: any) => {
-      if (!c || !c.id) return false;
-      
-      const detalleDeudas = calcularDetalleDeudas(state, c.id);
-      const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
-      
-      return deudaNeta > 0.01;
-    })
-   
 
 // ✅ NUEVA FUNCIÓN: Validar stock disponible
 function validarStockDisponible(products: any[], items: any[]): { valido: boolean; productosSinStock: string[] } {
@@ -3748,7 +3721,15 @@ async function cancelarDeuda(clienteId: string) {
 
 function DeudoresTab({ state, setState, session, showError, showSuccess, showInfo }: any) {// ✅ FILTRAR MEJORADO: Incluye deuda manual Y deuda de facturas
 // ✅ FILTRAR: Solo clientes con deuda NETA > 0 (después de aplicar saldo)
-const clients = obtenerDeudoresActivos(state);
+const clients = state.clients.filter((c: any) => {
+  if (!c || !c.id) return false;
+  
+  const detalleDeudas = calcularDetalleDeudas(state, c.id);
+  const deudaNeta = calcularDeudaTotal(detalleDeudas, c); // ← Esto YA aplica saldo
+  
+  // Mostrar solo si tiene deuda NETA pendiente
+  return deudaNeta > 0.01;
+});
   const [active, setActive] = useState<string | null>(null);
   const [cash, setCash] = useState("");
   const [transf, setTransf] = useState("");
@@ -4590,9 +4571,30 @@ const deudaDelDiaDetalle = (state.invoices || [])
   .filter((f: any) => f.monto_debe > 0.01);
 
 // 2. DEUDORES ACTIVOS - Clientes con deuda REAL
-const deudoresActivos = obtenerDeudoresActivos(state);
+const deudoresActivos = state.clients
+  .filter((c: any) => {
+    if (!c || !c.id) return false;
     
- 
+    const detalleDeudas = calcularDetalleDeudas(state, c.id);
+    const deudaNeta = calcularDeudaTotal(detalleDeudas, c);
+    
+    // MISMA condición que en DeudoresTab
+    return deudaNeta > 0.01;
+  })
+  .map((cliente: any) => {
+    const detalleDeudas = calcularDetalleDeudas(state, cliente.id);
+    const deudaNeta = calcularDeudaTotal(detalleDeudas, cliente);
+    
+    return {
+      ...cliente,
+      deuda_neta: deudaNeta,
+      deuda_bruta: detalleDeudas.reduce((sum: number, deuda: any) => sum + deuda.monto_debe, 0) + parseNum(cliente.debt || 0),
+      saldo_favor: parseNum(cliente.saldo_favor || 0),
+      cantidad_facturas: detalleDeudas.length,
+      detalle_facturas: detalleDeudas
+    };
+  })
+  .sort((a: any, b: any) => b.deuda_neta - a.deuda_neta);
 
 // 3. PAGOS DE DEUDORES - Todos los pagos del período
 const pagosDeudoresDetallados = (state.debt_payments || [])
@@ -6337,14 +6339,12 @@ showError("Debes seleccionar un producto nuevo y la cantidad.");
     await supabase.from("devoluciones").insert(devolucion);
 
     // Actualizar cliente (deuda y saldo_favor)
-   // Actualizar cliente (deuda y saldo_favor)
-await supabase.from("clients")
-  .update({ 
-    debt: cliente.debt,
-    saldo_favor: cliente.saldo_favor,
-    deuda_total: cliente.deuda_total  // 👈 AGREGAR ESTE CAMPO
-  })
-  .eq("id", cliente.id);
+    await supabase.from("clients")
+      .update({ 
+        debt: cli.debt,
+        saldo_favor: cli.saldo_favor
+      })
+      .eq("id", clienteSeleccionado);
 
     // Persistir stocks tocados
     for (const it of productosDevueltos) {
@@ -6698,77 +6698,32 @@ ${cli.debt > 0 ? `Se aplicó saldo a favor a la deuda existente. Deuda actual: $
 // 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
 function PedidosOnlineTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
   const [priceList, setPriceList] = useState("1");
-  const [filtroModelo, setFiltroModelo] = useState("Todos");
-  const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
-  const [filtroBateria, setFiltroBateria] = useState("Todos");
-  const [filtroGrado, setFiltroGrado] = useState("Todos");
+  const [sectionFilter, setSectionFilter] = useState("Todas");
+  const [listFilter, setListFilter] = useState("Todas");
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [observaciones, setObservaciones] = useState("");
 
-  // 👇👇👇 OBTENER OPCIONES PARA FILTROS DE iPHONES (igual que FacturacionTab)
-  const modelosUnicos = ["Todos", ...Array.from(new Set(state.products
-    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
-    .map((p: Producto) => p.modelo)))
-    .filter(m => m)];
+  const sections = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.section || "Otros")))];
+  const lists = ["Todas", ...Array.from(new Set(state.products.map((p: any) => p.list_label || "General")))];
 
-  const capacidadesUnicas = ["Todos", ...Array.from(new Set(state.products
-    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
-    .map((p: Producto) => p.capacidad)))
-    .filter(c => c)];
-
-  const bateriasUnicas = ["Todos", ...Array.from(new Set(state.products
-    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
-    .map((p: Producto) => p.bateria)))
-    .filter(b => b)];
-
-  const gradosUnicos = ["Todos", ...Array.from(new Set(state.products
-    .filter((p: Producto) => p.estado === "EN STOCK" && p.modelo && p.modelo.includes("iPhone"))
-    .map((p: Producto) => p.grado)))
-    .filter(g => g)];
-
-  // 👇👇👇 FILTRAR SOLO iPhones EN STOCK con los mismos filtros que FacturacionTab
-  const filteredProducts = state.products.filter((p: Producto) => {
-    const esiPhone = p.modelo && p.modelo.includes("iPhone");
-    const enStock = p.estado === "EN STOCK";
-    
-    const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
-    const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
-    const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
-    const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
-    const cumpleBusqueda = !query || p.name.toLowerCase().includes(query.toLowerCase());
-    
-    return esiPhone && enStock && cumpleModelo && cumpleCapacidad && cumpleBateria && cumpleGrado && cumpleBusqueda;
+  const filteredProducts = state.products.filter((p: any) => {
+    const okS = sectionFilter === "Todas" || p.section === sectionFilter;
+    const okL = listFilter === "Todas" || p.list_label === listFilter;
+    const okQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
+    return okS && okL && okQ;
   });
+
+  const grouped = groupBy(filteredProducts, "section");
 
   function addItem(p: any) {
     const existing = items.find((it: any) => it.productId === p.id);
-    
-    // DETECTAR AUTOMÁTICAMENTE EL PRECIO SEGÚN LA LISTA CONFIGURADA (igual que FacturacionTab)
-    let unit;
-    if (priceList === "1") { // Mitobicel - Consumidor Final
-      unit = p.precio_consumidor_final || p.precio_venta || p.price1;
-    } else { // ElshoppingDlc - Revendedor
-      unit = p.precio_revendedor || p.price2;
-    }
+    const unit = priceList === "1" ? p.price1 : p.price2;
     
     if (existing) {
       setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
     } else {
-      setItems([...items, { 
-        productId: p.id, 
-        name: p.name, 
-        section: p.section, 
-        qty: 1, 
-        unitPrice: unit, 
-        cost: p.cost,
-        // 👇👇👇 AGREGAR ESTOS CAMPOS NUEVOS (igual que FacturacionTab)
-        modelo: p.modelo,
-        capacidad: p.capacidad,
-        color: p.color,
-        grado: p.grado,
-        imei: p.imei
-      }]);
+      setItems([...items, { productId: p.id, name: p.name, section: p.section, qty: 1, unitPrice: unit, cost: p.cost }]);
     }
   }
 
@@ -6809,216 +6764,133 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
-      <Card title={`🛒 Hacer Pedido Online - Cliente: ${session.name} (N° ${session.number})`}>
-        {/* 👇👇👇 FILTROS IDÉNTICOS A FACTURACIÓN */}
-        <div className="grid md:grid-cols-5 gap-3 mb-4">
+      <Card title={`Hacer Pedido Online - Cliente: ${session.name} (N° ${session.number})`}>
+        <div className="grid md:grid-cols-4 gap-3 mb-4">
           <Select
             label="Lista de precios"
             value={priceList}
             onChange={setPriceList}
             options={[
-              { value: "1", label: "💰 Consumidor Final" },
-              { value: "2", label: "🏪 Revendedor" },
+              { value: "1", label: "Consumidor Final" },
+              { value: "2", label: "Revendedor" },
             ]}
           />
-          
-          <Select
-            label="📱 Modelo"
-            value={filtroModelo}
-            onChange={setFiltroModelo}
-            options={modelosUnicos.map(m => ({ 
-              value: m, 
-              label: m === "Todos" ? "Todos los modelos" : m 
-            }))}
+          <Select 
+            label="Sección" 
+            value={sectionFilter} 
+            onChange={setSectionFilter} 
+            options={sections.map((s: any) => ({ value: s, label: s }))} 
           />
-          
-          <Select
-            label="💾 Capacidad"
-            value={filtroCapacidad}
-            onChange={setFiltroCapacidad}
-            options={capacidadesUnicas.map(c => ({ 
-              value: c, 
-              label: c === "Todos" ? "Todas las capacidades" : c 
-            }))}
+          <Select 
+            label="Lista" 
+            value={listFilter} 
+            onChange={setListFilter} 
+            options={lists.map((s: any) => ({ value: s, label: s }))} 
           />
-          
-          <Select
-            label="🔋 Batería"
-            value={filtroBateria}
-            onChange={setFiltroBateria}
-            options={bateriasUnicas.map(b => ({ 
-              value: b, 
-              label: b === "Todos" ? "Todas las baterías" : b 
-            }))}
-          />
-          
-          <Select
-            label="⭐ Grado"
-            value={filtroGrado}
-            onChange={setFiltroGrado}
-            options={gradosUnicos.map(g => ({ 
-              value: g, 
-              label: g === "Todos" ? "Todos los grados" : g 
-            }))}
-          />
-        </div>
-
-        {/* BUSCADOR */}
-        <div className="mb-4">
-          <Input 
-            label="🔍 Buscar producto" 
-            value={query} 
-            onChange={setQuery} 
-            placeholder="Nombre del producto, modelo, color..." 
-          />
-        </div>
-
-        <div className="flex justify-between items-center mb-3">
-          <Chip tone="emerald">
-            {filteredProducts.length} productos encontrados
-          </Chip>
-          <div className="text-sm text-slate-400">
-            Lista: {priceList === "1" ? "Consumidor Final" : "Revendedor"}
-          </div>
+          <Input label="Buscar" value={query} onChange={setQuery} placeholder="Nombre del producto..." />
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {/* LISTA DE PRODUCTOS - IGUAL QUE FACTURACIÓN */}
+          {/* Lista de productos */}
           <div className="space-y-4">
-            <div className="text-sm font-semibold">📱 iPhones Disponibles</div>
+            <div className="text-sm font-semibold">Productos Disponibles</div>
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
-              {filteredProducts.length === 0 ? (
-                <div className="text-center p-6 border border-slate-800 rounded-xl">
-                  <div className="text-slate-400">No se encontraron iPhones con los filtros seleccionados</div>
-                </div>
-              ) : (
-                filteredProducts.map((producto: Producto) => (
-                  <div key={producto.id} className="border border-slate-700 rounded-lg p-3 hover:bg-slate-800/30 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold">{producto.name}</div>
-                        <div className="text-sm text-slate-400">
-                          {producto.modelo} • {producto.capacidad} • {producto.color}
+              {Object.entries(grouped).map(([sec, arr]: any) => (
+                <div key={sec} className="border border-slate-800 rounded-xl">
+                  <div className="px-3 py-2 text-xs font-semibold bg-slate-800/70">{sec}</div>
+                  <div className="divide-y divide-slate-800">
+                    {arr.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{p.name}</div>
+                          <div className="text-xs text-slate-400">
+                            Precio: {money(priceList === "1" ? p.price1 : p.price2)} · 
+                            Stock: {p.stock || 0}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500 font-mono mt-1">
-                          IMEI: {producto.imei} • Grado: {producto.grado} • Batería: {producto.bateria}
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          <Chip tone="slate">{producto.ubicacion}</Chip>
-                          <Chip tone={
-                            producto.bateria === "100%" ? "emerald" :
-                            producto.bateria === "+90%" ? "blue" :
-                            producto.bateria === "+80%" ? "amber" : "red"
-                          }>
-                            {producto.bateria}
-                          </Chip>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 ml-3">
-                        <div className="font-bold text-lg">
-                          {money(priceList === "1" ? producto.precio_consumidor_final : producto.precio_revendedor)}
-                        </div>
-                        <div className="text-xs text-slate-400 mb-2">
-                          Stock: 1 unidad
-                        </div>
-                        <Button 
-                          onClick={() => addItem(producto)}
-                          tone="emerald"
-                          className="mt-1"
-                        >
+                        <Button onClick={() => addItem(p)} tone="slate" className="shrink-0">
                           Agregar
                         </Button>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))
-              )}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* CARRITO DE PEDIDO - CORREGIDO (SIN EDITAR CANTIDAD NI PRECIO) */}
+          {/* Carrito del pedido */}
           <div className="space-y-4">
-            <div className="text-sm font-semibold">🛒 Tu Pedido ({items.length} producto(s))</div>
+            <div className="text-sm font-semibold">Tu Pedido</div>
             <div className="rounded-xl border border-slate-800 divide-y divide-slate-800 max-h-[400px] overflow-y-auto">
               {items.length === 0 && (
-                <div className="p-6 text-center text-slate-400">
-                  <div>🛒 El carrito está vacío</div>
-                  <div className="text-xs mt-1">Agregá productos del listado</div>
+                <div className="p-4 text-sm text-slate-400 text-center">
+                  Tu carrito está vacío. Agregá productos del listado.
                 </div>
               )}
               {items.map((it, idx) => (
-                <div key={idx} className="p-3 hover:bg-slate-800/20 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{it.name}</div>
-                      <div className="text-xs text-slate-400">
-                        {it.modelo} • {it.capacidad} • {it.color}
-                      </div>
-                      {it.imei && (
-                        <div className="text-xs text-slate-500 font-mono mt-1">
-                          IMEI: {it.imei}
-                        </div>
-                      )}
-                      {/* 👇👇👇 MOSTRAR CANTIDAD Y PRECIO FIJO - NO EDITABLE */}
-                      <div className="text-xs text-slate-300 mt-2">
-                        Cantidad: <span className="font-semibold">{it.qty}</span> • 
-                        Precio: <span className="font-semibold">{money(it.unitPrice)}</span>
-                      </div>
-                    </div>
+                <div key={idx} className="p-3 grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-7">
+                    <div className="text-sm font-medium">{it.name}</div>
+                    <div className="text-xs text-slate-400">{it.section}</div>
+                  </div>
+                  <div className="col-span-3">
+                    <NumberInput
+                      label="Cant."
+                      value={it.qty}
+                      onChange={(v: any) => {
+                        const q = Math.max(0, parseNum(v));
+                        setItems(items.map((x, i) => (i === idx ? { ...x, qty: q } : x)));
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
                     <button 
                       onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                      className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
-                      title="Eliminar producto"
+                      className="text-red-400 hover:text-red-300 text-lg"
                     >
                       ✕
                     </button>
                   </div>
-                  <div className="text-right text-xs text-slate-300 pt-2">
-                    Subtotal: <span className="font-semibold">
-                      {money(parseNum(it.qty) * parseNum(it.unitPrice))}
-                    </span>
+                  <div className="col-span-12 text-right text-xs text-slate-300 pt-1">
+                    Subtotal: {money(parseNum(it.qty) * parseNum(it.unitPrice))}
                   </div>
                 </div>
               ))}
-              
-              {items.length > 0 && (
-                <div className="p-3 bg-slate-800/50 border-t border-slate-700">
-                  <div className="flex justify-between items-center font-semibold">
-                    <span>Total del Pedido:</span>
-                    <span className="text-lg">{money(total)}</span>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* OBSERVACIONES Y BOTÓN */}
-            {items.length > 0 && (
-              <div className="space-y-3">
-                <Input
-                  label="Observaciones (opcional)"
-                  value={observaciones}
-                  onChange={setObservaciones}
-                  placeholder="Ej: Urgente, color específico, accesorios incluidos, etc."
-                />
-                
-                <Button 
-                  onClick={hacerPedido} 
-                  className="w-full py-3 text-base"
-                >
-                  🚀 Confirmar Pedido
-                </Button>
-
-                <div className="text-xs text-slate-400 text-center">
-                  ✅ Tu pedido será revisado y te contactaremos para coordinar el pago y entrega.
-                </div>
+            {/* Observaciones y total */}
+            <div className="space-y-3">
+              <Input
+                label="Observaciones (opcional)"
+                value={observaciones}
+                onChange={setObservaciones}
+                placeholder="Ej: Urgente, color específico, etc."
+              />
+              
+              <div className="flex items-center justify-between text-lg font-bold border-t border-slate-700 pt-3">
+                <span>Total del Pedido:</span>
+                <span>{money(total)}</span>
               </div>
-            )}
+
+              <Button 
+                onClick={hacerPedido} 
+                disabled={items.length === 0}
+                className="w-full py-3 text-base"
+              >
+                🚀 Hacer Pedido
+              </Button>
+
+              <div className="text-xs text-slate-400 text-center">
+                Tu pedido será revisado y te contactaremos para coordinar el pago y entrega.
+              </div>
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Pedidos anteriores del cliente */}
-      <Card title="📋 Tus Pedidos Anteriores">
+      <Card title="Tus Pedidos Anteriores">
         <div className="space-y-3">
           {state.pedidos
             .filter((p: Pedido) => p.client_id === session.id)
@@ -7035,8 +6907,8 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
                       {pedido.items.length} producto(s) - Total: {money(pedido.total)}
                     </div>
                     {pedido.observaciones && (
-                      <div className="text-xs text-slate-300 mt-1">
-                        📝 {pedido.observaciones}
+                      <div className="text-xs text-slate-400 mt-1">
+                        Observaciones: {pedido.observaciones}
                       </div>
                     )}
                   </div>
@@ -7184,13 +7056,11 @@ const vendedorOnline = obtenerVendedorOnline(st);
     const debtDelta = Math.max(0, totalTrasSaldo - applied);
     const status = debtDelta > 0 ? "No Pagada" : "Pagada";
 
-   // ACTUALIZAR CLIENTE
-const deudaAnterior = parseNum(cliente.debt);
-cliente.saldo_favor = saldoActual - saldoAplicado;
-cliente.debt = deudaAnterior + debtDelta;
+    // ACTUALIZAR CLIENTE
+    const deudaAnterior = parseNum(cliente.debt);
+    cliente.saldo_favor = saldoActual - saldoAplicado;
+    cliente.debt = deudaAnterior + debtDelta;
 
-// ✅ ACTUALIZAR DEUDA_TOTAL EN EL CLIENTE (AGREGAR ESTA LÍNEA)
-cliente.deuda_total = calcularDeudaTotal(calcularDetalleDeudas(st, cliente.id), cliente);
     // DESCONTAR STOCK
     pedido.items.forEach((item: any) => {
       const product = st.products.find((p: any) => p.id === item.productId);
