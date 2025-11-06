@@ -3738,6 +3738,7 @@ async function eliminarDeudaCliente(clienteId: string) {
           return;
         }
         
+        
         console.log("✅ Deuda eliminada en Supabase");
         
         // ✅ FORZAR ACTUALIZACIÓN DEL ESTADO para que el cliente desaparezca de deudores
@@ -3907,6 +3908,14 @@ debt_after: Math.max(0, deudaReal - totalPago), // Calcular correctamente      d
         return;
       }
     }
+    // 🔥 AGREGAR ESTO AL FINAL de registrarPago, después del if (hasSupabase):
+  if (hasSupabase) {
+    // Actualizar datos frescos de Supabase
+    setTimeout(async () => {
+      const refreshedState = await loadFromSupabase(seedState());
+      setState(refreshedState);
+    }, 1000);
+  }
 
     // Limpiar UI e imprimir
     setCash("");
@@ -4888,40 +4897,42 @@ function ReportesTab({ state, setState, session, showError, showSuccess, showInf
   });
 
   // Cálculos para las nuevas cards
-  const totalGastos = gastosPeriodo.reduce((sum: number, g: any) => sum + parseNum(g.total), 0);
-  const totalGastosEfectivo = gastosPeriodo.reduce((sum: number, g: any) => sum + parseNum(g.efectivo), 0);
-  const totalGastosTransferencia = gastosPeriodo.reduce((sum: number, g: any) => sum + parseNum(g.transferencia), 0);
-
+ const totalGastos = gastosPeriodo.reduce((sum: number, g: any) => 
+  sum + parseNum(g.efectivo) + parseNum(g.transferencia), 0);
+const totalGastosEfectivo = gastosPeriodo.reduce((sum: number, g: any) => 
+  sum + parseNum(g.efectivo), 0);
+const totalGastosTransferencia = gastosPeriodo.reduce((sum: number, g: any) => 
+  sum + parseNum(g.transferencia), 0);
   const devolucionesMontoEfectivo = devolucionesPeriodo.reduce((sum: number, d: any) => sum + parseNum(d.efectivo), 0);
   const devolucionesMontoTransfer = devolucionesPeriodo.reduce((sum: number, d: any) => sum + parseNum(d.transferencia), 0);
   const devolucionesMontoTotal = devolucionesPeriodo.reduce((sum: number, d: any) => sum + parseNum(d.total), 0);
+// Transferencias por alias
+const transferenciasPorAlias: any[] = [];
 
-  // Transferencias por alias
-  const transferenciasPorAlias: any[] = [];
+// Combinar transferencias de TODAS las fuentes
+const todasTransferencias = [
+  ...ventasiPhone.filter((v: any) => parseNum(v?.payments?.transfer) > 0),
+  ...pagosDeudores.filter((p: any) => parseNum(p?.payments?.transfer) > 0),
+  ...state.debt_payments.filter((dp: any) => parseNum(dp?.transfer_amount) > 0)
+];
+
+const porAliasMap = new Map();
+todasTransferencias.forEach((doc: any) => {
+  const alias = (doc?.payments?.alias || doc?.alias || "").trim();
+  const monto = parseNum(doc?.payments?.transfer || doc?.transfer_amount);
   
-  // Combinar transferencias de ventas y pagos de deudores
-  const todasTransferencias = [
-    ...ventasiPhone.filter((v: any) => parseNum(v?.payments?.transfer) > 0),
-    ...pagosDeudores.filter((p: any) => parseNum(p?.payments?.transfer) > 0)
-  ];
-
-  const porAliasMap = new Map();
-  todasTransferencias.forEach((doc: any) => {
-    const alias = (doc?.payments?.alias || "").trim();
-    const monto = parseNum(doc?.payments?.transfer);
-    if (alias && monto > 0) {
-      if (porAliasMap.has(alias)) {
-        porAliasMap.set(alias, porAliasMap.get(alias) + monto);
-      } else {
-        porAliasMap.set(alias, monto);
-      }
+  if (alias && monto > 0) {
+    if (porAliasMap.has(alias)) {
+      porAliasMap.set(alias, porAliasMap.get(alias) + monto);
+    } else {
+      porAliasMap.set(alias, monto);
     }
-  });
+  }
+});
 
-  const porAlias = Array.from(porAliasMap, ([alias, total]) => ({ alias, total }));
+const porAlias = Array.from(porAliasMap, ([alias, total]) => ({ alias, total }));
 
-  const recomendaciones = obtenerRecomendaciones();
-
+const recomendaciones = obtenerRecomendaciones();
   // 🔥 CORREGIDO: Función auxiliar para calcular días en stock
   function calcularDiasEnStock(producto: Producto): number {
     if (!producto.fecha_ingreso) return 0;
