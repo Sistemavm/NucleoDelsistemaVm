@@ -6649,6 +6649,7 @@ ${cli.debt > 0 ? `Se aplicó saldo a favor a la deuda existente. Deuda actual: $
 
 // 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
 // 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
+// 👇👇👇 NUEVO COMPONENTE: Panel de Pedidos Online
 function PedidosOnlineTab({ state, setState, session, showError, showSuccess, showInfo }: any) {  
   const [priceList, setPriceList] = useState("1");
   const [sectionFilter, setSectionFilter] = useState("Todas");
@@ -6713,6 +6714,9 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
     showSuccess("✅ Pedido enviado correctamente. Te contactaremos cuando esté listo.");
   }
 
+  const total = calcInvoiceTotal(items);
+
+  return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
       <Card title={`Hacer Pedido Online - Cliente: ${session.name} (N° ${session.number})`}>
         <div className="grid md:grid-cols-4 gap-3 mb-4">
@@ -6886,8 +6890,6 @@ function PedidosOnlineTab({ state, setState, session, showError, showSuccess, sh
     </div>
   );
 }
-
-// 👇👇👇 NUEVO COMPONENTE: Gestión de Pedidos (para admin/vendedores)
 function GestionPedidosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
 
