@@ -1525,11 +1525,12 @@ function VentasiPhoneTab({ state, setState, session }: any) {
 function AgendaTurnosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
   // 🔥 CORRECCIÓN: Función para manejar fechas consistentemente
   const obtenerFechaLocal = (fecha: Date | string) => {
-    const date = new Date(fecha);
-    // Ajustar a medianoche en zona horaria local
-    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-      .toISOString()
-      .split('T')[0];
+    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
+    // Crear fecha en zona horaria local sin ajustes de UTC
+    const año = date.getFullYear();
+    const mes = String(date.getMonth() + 1).padStart(2, '0');
+    const dia = String(date.getDate()).padStart(2, '0');
+    return `${año}-${mes}-${dia}`;
   };
 
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
@@ -1615,7 +1616,13 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
 
     const cliente = state.clients.find((c: Cliente) => c.id === nuevoTurno.cliente_id);
     
-    // 🔥 IMPORTANTE: Usar la fecha seleccionada directamente (ya está en formato correcto)
+    // 🔥 IMPORTANTE: Validar que la fecha no sufre desfase
+    console.log("📅 Validando fecha antes de guardar:", {
+      fechaSeleccionada,
+      tipo: typeof fechaSeleccionada,
+      hora: nuevoTurno.hora
+    });
+
     const turno: Turno = {
       id: "turno_" + Math.random().toString(36).slice(2, 9),
       fecha: fechaSeleccionada, // ← Ya está en formato YYYY-MM-DD
@@ -1628,14 +1635,14 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       productos: nuevoTurno.productos || [],
       descripcion: nuevoTurno.descripcion,
       vendedor_asignado: session.id,
-      created_at: todayISO()
+      created_at: new Date().toISOString() // 🔥 CORRECCIÓN: Usar new Date() en lugar de todayISO()
     };
 
     console.log("📅 Guardando turno:", {
       fechaSeleccionada,
+      fechaEnTurno: turno.fecha,
       hora: nuevoTurno.hora,
-      cliente: cliente.name,
-      fechaEnTurno: turno.fecha
+      cliente: cliente.name
     });
 
     const st = clone(state);
@@ -1644,13 +1651,19 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
     setState(st);
 
     if (hasSupabase) {
-      const { data, error } = await supabase.from("turnos").insert(turno);
-      if (error) {
-        console.error("❌ Error al guardar turno en Supabase:", error);
-        alert("Error al guardar el turno en la base de datos");
+      try {
+        const { data, error } = await supabase.from("turnos").insert(turno);
+        if (error) {
+          console.error("❌ Error al guardar turno en Supabase:", error);
+          showError("Error al guardar el turno en la base de datos");
+          return;
+        }
+        console.log("✅ Turno guardado en Supabase:", data);
+      } catch (error) {
+        console.error("❌ Error general al guardar turno:", error);
+        showError("Error al conectar con la base de datos");
         return;
       }
-      console.log("✅ Turno guardado en Supabase:", data);
     }
 
     // Limpiar formulario
@@ -1669,6 +1682,15 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
     setFechaSeleccionada(nuevaFecha);
   };
 
+  // 🔥 CORRECCIÓN: Función auxiliar para todayISO que respeta zona horaria
+  const todayISO = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const localDate = new Date(now.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  };
+
+  // El resto del código permanece igual...
   function cambiarMesCalendario(direccion: "anterior" | "siguiente") {
     const nuevoMes = new Date(mesCalendario);
     if (direccion === "anterior") {
@@ -1761,7 +1783,10 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
                 dia.esSeleccionado ? 'bg-emerald-900/30 border-emerald-500' : 
                 dia.esHoy ? 'bg-blue-900/20 border-blue-500' : 'bg-slate-800/30 border-slate-700'
               } hover:bg-slate-700/50`}
-              onClick={() => setFechaSeleccionada(dia.fecha)}
+              onClick={() => {
+                console.log("📅 Día clickeado:", dia.fecha);
+                setFechaSeleccionada(dia.fecha);
+              }}
             >
               <div className={`text-xs font-medium text-center ${
                 dia.esSeleccionado ? 'text-emerald-300' : 
@@ -1812,7 +1837,6 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       </Card>
     );
   }
- 
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
@@ -1824,7 +1848,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
             type="date"
             value={fechaSeleccionada}
             onChange={manejarCambioFecha}
-            min={obtenerFechaLocal(new Date())}
+            min={todayISO()}
           />
           <Select
             label="Cliente"
@@ -1879,96 +1903,96 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       {/* CALENDARIO VISUAL */}
       <CalendarioVisual />
 
-   {/* VISTA MEJORADA DE TURNOS DEL DÍA */}
-<Card title={`📋 Turnos para ${fechaSeleccionada}`}>
-  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-    {horariosDisponibles.map(hora => {
-      const turno = turnosDelDia.find((t: Turno) => t.hora === hora);
-      return (
-        <div
-          key={hora}
-          className={`border-2 rounded-xl p-3 transition-all ${
-            turno 
-              ? turno.estado === "COMPLETADO" 
-                ? "bg-green-900/40 border-green-500" 
-                : turno.estado === "CONFIRMADO"
-                ? "bg-blue-900/40 border-blue-500"
-                : turno.estado === "CANCELADO"
-                ? "bg-red-900/40 border-red-500"
-                : "bg-amber-900/40 border-amber-500"
-              : "bg-slate-800/30 border-slate-600 hover:bg-slate-700/50 cursor-pointer"
-          }`}
-          onClick={() => {
-            if (!turno) {
-              // Pre-seleccionar este horario disponible
-              setNuevoTurno({...nuevoTurno, hora});
-              showInfo(`Horario ${hora} seleccionado`);
-            }
-          }}
-        >
-          <div className="flex justify-between items-start mb-2">
-            <div className={`font-bold text-lg ${
-              turno ? "text-white" : "text-emerald-300"
-            }`}>
-              {hora}
-            </div>
-            {turno ? (
-              <Chip tone={
-                turno.estado === "COMPLETADO" ? "emerald" :
-                turno.estado === "CONFIRMADO" ? "blue" :
-                turno.estado === "CANCELADO" ? "red" : "amber"
-              }>
-                {turno.estado === "PENDIENTE" ? "⏳" : 
-                 turno.estado === "CONFIRMADO" ? "✅" :
-                 turno.estado === "COMPLETADO" ? "🎉" : "❌"}
-              </Chip>
-            ) : (
-              <Chip tone="emerald">🟢 Libre</Chip>
-            )}
-          </div>
-          
-          {turno ? (
-            <div className="space-y-2">
-              <div className="font-semibold text-sm truncate" title={turno.cliente_nombre}>
-                👤 {turno.cliente_nombre}
-              </div>
-              <div className="text-xs text-slate-300">
-                {turno.tipo === "ENTREGA" ? "📦 Entrega" : 
-                 turno.tipo === "REPARACION" ? "🛠️ Reparación" : "💬 Consulta"}
-              </div>
-              <div className="text-xs text-slate-400">
-                📞 {turno.cliente_telefono}
-              </div>
-              {turno.descripcion && (
-                <div className="text-xs text-slate-300 italic mt-1">
-                  💬 {turno.descripcion}
+      {/* VISTA MEJORADA DE TURNOS DEL DÍA */}
+      <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {horariosDisponibles.map(hora => {
+            const turno = turnosDelDia.find((t: Turno) => t.hora === hora);
+            return (
+              <div
+                key={hora}
+                className={`border-2 rounded-xl p-3 transition-all ${
+                  turno 
+                    ? turno.estado === "COMPLETADO" 
+                      ? "bg-green-900/40 border-green-500" 
+                      : turno.estado === "CONFIRMADO"
+                      ? "bg-blue-900/40 border-blue-500"
+                      : turno.estado === "CANCELADO"
+                      ? "bg-red-900/40 border-red-500"
+                      : "bg-amber-900/40 border-amber-500"
+                    : "bg-slate-800/30 border-slate-600 hover:bg-slate-700/50 cursor-pointer"
+                }`}
+                onClick={() => {
+                  if (!turno) {
+                    // Pre-seleccionar este horario disponible
+                    setNuevoTurno({...nuevoTurno, hora});
+                    showInfo(`Horario ${hora} seleccionado`);
+                  }
+                }}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className={`font-bold text-lg ${
+                    turno ? "text-white" : "text-emerald-300"
+                  }`}>
+                    {hora}
+                  </div>
+                  {turno ? (
+                    <Chip tone={
+                      turno.estado === "COMPLETADO" ? "emerald" :
+                      turno.estado === "CONFIRMADO" ? "blue" :
+                      turno.estado === "CANCELADO" ? "red" : "amber"
+                    }>
+                      {turno.estado === "PENDIENTE" ? "⏳" : 
+                      turno.estado === "CONFIRMADO" ? "✅" :
+                      turno.estado === "COMPLETADO" ? "🎉" : "❌"}
+                    </Chip>
+                  ) : (
+                    <Chip tone="emerald">🟢 Libre</Chip>
+                  )}
                 </div>
-              )}
-              <div className="flex gap-1 mt-2">
-                <Select
-                  value={turno.estado}
-                  onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
-                  options={[
-                    { value: "PENDIENTE", label: "⏳ Pendiente" },
-                    { value: "CONFIRMADO", label: "✅ Confirmado" },
-                    { value: "COMPLETADO", label: "🎉 Completado" },
-                    { value: "CANCELADO", label: "❌ Cancelado" },
-                  ]}
-                  className="text-xs"
-                />
+                
+                {turno ? (
+                  <div className="space-y-2">
+                    <div className="font-semibold text-sm truncate" title={turno.cliente_nombre}>
+                      👤 {turno.cliente_nombre}
+                    </div>
+                    <div className="text-xs text-slate-300">
+                      {turno.tipo === "ENTREGA" ? "📦 Entrega" : 
+                      turno.tipo === "REPARACION" ? "🛠️ Reparación" : "💬 Consulta"}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      📞 {turno.cliente_telefono}
+                    </div>
+                    {turno.descripcion && (
+                      <div className="text-xs text-slate-300 italic mt-1">
+                        💬 {turno.descripcion}
+                      </div>
+                    )}
+                    <div className="flex gap-1 mt-2">
+                      <Select
+                        value={turno.estado}
+                        onChange={(v) => cambiarEstadoTurno(turno.id, v as any)}
+                        options={[
+                          { value: "PENDIENTE", label: "⏳ Pendiente" },
+                          { value: "CONFIRMADO", label: "✅ Confirmado" },
+                          { value: "COMPLETADO", label: "🎉 Completado" },
+                          { value: "CANCELADO", label: "❌ Cancelado" },
+                        ]}
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <div className="text-emerald-400 text-sm font-semibold">Disponible</div>
+                    <div className="text-xs text-slate-400 mt-1">Click para agendar</div>
+                  </div>
+                )}
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-2">
-              <div className="text-emerald-400 text-sm font-semibold">Disponible</div>
-              <div className="text-xs text-slate-400 mt-1">Click para agendar</div>
-            </div>
-          )}
+            );
+          })}
         </div>
-      );
-    })}
-  </div>
-</Card>
+      </Card>
     </div>
   );
 }
