@@ -1521,20 +1521,29 @@ function VentasiPhoneTab({ state, setState, session }: any) {
     </div>
   );
 }
-// 3. COMPONENTE DE AGENDA DE TURNOS - VERSIÓN CORREGIDA
+// 3. COMPONENTE DE AGENDA DE TURNOS - VERSIÓN DEFINITIVAMENTE CORREGIDA
 function AgendaTurnosTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
-  // 🔥 CORRECCIÓN: Función para manejar fechas consistentemente
-  const obtenerFechaLocal = (fecha: Date | string) => {
-    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
-    // Crear fecha en zona horaria local sin ajustes de UTC
-    const año = date.getFullYear();
-    const mes = String(date.getMonth() + 1).padStart(2, '0');
-    const dia = String(date.getDate()).padStart(2, '0');
-    return `${año}-${mes}-${dia}`;
+  // 🔥 SOLUCIÓN DEFINITIVA: Función para obtener fecha en formato YYYY-MM-DD sin cambios de zona horaria
+  const obtenerFechaLocal = (fechaInput: Date | string): string => {
+    // Si es string (viene del input type="date"), ya está en formato YYYY-MM-DD - DEVOLVER DIRECTAMENTE
+    if (typeof fechaInput === 'string') {
+      console.log("📅 Fecha desde input:", fechaInput);
+      return fechaInput;
+    }
+    
+    // Si es Date object, convertir a YYYY-MM-DD en zona local
+    const año = fechaInput.getFullYear();
+    const mes = String(fechaInput.getMonth() + 1).padStart(2, '0');
+    const dia = String(fechaInput.getDate()).padStart(2, '0');
+    const fechaLocal = `${año}-${mes}-${dia}`;
+    console.log("📅 Fecha desde Date:", fechaLocal);
+    return fechaLocal;
   };
 
+  // 🔥 SOLUCIÓN DEFINITIVA: Inicializar con fecha actual en formato YYYY-MM-DD
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => {
-    return obtenerFechaLocal(new Date());
+    const hoy = new Date();
+    return obtenerFechaLocal(hoy);
   });
   
   const [nuevoTurno, setNuevoTurno] = useState<Partial<Turno>>({
@@ -1550,12 +1559,12 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
     "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00"
   ];
 
-  // 🔥 CORRECCIÓN: Filtrar turnos usando fecha local consistente
+  // 🔥 SOLUCIÓN DEFINITIVA: Filtrar turnos usando fecha exacta (ya en formato YYYY-MM-DD)
   const turnosDelDia = (state.turnos || []).filter((t: Turno) => 
     t.fecha === fechaSeleccionada
   );
 
-  // 🔥 CORRECCIÓN: Función para generar días con fechas consistentes
+  // 🔥 SOLUCIÓN DEFINITIVA: Función para generar días del mes sin cambios de zona horaria
   function generarDiasDelMes() {
     const year = mesCalendario.getFullYear();
     const month = mesCalendario.getMonth();
@@ -1565,10 +1574,11 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
     
     const dias = [];
     
-    // Días del mes anterior
+    // Días del mes anterior - SOLUCIÓN: usar componentes de fecha directamente
     const primerDiaSemana = primerDia.getDay();
     for (let i = primerDiaSemana - 1; i >= 0; i--) {
-      const fecha = new Date(year, month, -i);
+      const diaDelMesAnterior = new Date(year, month, -i).getDate();
+      const fecha = new Date(year, month - 1, diaDelMesAnterior);
       const fechaStr = obtenerFechaLocal(fecha);
       dias.push({
         fecha: fechaStr,
@@ -1577,7 +1587,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       });
     }
     
-    // Días del mes actual
+    // Días del mes actual - SOLUCIÓN: usar componentes de fecha directamente
     for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
       const fecha = new Date(year, month, dia);
       const fechaStr = obtenerFechaLocal(fecha);
@@ -1592,7 +1602,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       });
     }
     
-    // Días del mes siguiente
+    // Días del mes siguiente - SOLUCIÓN: usar componentes de fecha directamente
     const ultimoDiaSemana = ultimoDia.getDay();
     for (let dia = 1; dia < (7 - ultimoDiaSemana); dia++) {
       const fecha = new Date(year, month + 1, dia);
@@ -1607,7 +1617,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
     return dias;
   }
 
-  // 🔥 CORRECCIÓN: Función para crear turno con fecha consistente
+  // 🔥 SOLUCIÓN DEFINITIVA: Función para crear turno sin cambios de fecha
   async function crearTurno() {
     if (!nuevoTurno.cliente_id || !nuevoTurno.hora) {
       showError("Seleccione cliente y horario");
@@ -1616,16 +1626,18 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
 
     const cliente = state.clients.find((c: Cliente) => c.id === nuevoTurno.cliente_id);
     
-    // 🔥 IMPORTANTE: Validar que la fecha no sufre desfase
-    console.log("📅 Validando fecha antes de guardar:", {
-      fechaSeleccionada,
+    // 🔥 VALIDACIÓN CRÍTICA: La fecha NO debe cambiar
+    console.log("🔍 VALIDACIÓN FINAL DE FECHA:", {
+      fechaSeleccionadaEnUI: fechaSeleccionada,
       tipo: typeof fechaSeleccionada,
-      hora: nuevoTurno.hora
+      horaSeleccionada: nuevoTurno.hora,
+      cliente: cliente.name
     });
 
+    // 🔥 CREAR TURNO CON FECHA EXACTA (sin conversiones)
     const turno: Turno = {
       id: "turno_" + Math.random().toString(36).slice(2, 9),
-      fecha: fechaSeleccionada, // ← Ya está en formato YYYY-MM-DD
+      fecha: fechaSeleccionada, // ← FECHA EXACTA del input/calendario
       hora: nuevoTurno.hora!,
       cliente_id: nuevoTurno.cliente_id!,
       cliente_nombre: cliente.name,
@@ -1635,14 +1647,13 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       productos: nuevoTurno.productos || [],
       descripcion: nuevoTurno.descripcion,
       vendedor_asignado: session.id,
-      created_at: new Date().toISOString() // 🔥 CORRECCIÓN: Usar new Date() en lugar de todayISO()
+      created_at: new Date().toISOString() // Solo para timestamp interno
     };
 
-    console.log("📅 Guardando turno:", {
-      fechaSeleccionada,
+    console.log("💾 GUARDANDO TURNO CON FECHA EXACTA:", {
       fechaEnTurno: turno.fecha,
-      hora: nuevoTurno.hora,
-      cliente: cliente.name
+      fechaSeleccionadaOriginal: fechaSeleccionada,
+      coinciden: turno.fecha === fechaSeleccionada
     });
 
     const st = clone(state);
@@ -1658,7 +1669,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
           showError("Error al guardar el turno en la base de datos");
           return;
         }
-        console.log("✅ Turno guardado en Supabase:", data);
+        console.log("✅ Turno guardado en Supabase con fecha:", turno.fecha);
       } catch (error) {
         console.error("❌ Error general al guardar turno:", error);
         showError("Error al conectar con la base de datos");
@@ -1673,24 +1684,25 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       descripcion: ""
     });
     
-    showSuccess("Turno agendado correctamente");
+    showSuccess(`✅ Turno agendado para el ${fechaSeleccionada} a las ${nuevoTurno.hora}`);
   }
 
-  // 🔥 CORRECCIÓN: Función para manejar cambio de fecha en el input
+  // 🔥 SOLUCIÓN DEFINITIVA: Manejar cambio de fecha SIN conversiones
   const manejarCambioFecha = (nuevaFecha: string) => {
-    console.log("📅 Cambiando fecha seleccionada:", nuevaFecha);
-    setFechaSeleccionada(nuevaFecha);
+    console.log("🔄 Cambiando fecha seleccionada:", {
+      nuevaFecha,
+      tipo: typeof nuevaFecha,
+      longitud: nuevaFecha.length
+    });
+    setFechaSeleccionada(nuevaFecha); // ← FECHA DIRECTA del input
   };
 
-  // 🔥 CORRECCIÓN: Función auxiliar para todayISO que respeta zona horaria
-  const todayISO = () => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset();
-    const localDate = new Date(now.getTime() - (offset * 60 * 1000));
-    return localDate.toISOString().split('T')[0];
+  // 🔥 SOLUCIÓN DEFINITIVA: Obtener fecha mínima para el input
+  const obtenerFechaMinima = () => {
+    const hoy = new Date();
+    return obtenerFechaLocal(hoy);
   };
 
-  // El resto del código permanece igual...
   function cambiarMesCalendario(direccion: "anterior" | "siguiente") {
     const nuevoMes = new Date(mesCalendario);
     if (direccion === "anterior") {
@@ -1739,7 +1751,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
     }
   }
 
-  // COMPONENTE DE CALENDARIO VISUAL (VERSIÓN CORREGIDA)
+  // COMPONENTE DE CALENDARIO VISUAL - VERSIÓN CORREGIDA
   function CalendarioVisual() {
     const dias = generarDiasDelMes();
     const nombresDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -1784,7 +1796,10 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
                 dia.esHoy ? 'bg-blue-900/20 border-blue-500' : 'bg-slate-800/30 border-slate-700'
               } hover:bg-slate-700/50`}
               onClick={() => {
-                console.log("📅 Día clickeado:", dia.fecha);
+                console.log("🗓️ Día clickeado en calendario:", {
+                  fechaEnDia: dia.fecha,
+                  fechaSeleccionadaActual: fechaSeleccionada
+                });
                 setFechaSeleccionada(dia.fecha);
               }}
             >
@@ -1792,7 +1807,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
                 dia.esSeleccionado ? 'text-emerald-300' : 
                 dia.esHoy ? 'text-blue-300' : ''
               }`}>
-                {new Date(dia.fecha).getDate()}
+                {new Date(dia.fecha + 'T12:00:00').getDate()} {/* 🔥 Usar hora del medio día para evitar cambios */}
               </div>
               
               {/* Mini indicadores de turnos */}
@@ -1834,6 +1849,14 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
             <span>Consulta</span>
           </div>
         </div>
+
+        {/* 🔥 DEBUG: Mostrar información de fechas */}
+        <div className="mt-4 p-3 bg-slate-800/30 rounded-lg border border-slate-700">
+          <div className="text-xs text-slate-400">
+            <strong>DEBUG:</strong> Fecha seleccionada: <span className="text-emerald-300">{fechaSeleccionada}</span> | 
+            Tipo: <span className="text-blue-300">{typeof fechaSeleccionada}</span>
+          </div>
+        </div>
       </Card>
     );
   }
@@ -1843,13 +1866,19 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
       {/* FORMULARIO PARA AGENDAR TURNOS */}
       <Card title="📅 Agenda de Turnos">
         <div className="grid md:grid-cols-3 gap-4">
-          <Input
-            label="Fecha"
-            type="date"
-            value={fechaSeleccionada}
-            onChange={manejarCambioFecha}
-            min={todayISO()}
-          />
+          <div>
+            <Input
+              label="Fecha"
+              type="date"
+              value={fechaSeleccionada}
+              onChange={manejarCambioFecha}
+              min={obtenerFechaMinima()}
+            />
+            {/* 🔥 DEBUG: Mostrar lo que realmente se está guardando */}
+            <div className="text-xs text-slate-400 mt-1">
+              Seleccionado: <strong className="text-emerald-300">{fechaSeleccionada}</strong>
+            </div>
+          </div>
           <Select
             label="Cliente"
             value={nuevoTurno.cliente_id || ""}
@@ -1894,7 +1923,7 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
           </div>
           <div className="md:col-span-3 flex justify-end">
             <Button onClick={crearTurno}>
-              Agendar Turno
+              Agendar Turno para el {fechaSeleccionada}
             </Button>
           </div>
         </div>
@@ -1905,6 +1934,9 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
 
       {/* VISTA MEJORADA DE TURNOS DEL DÍA */}
       <Card title={`📋 Turnos para ${fechaSeleccionada}`}>
+        <div className="text-sm text-slate-400 mb-4">
+          Mostrando turnos para la fecha exacta: <strong className="text-emerald-300">{fechaSeleccionada}</strong>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {horariosDisponibles.map(hora => {
             const turno = turnosDelDia.find((t: Turno) => t.hora === hora);
@@ -1924,9 +1956,8 @@ function AgendaTurnosTab({ state, setState, session, showError, showSuccess, sho
                 }`}
                 onClick={() => {
                   if (!turno) {
-                    // Pre-seleccionar este horario disponible
                     setNuevoTurno({...nuevoTurno, hora});
-                    showInfo(`Horario ${hora} seleccionado`);
+                    showInfo(`Horario ${hora} seleccionado para el ${fechaSeleccionada}`);
                   }
                 }}
               >
