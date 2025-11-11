@@ -4945,16 +4945,22 @@ console.log("✅ VARIABLES CREADAS:", {
  const metricasVentas = {
   totalVentas: ventasiPhone.reduce((sum: number, v: any) => sum + v.total, 0),
   totalUnidades: ventasiPhone.reduce((sum: number, v: any) => sum + v.items.length, 0),
-  // ✅ CORRECCIÓN: Calcular ganancia REAL basada en costo_reparacion
+  // ✅ CORRECCIÓN: Calcular ganancia REAL basada en costo_reparacion Y precio_compra
   gananciaTotal: ventasiPhone.reduce((sum: number, v: any) => {
     const costoVenta = v.items.reduce((costSum: number, item: any) => {
-      return costSum + (parseNum(item.qty) * parseNum(item.costo_reparacion || 0));
+      const precioCompra = parseNum(item.precio_compra || 0);
+      const costoReparacion = parseNum(item.costo_reparacion || 0);
+      const costoReal = precioCompra + costoReparacion;
+      return costSum + (parseNum(item.qty) * costoReal);
     }, 0);
     return sum + (v.total - costoVenta - (v.comisiones_total || 0));
   }, 0),
   costoTotal: ventasiPhone.reduce((sum: number, v: any) => {
     return sum + v.items.reduce((costSum: number, item: any) => {
-      return costSum + (parseNum(item.qty) * parseNum(item.costo_reparacion || 0));
+      const precioCompra = parseNum(item.precio_compra || 0);
+      const costoReparacion = parseNum(item.costo_reparacion || 0);
+      const costoReal = precioCompra + costoReparacion;
+      return costSum + (parseNum(item.qty) * costoReal);
     }, 0);
   }, 0),
   comisionesTotal: ventasiPhone.reduce((sum: number, v: any) => sum + (v.comisiones_total || 0), 0),
