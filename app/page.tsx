@@ -53,8 +53,7 @@ type EstadoProducto = "EN STOCK" | "VENDIDO" | "EN REPARACION" | "INGRESANDO";
 type UbicacionProducto = "LOCAL" | "DEPOSITO" | "DEPOSITO_2";
 
 // Agrega estos nuevos tipos al inicio del archivo
-type EstadoBateria = "+80%" | "+90%" | "100%" | "-75%";
-
+type EstadoBateria = "+80%" | "+90%" | "100%" | "-75%" | "+85%" | "-80%";
 type Producto = {
   id: string;
   name: string;
@@ -704,13 +703,16 @@ function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, 
   // Agrega estos estados junto con los otros useState
 const [bateria, setBateria] = useState<EstadoBateria>("+80%");
 
-  // Estados para filtros
-  const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
-  const [filtroModelo, setFiltroModelo] = useState("Todos");
-  const [filtroCapacidad, setFiltroCapacidad] = useState("Todos"); // 👈 NUEVO FILTRO
-  const [filtroGrado, setFiltroGrado] = useState("Todos");
-  const [filtroUbicacion, setFiltroUbicacion] = useState("Todos");
-  const [filtroDiasStock, setFiltroDiasStock] = useState("Todos"); // 👈 NUEVO FILTRO
+// Estados para filtros
+const [filtroEstado, setFiltroEstado] = useState<EstadoProducto>("EN STOCK");
+const [filtroModelo, setFiltroModelo] = useState("Todos");
+const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
+const [filtroGrado, setFiltroGrado] = useState("Todos");
+const [filtroUbicacion, setFiltroUbicacion] = useState("Todos");
+const [filtroDiasStock, setFiltroDiasStock] = useState("Todos");
+const [filtroBateria, setFiltroBateria] = useState("Todos");
+const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
+const [filtroImei, setFiltroImei] = useState(""); // 🔍 NUEVO ESTADO
   // Agrega estos estados para los filtros
 const [filtroBateria, setFiltroBateria] = useState("Todos");
 const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
@@ -973,31 +975,31 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
 
   // 👇👇👇 FILTRAR PRODUCTOS CON LOS NUEVOS FILTROS
   // 👇👇👇 FILTRAR PRODUCTOS CON LOS NUEVOS FILTROS
-  const productosFiltrados = state.products.filter((p: Producto) => {
-    const cumpleEstado = p.estado === filtroEstado;
-    const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
-    const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
-    const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
-    const cumpleUbicacion = filtroUbicacion === "Todos" || p.ubicacion === filtroUbicacion;
-    // 👇👇👇 NUEVOS FILTROS
-    const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
-    const cumpleListaPrecio = filtroListaPrecio === "Todos" || p.lista_precio === filtroListaPrecio;
-    
-    // 👇👇👇 FILTRAR POR DÍAS EN STOCK
-    let cumpleDiasStock = true;
-    if (filtroDiasStock !== "Todos") {
-      const dias = calcularDiasEnStock(p);
-      switch (filtroDiasStock) {
-        case "7_dias": cumpleDiasStock = dias <= 7; break;
-        case "15_dias": cumpleDiasStock = dias <= 15; break;
-        case "30_dias": cumpleDiasStock = dias > 30; break;
-        case "60_dias": cumpleDiasStock = dias > 60; break;
-      }
+ const productosFiltrados = state.products.filter((p: Producto) => {
+  const cumpleEstado = p.estado === filtroEstado;
+  const cumpleModelo = filtroModelo === "Todos" || p.modelo === filtroModelo;
+  const cumpleCapacidad = filtroCapacidad === "Todos" || p.capacidad === filtroCapacidad;
+  const cumpleGrado = filtroGrado === "Todos" || p.grado === filtroGrado;
+  const cumpleUbicacion = filtroUbicacion === "Todos" || p.ubicacion === filtroUbicacion;
+  const cumpleBateria = filtroBateria === "Todos" || p.bateria === filtroBateria;
+  const cumpleListaPrecio = filtroListaPrecio === "Todos" || p.lista_precio === filtroListaPrecio;
+  const cumpleImei = !filtroImei || p.imei.includes(filtroImei); // 🔍 NUEVO FILTRO
+  
+  // 👇👇👇 FILTRAR POR DÍAS EN STOCK
+  let cumpleDiasStock = true;
+  if (filtroDiasStock !== "Todos") {
+    const dias = calcularDiasEnStock(p);
+    switch (filtroDiasStock) {
+      case "7_dias": cumpleDiasStock = dias <= 7; break;
+      case "15_dias": cumpleDiasStock = dias <= 15; break;
+      case "30_dias": cumpleDiasStock = dias > 30; break;
+      case "60_dias": cumpleDiasStock = dias > 60; break;
     }
+  }
 
-    return cumpleEstado && cumpleModelo && cumpleCapacidad && cumpleGrado && 
-           cumpleUbicacion && cumpleDiasStock && cumpleBateria && cumpleListaPrecio;
-  });
+  return cumpleEstado && cumpleModelo && cumpleCapacidad && cumpleGrado && 
+         cumpleUbicacion && cumpleDiasStock && cumpleBateria && cumpleListaPrecio && cumpleImei;
+});
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-4">
@@ -1022,107 +1024,123 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
             }
           >
             {/* 👇👇👇 NUEVOS FILTROS MEJORADOS */}
-            <div className="grid md:grid-cols-8 gap-3 mb-4">
-              <Select
-                label="Estado"
-                value={filtroEstado}
-                onChange={setFiltroEstado}
-                options={[
-                  { value: "EN STOCK", label: "🟢 EN STOCK" },
-                  { value: "VENDIDO", label: "💰 VENDIDO" },
-                  { value: "EN REPARACION", label: "🛠️ EN REPARACIÓN" },
-                  { value: "INGRESANDO", label: "📥 INGRESANDO" },
-                ]}
-              />
-              <Select
-                label="Modelo"
-                value={filtroModelo}
-                onChange={setFiltroModelo}
-                options={[
-                  { value: "Todos", label: "Todos los modelos" },
-                  ...Array.from(new Set(state.products.map((p: Producto) => p.modelo)))
-                    .filter(m => m) // Filtrar valores nulos
-                    .map(m => ({ value: m, label: m }))
-                ]}
-              />
-              <Select
-                label="Capacidad"
-                value={filtroCapacidad}
-                onChange={setFiltroCapacidad}
-                options={[
-                  { value: "Todos", label: "Todas las capacidades" },
-                  ...Array.from(new Set(state.products.map((p: Producto) => p.capacidad)))
-                    .filter(c => c) // Filtrar valores nulos
-                    .map(c => ({ value: c, label: c }))
-                ]}
-              />
-              <Select
-                label="Grado"
-                value={filtroGrado}
-                onChange={setFiltroGrado}
-                options={[
-                  { value: "Todos", label: "Todos los grados" },
-                  ...Array.from(new Set(state.products.map((p: Producto) => p.grado)))
-                    .map(g => ({ value: g, label: g }))
-                ]}
-              />
-              <Select
-                label="Ubicación"
-                value={filtroUbicacion}
-                onChange={setFiltroUbicacion}
-                options={[
-                  { value: "Todos", label: "Todas las ubicaciones" },
-                  { value: "LOCAL", label: "🏪 LOCAL" },
-                  { value: "DEPOSITO", label: "📦 DEPÓSITO" },
-                  { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
-                ]}
-              />
-              <Select
-                label="Batería"
-                value={filtroBateria}
-                onChange={setFiltroBateria}
-                options={[
-                  { value: "Todos", label: "Todas las baterías" },
-                  { value: "100%", label: "🔋 100%" },
-                  { value: "+90%", label: "🔋 +90%" },
-                  { value: "+80%", label: "🔋 +80%" },
-                  { value: "-75%", label: "🔋 -75%" },
-                ]}
-              />
-              <Select
-                label="Lista Precio"
-                value={filtroListaPrecio}
-                onChange={setFiltroListaPrecio}
-                options={[
-                  { value: "Todos", label: "Todas las listas" },
-                  { value: "consumidor_final", label: "💰 Consumidor" },
-                  { value: "revendedor", label: "🏪 Revendedor" },
-                ]}
-              />
-              <Select
-                label="Días en Stock"
-                value={filtroDiasStock}
-                onChange={setFiltroDiasStock}
-                options={[
-                  { value: "Todos", label: "Todos" },
-                  { value: "7_dias", label: "≤ 7 días" },
-                  { value: "15_dias", label: "≤ 15 días" },
-                  { value: "30_dias", label: "> 30 días" },
-                  { value: "60_dias", label: "> 60 días" },
-                ]}
-              />
-            </div>
+           <div className="grid md:grid-cols-8 gap-3 mb-4">
+  <Select
+    label="Estado"
+    value={filtroEstado}
+    onChange={setFiltroEstado}
+    options={[
+      { value: "EN STOCK", label: "🟢 EN STOCK" },
+      { value: "VENDIDO", label: "💰 VENDIDO" },
+      { value: "EN REPARACION", label: "🛠️ EN REPARACIÓN" },
+      { value: "INGRESANDO", label: "📥 INGRESANDO" },
+    ]}
+  />
+  <Select
+    label="Modelo"
+    value={filtroModelo}
+    onChange={setFiltroModelo}
+    options={[
+      { value: "Todos", label: "Todos los modelos" },
+      ...Array.from(new Set(state.products.map((p: Producto) => p.modelo)))
+        .filter(m => m) // Filtrar valores nulos
+        .map(m => ({ value: m, label: m }))
+    ]}
+  />
+  <Select
+    label="Capacidad"
+    value={filtroCapacidad}
+    onChange={setFiltroCapacidad}
+    options={[
+      { value: "Todos", label: "Todas las capacidades" },
+      ...Array.from(new Set(state.products.map((p: Producto) => p.capacidad)))
+        .filter(c => c) // Filtrar valores nulos
+        .map(c => ({ value: c, label: c }))
+    ]}
+  />
+  <Select
+    label="Grado"
+    value={filtroGrado}
+    onChange={setFiltroGrado}
+    options={[
+      { value: "Todos", label: "Todos los grados" },
+      ...Array.from(new Set(state.products.map((p: Producto) => p.grado)))
+        .map(g => ({ value: g, label: g }))
+    ]}
+  />
+  <Select
+    label="Ubicación"
+    value={filtroUbicacion}
+    onChange={setFiltroUbicacion}
+    options={[
+      { value: "Todos", label: "Todas las ubicaciones" },
+      { value: "LOCAL", label: "🏪 LOCAL" },
+      { value: "DEPOSITO", label: "📦 DEPÓSITO" },
+      { value: "DEPOSITO_2", label: "📦 DEPÓSITO 2" },
+    ]}
+  />
+  <Select
+    label="Batería"
+    value={filtroBateria}
+    onChange={setFiltroBateria}
+    options={[
+      { value: "Todos", label: "Todas las baterías" },
+      { value: "100%", label: "🔋 100%" },
+      { value: "+90%", label: "🔋 +90%" },
+      { value: "+85%", label: "🔋 +85%" },
+      { value: "+80%", label: "🔋 +80%" },
+      { value: "-75%", label: "🔋 -75%" },
+      { value: "-80%", label: "🔋 -80%" },
+    ]}
+  />
+  <Select
+    label="Lista Precio"
+    value={filtroListaPrecio}
+    onChange={setFiltroListaPrecio}
+    options={[
+      { value: "Todos", label: "Todas las listas" },
+      { value: "consumidor_final", label: "💰 Consumidor" },
+      { value: "revendedor", label: "🏪 Revendedor" },
+    ]}
+  />
+  
+  {/* 🔍 NUEVO BUSCADOR POR IMEI - REEMPLAZA EL SELECT DE DÍAS EN STOCK */}
+  <Input
+    label="🔍 Buscar por IMEI"
+    value={filtroImei}
+    onChange={setFiltroImei}
+    placeholder="Ej: 123456789012345"
+  />
+</div>
+            
 
-            <div className="flex justify-between items-center mb-3">
-              <Chip tone="emerald">
-                {productosFiltrados.length} productos encontrados
-              </Chip>
-              {filtroDiasStock === "30_dias" || filtroDiasStock === "60_dias" ? (
-                <Chip tone="red">
-                  ⚠️ Productos con mucho tiempo en stock
-                </Chip>
-              ) : null}
-            </div>
+           <div className="flex justify-between items-center mb-3">
+  <Chip tone="emerald">
+    {productosFiltrados.length} productos encontrados
+  </Chip>
+  
+  <div className="flex items-center gap-3">
+    {/* SELECT DE DÍAS EN STOCK - LO AGREGAMOS AQUÍ */}
+    <Select
+      label="Días en Stock"
+      value={filtroDiasStock}
+      onChange={setFiltroDiasStock}
+      options={[
+        { value: "Todos", label: "Todos" },
+        { value: "7_dias", label: "≤ 7 días" },
+        { value: "15_dias", label: "≤ 15 días" },
+        { value: "30_dias", label: "> 30 días" },
+        { value: "60_dias", label: "> 60 días" },
+      ]}
+    />
+    
+    {filtroDiasStock === "30_dias" || filtroDiasStock === "60_dias" ? (
+      <Chip tone="red">
+        ⚠️ Productos con mucho tiempo en stock
+      </Chip>
+    ) : null}
+  </div>
+</div>
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -1292,17 +1310,20 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
               ]}
             />
             {/* 👇👇👇 NUEVOS CAMPOS */}
-            <Select
-              label="Estado de Batería"
-              value={bateria}
-              onChange={setBateria}
-              options={[
-                { value: "100%", label: "🔋 100% - Excelente" },
-                { value: "+90%", label: "🔋 +90% - Muy Bueno" },
-                { value: "+80%", label: "🔋 +80% - Bueno" },
-                { value: "-75%", label: "🔋 -75% - Regular" },
-              ]}
-            />
+           <Select
+  label="Estado de Batería"
+  value={bateria}
+  onChange={setBateria}
+  options={[
+    { value: "100%", label: "🔋 100% - Excelente" },
+    { value: "+90%", label: "🔋 +90% - Muy Bueno" },
+    { value: "+85%", label: "🔋 +85% - Bueno" },
+    { value: "+80%", label: "🔋 +80% - Bueno" },
+        { value: "-80%", label: "🔋 -80% - Baja" },
+    { value: "-75%", label: "🔋 -75% - Regular" },
+    
+  ]}
+/>
             
            {/* Precio de Compra */}
       <NumberInput
