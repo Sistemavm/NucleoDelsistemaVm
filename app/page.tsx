@@ -2211,32 +2211,11 @@ function calcInvoiceTotal(items: any[]) {
 
 function calcInvoiceCost(items: any[]) {
   return items.reduce((s, it) => {
-    // ✅ CORRECCIÓN DEFINITIVA: Priorizar costo_reparacion sobre cost
-    let costoReal = 0;
+    // ✅ CORRECCIÓN DEFINITIVA: Sumar precio_compra + costo_reparacion
+    const precioCompra = parseNum(it.precio_compra || 0);
+    const costoReparacion = parseNum(it.costo_reparacion || 0);
+    const costoReal = precioCompra + costoReparacion;
     
-    // 1. Primero intentar con costo_reparacion (si existe y es mayor a 0)
-    if (it.costo_reparacion && parseNum(it.costo_reparacion) > 0) {
-      costoReal = parseNum(it.costo_reparacion);
-    }
-    // 2. Si no, usar cost (para productos que no tienen reparación)
-    else if (it.cost && parseNum(it.cost) > 0) {
-      costoReal = parseNum(it.cost);
-    }
-    // 3. Si no tiene ninguno, usar 0
-    
-    console.log("🔍 DEBUG COSTO:", {
-      producto: it.name,
-      costo_reparacion: it.costo_reparacion,
-      cost: it.cost,
-      costoUsado: costoReal
-    });
-    
-    return s + parseNum(it.qty) * costoReal;
-  }, 0);
-}
-  return items.reduce((s, it) => {
-    // ✅ CORRECCIÓN: Solo usar costo_reparacion que es el campo REAL en BD
-    const costoReal = parseNum(it.costo_reparacion || 0);
     return s + parseNum(it.qty) * costoReal;
   }, 0);
 }
@@ -2840,24 +2819,23 @@ function addItem(p: any) {
   
   if (existing) {
     setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
-  } else {
-    setItems([...items, { 
-      productId: p.id, 
-      name: p.name, 
-      section: p.section, 
-      qty: 1, 
-      unitPrice: unit, 
-      cost: costoReal,  // ← ✅ CAMBIADO: Ahora usa costo_reparacion
-      // 👇👇👇 AGREGAR ESTOS CAMPOS NUEVOS
-      modelo: p.modelo,
-      capacidad: p.capacidad,
-      color: p.color,
-      grado: p.grado,
-      imei: p.imei,
-      // ✅ AGREGAR ESTE CAMPO NUEVO (importante)
-      costo_reparacion: p.costo_reparacion || 0
-    }]);
-  }
+} else {
+  setItems([...items, { 
+    productId: p.id, 
+    name: p.name, 
+    section: p.section, 
+    qty: 1, 
+    unitPrice: unit, 
+    cost: costoReal,
+    modelo: p.modelo,
+    capacidad: p.capacidad,
+    color: p.color,
+    grado: p.grado,
+    imei: p.imei,
+    costo_reparacion: p.costo_reparacion || 0,
+    precio_compra: p.precio_compra || 0  // ← NUEVO
+  }]);
+}
 }
 
 async function saveAndPrint() {
