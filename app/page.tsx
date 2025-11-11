@@ -2211,8 +2211,8 @@ function calcInvoiceTotal(items: any[]) {
 
 function calcInvoiceCost(items: any[]) {
   return items.reduce((s, it) => {
-    // Usar valorReparacion si existe, sino usar costo normal
-    const costoReal = parseNum(it.valorReparacion || it.costo_reparacion || it.cost || 0);
+    // ✅ CORRECCIÓN: Solo usar costo_reparacion que es el campo REAL en BD
+    const costoReal = parseNum(it.costo_reparacion || 0);
     return s + parseNum(it.qty) * costoReal;
   }, 0);
 }
@@ -2811,6 +2811,9 @@ function addItem(p: any) {
     unit = p.precio_revendedor || p.price2;
   }
   
+  // ✅ CORRECCIÓN: Usar costo_reparacion que SÍ existe en tu BD
+  const costoReal = p.costo_reparacion || 0;
+  
   if (existing) {
     setItems(items.map((it) => (it.productId === p.id ? { ...it, qty: parseNum(it.qty) + 1 } : it)));
   } else {
@@ -2820,13 +2823,15 @@ function addItem(p: any) {
       section: p.section, 
       qty: 1, 
       unitPrice: unit, 
-      cost: p.cost,
+      cost: costoReal,  // ← ✅ CAMBIADO: Ahora usa costo_reparacion
       // 👇👇👇 AGREGAR ESTOS CAMPOS NUEVOS
       modelo: p.modelo,
       capacidad: p.capacidad,
       color: p.color,
       grado: p.grado,
-      imei: p.imei
+      imei: p.imei,
+      // ✅ AGREGAR ESTE CAMPO NUEVO (importante)
+      costo_reparacion: p.costo_reparacion || 0
     }]);
   }
 }
@@ -4934,24 +4939,34 @@ console.log("✅ VARIABLES CREADAS:", {
   }
 
   // Métricas principales de VENTAS - MEJORADO con GB
-  const metricasVentas = {
-    totalVentas: ventasiPhone.reduce((sum: number, v: any) => sum + v.total, 0),
-    totalUnidades: ventasiPhone.reduce((sum: number, v: any) => sum + v.items.length, 0),
-    gananciaTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.ganancia, 0),
-    costoTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.costo_total, 0),
-    comisionesTotal: ventasiPhone.reduce((sum: number, v: any) => sum + v.comisiones_total, 0),
-    ticketPromedio: 0,
+ const metricasVentas = {
+  totalVentas: ventasiPhone.reduce((sum: number, v: any) => sum + v.total, 0),
+  totalUnidades: ventasiPhone.reduce((sum: number, v: any) => sum + v.items.length, 0),
+  // ✅ CORRECCIÓN: Calcular ganancia REAL basada en costo_reparacion
+  gananciaTotal: ventasiPhone.reduce((sum: number, v: any) => {
+    const costoVenta = v.items.reduce((costSum: number, item: any) => {
+      return costSum + (parseNum(item.qty) * parseNum(item.costo_reparacion || 0));
+    }, 0);
+    return sum + (v.total - costoVenta - (v.comisiones_total || 0));
+  }, 0),
+  costoTotal: ventasiPhone.reduce((sum: number, v: any) => {
+    return sum + v.items.reduce((costSum: number, item: any) => {
+      return costSum + (parseNum(item.qty) * parseNum(item.costo_reparacion || 0));
+    }, 0);
+  }, 0),
+  comisionesTotal: ventasiPhone.reduce((sum: number, v: any) => sum + (v.comisiones_total || 0), 0),
+  ticketPromedio: 0,
     
     // 🔥 MEJORADO: Por modelo + capacidad (GB)
-    ventasPorModeloGB: ventasiPhone.reduce((acc: any, v: any) => {
-      v.items.forEach((item: any) => {
-        if (item.modelo && item.capacidad) {
-          const key = `${item.modelo} ${item.capacidad}`;
-          acc[key] = (acc[key] || 0) + 1;
-        }
-      });
-      return acc;
-    }, {}),
+     ventasPorModeloGB: ventasiPhone.reduce((acc: any, v: any) => {
+    v.items.forEach((item: any) => {
+      if (item.modelo && item.capacidad) {
+        const key = `${item.modelo} ${item.capacidad}`;
+        acc[key] = (acc[key] || 0) + 1;
+      }
+    });
+    return acc;
+  }, {}),
 
     // Por grado
     ventasPorGrado: ventasiPhone.reduce((acc: any, v: any) => {
