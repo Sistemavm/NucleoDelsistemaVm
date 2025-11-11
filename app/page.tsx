@@ -586,6 +586,107 @@ function calcularDiasEnStock(producto: Producto): number {
   const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 3600 * 24));
   return diferenciaDias;
 }
+// 🔥 CORREGIDO: Función auxiliar para calcular días en stock
+function calcularDiasEnStock(producto: Producto): number {
+  if (!producto.fecha_ingreso) return 0;
+  const fechaIngreso = new Date(producto.fecha_ingreso);
+  const hoy = new Date();
+  const diffTime = hoy.getTime() - fechaIngreso.getTime();
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// 👇👇👇 AGREGAR LA FUNCIÓN ELIMINAR FACTURA AQUÍ
+async function eliminarFactura(facturaId: string, numeroFactura: number) {
+  const confirmacion = confirm(
+    `¿Está seguro de eliminar la Factura #${pad(numeroFactura)}?\n\n` +
+    `⚠️ Esta acción NO se puede deshacer y eliminará:\n` +
+    `• La factura completa\n` +
+    `• Los items vendidos\n` +
+    `• El registro de pago\n\n` +
+    `¿Continuar?`
+  );
+  
+  if (!confirmacion) return;
+
+  const st = clone(state);
+  
+  // 1. Eliminar factura del estado local
+  st.invoices = st.invoices.filter((f: any) => f.id !== facturaId);
+  
+  // 2. Revertir stock de productos (si aplica)
+  const facturaEliminada = state.invoices.find((f: any) => f.id === facturaId);
+  if (facturaEliminada && facturaEliminada.items) {
+    facturaEliminada.items.forEach((item: any) => {
+      const producto = st.products.find((p: any) => p.id === item.productId);
+      if (producto) {
+        // Revertir stock para productos normales
+        if (!producto.modelo || !producto.modelo.includes("iPhone")) {
+          producto.stock = parseNum(producto.stock) + parseNum(item.qty);
+        } else {
+          // Para iPhones, cambiar estado a EN STOCK
+          producto.estado = "EN STOCK";
+          producto.vendido_en = undefined;
+          producto.vendido_a = undefined;
+        }
+      }
+    });
+  }
+
+  setState(st);
+
+  // 3. Eliminar de Supabase
+  if (hasSupabase) {
+    try {
+      const { error } = await supabase
+        .from("invoices")
+        .delete()
+        .eq("id", facturaId);
+
+      if (error) throw error;
+
+      // Actualizar productos en Supabase
+      if (facturaEliminada && facturaEliminada.items) {
+        for (const item of facturaEliminada.items) {
+          const producto = st.products.find((p: any) => p.id === item.productId);
+          if (producto) {
+            if (!producto.modelo || !producto.modelo.includes("iPhone")) {
+              await supabase
+                .from("products")
+                .update({ stock: producto.stock })
+                .eq("id", item.productId);
+            } else {
+              await supabase
+                .from("products")
+                .update({ 
+                  estado: "EN STOCK",
+                  vendido_en: null,
+                  vendido_a: null
+                })
+                .eq("id", item.productId);
+            }
+          }
+        }
+      }
+
+      showSuccess(`✅ Factura #${pad(numeroFactura)} eliminada correctamente`);
+      
+      // Recargar datos
+      setTimeout(async () => {
+        const refreshedState = await loadFromSupabase(seedState());
+        setState(refreshedState);
+      }, 1000);
+
+    } catch (error: any) {
+      showError(`Error al eliminar factura: ${error.message}`);
+      // Revertir cambios locales
+      const refreshedState = await loadFromSupabase(seedState());
+      setState(refreshedState);
+    }
+  } else {
+    showSuccess(`✅ Factura #${pad(numeroFactura)} eliminada correctamente`);
+  }
+}
+// 👆👆👆 HASTA AQUÍ LA FUNCIÓN NUEVA
 // 1. COMPONENTE DE INVENTARIO DE iPHONES
 // 1. COMPONENTE DE INVENTARIO DE iPHONES
 function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, showInfo }: any) {
@@ -604,6 +705,8 @@ function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, 
   const [costoReparacion, setCostoReparacion] = useState("");
   const [ubicacion, setUbicacion] = useState<UbicacionProducto>("LOCAL");
   const [descripcion, setDescripcion] = useState("");
+  const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+
   // Agrega estos estados junto con los otros useState
 const [bateria, setBateria] = useState<EstadoBateria>("+80%");
 
@@ -659,99 +762,163 @@ const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
     "Negro", "Blanco", "Rojo", "Azul", "Verde", "Rosa", "Morado", "Gold", "Graphite"
   ];
 
-  async function agregarProducto() {
-    if (!modelo || !capacidad || !imei) { // 👈 AGREGAR VALIDACIÓN DE CAPACIDAD
-showError("Complete modelo, capacidad e IMEI");
-      return;
-    }
+  // REEMPLAZA la función agregarProducto completa por esta versión:
 
-    // Verificar IMEI único
-    const imeiExistente = state.products.find((p: Producto) => p.imei === imei);
-    if (imeiExistente) {
-showError("El IMEI ya existe en el sistema");
-      return;
-    }
-
-    // 👇👇👇 CREAR NOMBRE AUTOMÁTICO CON MODELO + CAPACIDAD
-    const nombreCompleto = `${modelo} ${capacidad}`;
-
-// REEMPLAZAR el objeto nuevoProducto por:
-const nuevoProducto: Producto = {
-  id: "ip_" + Math.random().toString(36).slice(2, 9),
-  name: nombreCompleto,
-  modelo,
-  capacidad,
-  imei,
-  grado,
-  color,
-  estado: "EN STOCK",
-  ubicacion,
-  precio_compra: parseNum(precioCompra),
-  precio_consumidor_final: parseNum(precioConsumidorFinal),
-  precio_revendedor: parseNum(precioRevendedor),
-  precio_venta: parseNum(precioConsumidorFinal), // Por defecto usa consumidor final
-  costo_reparacion: parseNum(costoReparacion),
-  descripcion: descripcion || undefined,
-  fecha_ingreso: todayISO(),
-  bateria: bateria,
-  lista_precio: "consumidor_final" // Valor por defecto, ya no se selecciona
-};
-
-    const st = clone(state);
-    st.products.push(nuevoProducto);
-    setState(st);
-
-    if (hasSupabase) {
-  try {
-    // ✅ INSERTAR CON EL NOMBRE EXACTO DE LOS CAMPOS DE SUPABASE
-    const { error } = await supabase.from("products").insert({
-      id: nuevoProducto.id,
-      name: nuevoProducto.name,
-      modelo: nuevoProducto.modelo,
-      capacidad: nuevoProducto.capacidad,
-      imei: nuevoProducto.imei,
-      grado: nuevoProducto.grado,
-      estado: nuevoProducto.estado,
-      ubicacion: nuevoProducto.ubicacion,
-      color: nuevoProducto.color,
-      precio_compra: nuevoProducto.precio_compra, // ✅ ESTE ES EL COSTO
-      precio_venta: nuevoProducto.precio_venta,
-      precio_consumidor_final: nuevoProducto.precio_consumidor_final,
-      precio_revendedor: nuevoProducto.precio_revendedor,
-      costo_reparacion: nuevoProducto.costo_reparacion,
-      descripcion: nuevoProducto.descripcion,
-      fecha_ingreso: nuevoProducto.fecha_ingreso,
-      bateria: nuevoProducto.bateria,
-      lista_precio: nuevoProducto.lista_precio
-    });
-
-    if (error) {
-      console.error("❌ Error al guardar producto en Supabase:", error);
-      showError(`Error al guardar en la base de datos: ${error.message}`);
-      return;
-    }
-    
-    console.log("✅ Producto guardado en Supabase con costo:", nuevoProducto.precio_compra);
-  } catch (error) {
-    console.error("❌ Error general al guardar producto:", error);
-    showError("Error al conectar con la base de datos");
+async function agregarProducto() {
+  if (!modelo || !capacidad || !imei) {
+    showError("Complete modelo, capacidad e IMEI");
     return;
   }
-}
 
-    // Limpiar formulario
-    setModelo("");
-    setCapacidad(""); // 👈 LIMPIAR CAPACIDAD
-    setImei("");
-    setPrecioCompra("");
-setPrecioConsumidorFinal("");
-setPrecioRevendedor("");
-    setCostoReparacion("");
-    setDescripcion("");
-    setModo("lista");
-// 🔥 NOTIFICACIÓN BONITA EN VEZ DE ALERT FEO
-// 🔥 NOTIFICACIÓN BONITA EN VEZ DE ALERT FEO
-showSuccess(`✅ iPhone ${modelo} ${capacidad} agregado correctamente al inventario`);
+  // Verificar IMEI único (solo si es nuevo producto)
+  if (!productoEditando) {
+    const imeiExistente = state.products.find((p: Producto) => p.imei === imei);
+    if (imeiExistente) {
+      showError("El IMEI ya existe en el sistema");
+      return;
+    }
+  }
+
+  const nombreCompleto = `${modelo} ${capacidad}`;
+  const nuevoProducto: Producto = {
+    id: productoEditando ? productoEditando.id : "ip_" + Math.random().toString(36).slice(2, 9),
+    name: nombreCompleto,
+    modelo,
+    capacidad,
+    imei,
+    grado,
+    color,
+    estado: productoEditando ? productoEditando.estado : "EN STOCK",
+    ubicacion,
+    precio_compra: parseNum(precioCompra),
+    precio_consumidor_final: parseNum(precioConsumidorFinal),
+    precio_revendedor: parseNum(precioRevendedor),
+    precio_venta: parseNum(precioConsumidorFinal),
+    costo_reparacion: parseNum(costoReparacion),
+    descripcion: descripcion || undefined,
+    fecha_ingreso: productoEditando ? productoEditando.fecha_ingreso : todayISO(),
+    bateria: bateria,
+    lista_precio: "consumidor_final"
+  };
+
+  const st = clone(state);
+  
+  if (productoEditando) {
+    // EDITAR producto existente
+    const index = st.products.findIndex((p: Producto) => p.id === productoEditando.id);
+    if (index !== -1) {
+      st.products[index] = nuevoProducto;
+    }
+  } else {
+    // AGREGAR nuevo producto
+    st.products.push(nuevoProducto);
+  }
+  
+  setState(st);
+
+  if (hasSupabase) {
+    try {
+      if (productoEditando) {
+        // UPDATE en Supabase
+        const { error } = await supabase
+          .from("products")
+          .update({
+            name: nuevoProducto.name,
+            modelo: nuevoProducto.modelo,
+            capacidad: nuevoProducto.capacidad,
+            imei: nuevoProducto.imei,
+            grado: nuevoProducto.grado,
+            estado: nuevoProducto.estado,
+            ubicacion: nuevoProducto.ubicacion,
+            color: nuevoProducto.color,
+            precio_compra: nuevoProducto.precio_compra,
+            precio_venta: nuevoProducto.precio_venta,
+            precio_consumidor_final: nuevoProducto.precio_consumidor_final,
+            precio_revendedor: nuevoProducto.precio_revendedor,
+            costo_reparacion: nuevoProducto.costo_reparacion,
+            descripcion: nuevoProducto.descripcion,
+            bateria: nuevoProducto.bateria,
+            lista_precio: nuevoProducto.lista_precio
+          })
+          .eq("id", nuevoProducto.id);
+
+        if (error) throw error;
+        showSuccess(`✅ iPhone ${modelo} ${capacidad} actualizado correctamente`);
+      } else {
+        // INSERT en Supabase
+        const { error } = await supabase.from("products").insert({
+          id: nuevoProducto.id,
+          name: nuevoProducto.name,
+          modelo: nuevoProducto.modelo,
+          capacidad: nuevoProducto.capacidad,
+          imei: nuevoProducto.imei,
+          grado: nuevoProducto.grado,
+          estado: nuevoProducto.estado,
+          ubicacion: nuevoProducto.ubicacion,
+          color: nuevoProducto.color,
+          precio_compra: nuevoProducto.precio_compra,
+          precio_venta: nuevoProducto.precio_venta,
+          precio_consumidor_final: nuevoProducto.precio_consumidor_final,
+          precio_revendedor: nuevoProducto.precio_revendedor,
+          costo_reparacion: nuevoProducto.costo_reparacion,
+          descripcion: nuevoProducto.descripcion,
+          fecha_ingreso: nuevoProducto.fecha_ingreso,
+          bateria: nuevoProducto.bateria,
+          lista_precio: nuevoProducto.lista_precio
+        });
+
+        if (error) throw error;
+        showSuccess(`✅ iPhone ${modelo} ${capacidad} agregado correctamente`);
+      }
+    } catch (error: any) {
+      showError(`Error al guardar: ${error.message}`);
+      return;
+    }
+  }
+
+  // Limpiar formulario
+  setProductoEditando(null);
+  setModelo("");
+  setCapacidad("");
+  setImei("");
+  setPrecioCompra("");
+  setPrecioConsumidorFinal("");
+  setPrecioRevendedor("");
+  setCostoReparacion("");
+  setDescripcion("");
+  setModo("lista");
+}
+  // AGREGA esta función después de la función agregarProducto:
+
+function editarProducto(producto: Producto) {
+  setProductoEditando(producto);
+  setModelo(producto.modelo);
+  setCapacidad(producto.capacidad || "");
+  setImei(producto.imei);
+  setGrado(producto.grado);
+  setColor(producto.color);
+  setPrecioCompra(producto.precio_compra.toString());
+  setPrecioConsumidorFinal(producto.precio_consumidor_final.toString());
+  setPrecioRevendedor(producto.precio_revendedor.toString());
+  setCostoReparacion(producto.costo_reparacion.toString());
+  setUbicacion(producto.ubicacion);
+  setDescripcion(producto.descripcion || "");
+  setBateria(producto.bateria);
+  setModo("nuevo"); // Usamos el mismo formulario de "nuevo"
+}
+  // AGREGA esta función después de editarProducto:
+
+function cancelarEdicion() {
+  setProductoEditando(null);
+  setModelo("");
+  setCapacidad("");
+  setImei("");
+  setPrecioCompra("");
+  setPrecioConsumidorFinal("");
+  setPrecioRevendedor("");
+  setCostoReparacion("");
+  setDescripcion("");
+  setModo("lista");
 }
 
 // También en cambiarEstadoTurno:
@@ -979,6 +1146,7 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                     <th className="py-2 px-2">Costo Total</th>
                     <th className="py-2 px-2">P. Final</th>
                     <th className="py-2 px-2">P. Revendedor</th>
+                    <th className="py-2 px-2">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -1057,6 +1225,15 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
                       <td className="py-2 px-2 font-semibold">
                         {money(producto.precio_revendedor)}
                       </td>
+                        <td className="py-2 px-2">  {/* 👈 AGREGAR ESTE NUEVO TD */}
+    <button
+      onClick={() => editarProducto(producto)}
+      className="text-blue-400 hover:text-blue-300 text-sm px-2 py-1 border border-blue-700 rounded"
+      title="Editar producto"
+    >
+      ✏️ Editar
+    </button>
+  </td>
                     </tr>
                   )})}
                 </tbody>
@@ -1234,14 +1411,14 @@ async function cambiarEstadoProducto(productoId: string, nuevoEstado: EstadoProd
         />
       </div>
 
-      <div className="md:col-span-2 flex gap-2 justify-end">
-        <Button tone="slate" onClick={() => setModo("lista")}>
-          Cancelar
-        </Button>
-        <Button onClick={agregarProducto}>
-          Guardar iPhone
-        </Button>
-      </div>
+     <div className="md:col-span-2 flex gap-2 justify-end">
+  <Button tone="slate" onClick={productoEditando ? cancelarEdicion : () => setModo("lista")}>
+    {productoEditando ? "Cancelar Edición" : "Cancelar"}
+  </Button>
+  <Button onClick={agregarProducto}>
+    {productoEditando ? "💾 Guardar Cambios" : "Guardar iPhone"}
+  </Button>
+</div>
     </div>
   </Card>
 )}
@@ -5585,37 +5762,47 @@ const recomendaciones = obtenerRecomendaciones();
                 <th className="py-2 pr-3">Vuelto</th>
                 <th className="py-2 pr-3">Alias/CVU</th>
                 <th className="py-2 pr-3">Estado</th>
+                <th className="py-2 pr-3">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
-              {docsEnRango
-                .slice()
-                .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
-                .map((f: any) => {
-                  const cash = parseNum(f?.payments?.cash);
-                  const tr = parseNum(f?.payments?.transfer);
-                  const ch = parseNum(f?.payments?.change);
-                  const alias = (f?.payments?.alias || "").trim() || "—";
+           <tbody className="divide-y divide-slate-800">
+  {docsEnRango
+    .slice()
+    .sort((a: any, b: any) => new Date(b.date_iso).getTime() - new Date(a.date_iso).getTime())
+    .map((f: any) => {
+      const cash = parseNum(f?.payments?.cash);
+      const tr = parseNum(f?.payments?.transfer);
+      const ch = parseNum(f?.payments?.change);
+      const alias = (f?.payments?.alias || "").trim() || "—";
 
-                  return (
-                    <tr key={f.id}>
-                      <td className="py-2 pr-3">{pad(f.number || 0)}</td>
-                      <td className="py-2 pr-3">{new Date(f.date_iso).toLocaleString("es-AR")}</td>
-                      <td className="py-2 pr-3">{f.client_name}</td>
-                      <td className="py-2 pr-3">{f.vendor_name}</td>
-                      <td className="py-2 pr-3">{money(parseNum(f.total))}</td>
-                      <td className="py-2 pr-3">{money(cash)}</td>
-                      <td className="py-2 pr-3">{money(tr)}</td>
-                      <td className="py-2 pr-3">{money(ch)}</td>
-                      <td className="py-2 pr-3 truncate max-w-[180px]">{alias}</td>
-                      <td className="py-2 pr-3">
-                        <Chip tone={f.status === "Pagada" ? "emerald" : "slate"}>
-                          {f.status || "—"}
-                        </Chip>
-                      </td>
-                    </tr>
-                  );
-                })}
+      return (
+        <tr key={f.id}>
+          <td className="py-2 pr-3">{pad(f.number || 0)}</td>
+          <td className="py-2 pr-3">{new Date(f.date_iso).toLocaleString("es-AR")}</td>
+          <td className="py-2 pr-3">{f.client_name}</td>
+          <td className="py-2 pr-3">{f.vendor_name}</td>
+          <td className="py-2 pr-3">{money(parseNum(f.total))}</td>
+          <td className="py-2 pr-3">{money(cash)}</td>
+          <td className="py-2 pr-3">{money(tr)}</td>
+          <td className="py-2 pr-3">{money(ch)}</td>
+          <td className="py-2 pr-3 truncate max-w-[180px]">{alias}</td>
+          <td className="py-2 pr-3">
+            <Chip tone={f.status === "Pagada" ? "emerald" : "slate"}>
+              {f.status || "—"}
+            </Chip>
+          </td>
+          <td className="py-2 pr-3">  {/* 👈 AGREGAR ESTE NUEVO TD */}
+            <button
+              onClick={() => eliminarFactura(f.id, f.number)}
+              className="text-red-400 hover:text-red-300 text-sm px-2 py-1 border border-red-700 rounded"
+              title="Eliminar factura"
+            >
+              🗑️ Eliminar
+            </button>
+          </td>
+        </tr>
+      );
+    })}
               {docsEnRango.length === 0 && (
                 <tr>
                   <td className="py-3 text-slate-400" colSpan={10}>
