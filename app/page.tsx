@@ -589,7 +589,7 @@ function calcularDiasEnStock(producto: Producto): number {
 
 
 // 👇👇👇 AGREGAR LA FUNCIÓN ELIMINAR FACTURA AQUÍ
-async function eliminarFactura(facturaId: string, numeroFactura: number) {
+async function eliminarFactura(facturaId: string, numeroFactura: number, state: any) {
   const confirmacion = confirm(
     `¿Está seguro de eliminar la Factura #${pad(numeroFactura)}?\n\n` +
     `⚠️ Esta acción NO se puede deshacer y eliminará:\n` +
@@ -5784,15 +5784,15 @@ const recomendaciones = obtenerRecomendaciones();
               {f.status || "—"}
             </Chip>
           </td>
-          <td className="py-2 pr-3">  {/* 👈 AGREGAR ESTE NUEVO TD */}
-            <button
-              onClick={() => eliminarFactura(f.id, f.number)}
-              className="text-red-400 hover:text-red-300 text-sm px-2 py-1 border border-red-700 rounded"
-              title="Eliminar factura"
-            >
-              🗑️ Eliminar
-            </button>
-          </td>
+         <td className="py-2 pr-3">
+  <button
+    onClick={() => eliminarFactura(f.id, f.number, state)}
+    className="text-red-400 hover:text-red-300 text-sm px-2 py-1 border border-red-700 rounded"
+    title="Eliminar factura"
+  >
+    🗑️ Eliminar
+  </button>
+</td>
         </tr>
       );
     })}
