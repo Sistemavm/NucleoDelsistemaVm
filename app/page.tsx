@@ -710,8 +710,6 @@ const [filtroCapacidad, setFiltroCapacidad] = useState("Todos");
 const [filtroGrado, setFiltroGrado] = useState("Todos");
 const [filtroUbicacion, setFiltroUbicacion] = useState("Todos");
 const [filtroDiasStock, setFiltroDiasStock] = useState("Todos");
-const [filtroBateria, setFiltroBateria] = useState("Todos");
-const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
 const [filtroImei, setFiltroImei] = useState(""); // 🔍 NUEVO ESTADO
   // Agrega estos estados para los filtros
 const [filtroBateria, setFiltroBateria] = useState("Todos");
