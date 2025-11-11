@@ -2211,6 +2211,30 @@ function calcInvoiceTotal(items: any[]) {
 
 function calcInvoiceCost(items: any[]) {
   return items.reduce((s, it) => {
+    // ✅ CORRECCIÓN DEFINITIVA: Priorizar costo_reparacion sobre cost
+    let costoReal = 0;
+    
+    // 1. Primero intentar con costo_reparacion (si existe y es mayor a 0)
+    if (it.costo_reparacion && parseNum(it.costo_reparacion) > 0) {
+      costoReal = parseNum(it.costo_reparacion);
+    }
+    // 2. Si no, usar cost (para productos que no tienen reparación)
+    else if (it.cost && parseNum(it.cost) > 0) {
+      costoReal = parseNum(it.cost);
+    }
+    // 3. Si no tiene ninguno, usar 0
+    
+    console.log("🔍 DEBUG COSTO:", {
+      producto: it.name,
+      costo_reparacion: it.costo_reparacion,
+      cost: it.cost,
+      costoUsado: costoReal
+    });
+    
+    return s + parseNum(it.qty) * costoReal;
+  }, 0);
+}
+  return items.reduce((s, it) => {
     // ✅ CORRECCIÓN: Solo usar costo_reparacion que es el campo REAL en BD
     const costoReal = parseNum(it.costo_reparacion || 0);
     return s + parseNum(it.qty) * costoReal;
@@ -2895,6 +2919,7 @@ async function saveAndPrint() {
  // Calcular costos y ganancias - CORREGIDO
 const cost = calcInvoiceCost(items);
 const ganancia = total - cost - comision;
+  
   // Actualizar cliente
   cl.saldo_favor = saldoActual - saldoAplicado;
   // ✅ ACTUALIZAR DEUDA_TOTAL EN SUPABASE DESPUÉS DE LA FACTURA
