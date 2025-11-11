@@ -586,14 +586,7 @@ function calcularDiasEnStock(producto: Producto): number {
   const diferenciaDias = Math.ceil(diferenciaTiempo / (1000 * 3600 * 24));
   return diferenciaDias;
 }
-// 🔥 CORREGIDO: Función auxiliar para calcular días en stock
-function calcularDiasEnStock(producto: Producto): number {
-  if (!producto.fecha_ingreso) return 0;
-  const fechaIngreso = new Date(producto.fecha_ingreso);
-  const hoy = new Date();
-  const diffTime = hoy.getTime() - fechaIngreso.getTime();
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-}
+
 
 // 👇👇👇 AGREGAR LA FUNCIÓN ELIMINAR FACTURA AQUÍ
 async function eliminarFactura(facturaId: string, numeroFactura: number) {
