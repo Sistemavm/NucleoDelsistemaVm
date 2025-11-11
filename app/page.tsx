@@ -698,7 +698,7 @@ function ProductosiPhoneTab({ state, setState, session, showError, showSuccess, 
   const [costoReparacion, setCostoReparacion] = useState("");
   const [ubicacion, setUbicacion] = useState<UbicacionProducto>("LOCAL");
   const [descripcion, setDescripcion] = useState("");
-  const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+ 
 
   // Agrega estos estados junto con los otros useState
 const [bateria, setBateria] = useState<EstadoBateria>("+80%");
