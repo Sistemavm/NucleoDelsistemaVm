@@ -589,6 +589,7 @@ function calcularDiasEnStock(producto: Producto): number {
 
 
 // 👇👇👇 AGREGAR LA FUNCIÓN ELIMINAR FACTURA AQUÍ
+// 👇👇👇 AGREGAR LA FUNCIÓN ELIMINAR FACTURA AQUÍ - VERSIÓN CORREGIDA
 async function eliminarFactura(facturaId: string, numeroFactura: number, state: any, setState: any) {
   const confirmacion = confirm(
     `¿Está seguro de eliminar la Factura #${pad(numeroFactura)}?\n\n` +
@@ -661,7 +662,7 @@ async function eliminarFactura(facturaId: string, numeroFactura: number, state: 
         }
       }
 
-      showSuccess(`✅ Factura #${pad(numeroFactura)} eliminada correctamente`);
+      alert(`✅ Factura #${pad(numeroFactura)} eliminada correctamente`);
       
       // Recargar datos
       setTimeout(async () => {
@@ -670,13 +671,13 @@ async function eliminarFactura(facturaId: string, numeroFactura: number, state: 
       }, 1000);
 
     } catch (error: any) {
-      showError(`Error al eliminar factura: ${error.message}`);
+      alert(`Error al eliminar factura: ${error.message}`);
       // Revertir cambios locales
       const refreshedState = await loadFromSupabase(seedState());
       setState(refreshedState);
     }
   } else {
-    showSuccess(`✅ Factura #${pad(numeroFactura)} eliminada correctamente`);
+    alert(`✅ Factura #${pad(numeroFactura)} eliminada correctamente`);
   }
 }
 // 👆👆👆 HASTA AQUÍ LA FUNCIÓN NUEVA
