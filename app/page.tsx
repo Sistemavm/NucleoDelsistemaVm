@@ -2210,7 +2210,11 @@ function calcInvoiceTotal(items: any[]) {
 }
 
 function calcInvoiceCost(items: any[]) {
-  return items.reduce((s, it) => s + parseNum(it.qty) * parseNum(it.cost || 0), 0);
+  return items.reduce((s, it) => {
+    // Usar valorReparacion si existe, sino usar costo normal
+    const costoReal = parseNum(it.valorReparacion || it.costo_reparacion || it.cost || 0);
+    return s + parseNum(it.qty) * costoReal;
+  }, 0);
 }
 function obtenerDeudoresActivos(state: any) {
   return state.clients
@@ -2883,10 +2887,9 @@ async function saveAndPrint() {
   const debtDelta = Math.max(0, totalTrasSaldo - applied);
   const status = debtDelta > 0 ? "No Pagada" : "Pagada";
 
-  // Calcular costos y ganancias
-  const cost = calcInvoiceCost(items);
-  const ganancia = total - cost - comision;
-
+ // Calcular costos y ganancias - CORREGIDO
+const cost = calcInvoiceCost(items);
+const ganancia = total - cost - comision;
   // Actualizar cliente
   cl.saldo_favor = saldoActual - saldoAplicado;
   // ✅ ACTUALIZAR DEUDA_TOTAL EN SUPABASE DESPUÉS DE LA FACTURA
