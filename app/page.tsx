@@ -312,107 +312,149 @@ async function loadFromSupabase(fallback: any) {
     }
 
     // 👇👇👇 CARGAR TODAS LAS TABLAS PRINCIPALES EN PARALELO
-    const [
-      { data: vendors, error: vendErr },
-      { data: clients, error: cliErr },
-      { data: products, error: prodErr },
-      { data: invoices, error: invErr },
-      { data: devoluciones, error: devErr },
-      { data: debtPayments, error: dpErr },
-      { data: budgets, error: budErr },
-      { data: pedidos, error: pedidosErr },
-      { data: turnos, error: turnosErr },
-      { data: gastos, error: gastosErr }
-    ] = await Promise.all([
-      supabase.from("vendors").select("*"),
-      supabase.from("clients").select("*"),
-      supabase.from("products").select("*"),
-      supabase.from("invoices").select("*").order("number"),
-      supabase.from("devoluciones").select("*").order("date_iso", { ascending: false }),
-      supabase.from("debt_payments").select("*").order("date_iso", { ascending: false }),
-      supabase.from("budgets").select("*").order("number"),
-      supabase.from("pedidos").select("*").order("date_iso", { ascending: false }),
-      supabase.from("turnos").select("*").order("fecha", { ascending: true }).order("hora", { ascending: true }),
-      supabase.from("gastos").select("*").order("date_iso", { ascending: false })
-    ]);
+ const [
+  { data: vendors, error: vendErr },
+  { data: clients, error: cliErr },
+  // { data: products, error: prodErr }, // ← ELIMINADO - se carga aparte con paginación
+  { data: invoices, error: invErr },
+  { data: devoluciones, error: devErr },
+  { data: debtPayments, error: dpErr },
+  { data: budgets, error: budErr },
+  { data: pedidos, error: pedidosErr },
+  { data: turnos, error: turnosErr },
+  { data: gastos, error: gastosErr }
+] = await Promise.all([
+  supabase.from("vendors").select("*"),
+  supabase.from("clients").select("*"),
+  // supabase.from("products").select("*"), // ← ELIMINADO - se carga aparte con paginación
+  supabase.from("invoices").select("*").order("number"),
+  supabase.from("devoluciones").select("*").order("date_iso", { ascending: false }),
+  supabase.from("debt_payments").select("*").order("date_iso", { ascending: false }),
+  supabase.from("budgets").select("*").order("number"),
+  supabase.from("pedidos").select("*").order("date_iso", { ascending: false }),
+  supabase.from("turnos").select("*").order("fecha", { ascending: true }).order("hora", { ascending: true }),
+  supabase.from("gastos").select("*").order("date_iso", { ascending: false })
+]);
 
-    // Procesar resultados
-    if (vendErr) console.error("SELECT vendors:", vendErr);
-    if (vendors) out.vendors = vendors;
+// 👇👇👇 NUEVO: CARGAR PRODUCTOS CON PAGINACIÓN (para todos los 1,171+ productos)
+let allProducts: any[] = [];
+let currentPage = 0;
+const limitPerPage = 1000;
+let hasMoreData = true;
 
-    if (cliErr) console.error("SELECT clients:", cliErr);
-    if (clients) {
-      out.clients = clients.map((c: any) => ({
-        ...c,
-        creado_por: c.creado_por || "sistema",
-        fecha_creacion: c.fecha_creacion || c.date_iso || todayISO(),
-        deuda_manual: c.deuda_manual || false
-      }));
-    }
+console.log("🔄 Cargando productos desde Supabase...");
 
-    if (prodErr) console.error("SELECT products:", prodErr);
-    if (products) {
-      out.products = products.map((p: any) => ({
-        ...p,
-        stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0,
-        precio_consumidor_final: p.precio_consumidor_final || p.precio_venta || 0,
-        precio_revendedor: p.precio_revendedor || (p.precio_venta ? p.precio_venta * 0.85 : 0)
-      }));
-    }
+while (hasMoreData) {
+  const from = currentPage * limitPerPage;
+  const to = from + limitPerPage - 1;
+  
+  const { data: productsPage, error: prodErr } = await supabase
+    .from("products")
+    .select("*")
+    .range(from, to);
 
-    if (invErr) console.error("SELECT invoices:", invErr);
-    if (invoices) out.invoices = invoices;
-
-    if (devErr) console.error("SELECT devoluciones:", devErr);
-    if (devoluciones) out.devoluciones = devoluciones;
-
-    if (dpErr) console.error("SELECT debt_payments:", dpErr);
-    if (debtPayments) out.debt_payments = debtPayments;
-
-    if (budErr) console.error("SELECT budgets:", budErr);
-    if (budgets) out.budgets = budgets;
-
-    if (pedidosErr) console.error("SELECT pedidos:", pedidosErr);
-    if (pedidos) out.pedidos = pedidos;
-
-    if (turnosErr) console.error("SELECT turnos:", turnosErr);
-    if (turnos) out.turnos = turnos;
-
-    if (gastosErr) console.error("SELECT gastos:", gastosErr);
-    if (gastos) out.gastos = gastos;
-
-    console.log("✅ Datos cargados correctamente desde Supabase:", {
-      vendors: out.vendors?.length || 0,
-      clients: out.clients?.length || 0,
-      products: out.products?.length || 0,
-      invoices: out.invoices?.length || 0,
-      devoluciones: out.devoluciones?.length || 0,
-      debt_payments: out.debt_payments?.length || 0,
-      budgets: out.budgets?.length || 0,
-      pedidos: out.pedidos?.length || 0,
-      turnos: out.turnos?.length || 0,
-      gastos: out.gastos?.length || 0
-    });
-
-    // Si está vacío, inicializar counters
-    if (!out.vendors?.length && !out.clients?.length && !out.products?.length) {
-      await supabase.from("meta").upsert({
-        key: "counters",
-        value: {
-          invoiceCounter: 1,
-          budgetCounter: 1,
-          cashFloat: out.meta?.cashFloat ?? 0,
-          cashFloatByDate: out.meta?.cashFloatByDate ?? {},
-          commissionsByDate: out.meta?.commissionsByDate ?? {},
-        },
-      });
-    }
-
-  } catch (error) {
-    console.error("❌ Error general cargando datos desde Supabase:", error);
+  if (prodErr) {
+    console.error(`❌ Error en página ${currentPage + 1}:`, prodErr);
+    break;
   }
 
-  return out;
+  if (productsPage && productsPage.length > 0) {
+    allProducts = [...allProducts, ...productsPage];
+    console.log(`📦 Página ${currentPage + 1}: ${productsPage.length} productos`);
+    
+    // Si obtuvo menos de lo esperado, es la última página
+    if (productsPage.length < limitPerPage) {
+      hasMoreData = false;
+      console.log(`🏁 Última página detectada (${productsPage.length} productos)`);
+    } else {
+      currentPage++;
+    }
+  } else {
+    hasMoreData = false;
+    console.log(`🏁 No hay más productos`);
+  }
+}
+
+const products = allProducts; // ← Variable 'products' ahora tiene TODOS los productos
+console.log(`✅ TOTAL PRODUCTOS CARGADOS: ${products.length}`);
+
+// Procesar resultados
+if (vendErr) console.error("SELECT vendors:", vendErr);
+if (vendors) out.vendors = vendors;
+
+if (cliErr) console.error("SELECT clients:", cliErr);
+if (clients) {
+  out.clients = clients.map((c: any) => ({
+    ...c,
+    creado_por: c.creado_por || "sistema",
+    fecha_creacion: c.fecha_creacion || c.date_iso || todayISO(),
+    deuda_manual: c.deuda_manual || false
+  }));
+}
+
+// if (prodErr) console.error("SELECT products:", prodErr); // ← Ya no se usa
+if (products) {
+  out.products = products.map((p: any) => ({
+    ...p,
+    stock_minimo: p.stock_min !== null ? parseNum(p.stock_min) : 0,
+    precio_consumidor_final: p.precio_consumidor_final || p.precio_venta || 0,
+    precio_revendedor: p.precio_revendedor || (p.precio_venta ? p.precio_venta * 0.85 : 0)
+  }));
+}
+
+if (invErr) console.error("SELECT invoices:", invErr);
+if (invoices) out.invoices = invoices;
+
+if (devErr) console.error("SELECT devoluciones:", devErr);
+if (devoluciones) out.devoluciones = devoluciones;
+
+if (dpErr) console.error("SELECT debt_payments:", dpErr);
+if (debtPayments) out.debt_payments = debtPayments;
+
+if (budErr) console.error("SELECT budgets:", budErr);
+if (budgets) out.budgets = budgets;
+
+if (pedidosErr) console.error("SELECT pedidos:", pedidosErr);
+if (pedidos) out.pedidos = pedidos;
+
+if (turnosErr) console.error("SELECT turnos:", turnosErr);
+if (turnos) out.turnos = turnos;
+
+if (gastosErr) console.error("SELECT gastos:", gastosErr);
+if (gastos) out.gastos = gastos;
+
+console.log("✅ Datos cargados correctamente desde Supabase:", {
+  vendors: out.vendors?.length || 0,
+  clients: out.clients?.length || 0,
+  products: out.products?.length || 0,
+  invoices: out.invoices?.length || 0,
+  devoluciones: out.devoluciones?.length || 0,
+  debt_payments: out.debt_payments?.length || 0,
+  budgets: out.budgets?.length || 0,
+  pedidos: out.pedidos?.length || 0,
+  turnos: out.turnos?.length || 0,
+  gastos: out.gastos?.length || 0
+});
+
+// Si está vacío, inicializar counters
+if (!out.vendors?.length && !out.clients?.length && !out.products?.length) {
+  await supabase.from("meta").upsert({
+    key: "counters",
+    value: {
+      invoiceCounter: 1,
+      budgetCounter: 1,
+      cashFloat: out.meta?.cashFloat ?? 0,
+      cashFloatByDate: out.meta?.cashFloatByDate ?? {},
+      commissionsByDate: out.meta?.commissionsByDate ?? {},
+    },
+  });
+}
+
+} catch (error) {
+  console.error("❌ Error general cargando datos desde Supabase:", error);
+}
+
+return out;
 }
 
 async function saveCountersSupabase(meta: any) {
@@ -428,7 +470,6 @@ async function saveCountersSupabase(meta: any) {
     },
   });
 }
-
 
 
 
