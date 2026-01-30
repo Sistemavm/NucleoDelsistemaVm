@@ -759,6 +759,10 @@ const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
   // REEMPLAZA la función agregarProducto completa por esta versión:
 
 async function agregarProducto() {
+  console.log("🔴🔴🔴 INICIANDO agregarProducto - PRIMERA LÍNEA");
+  console.log("✅ hasSupabase:", hasSupabase);
+  console.log("✅ supabase client:", supabase ? "✅ CONECTADO" : "❌ NO CONECTADO");
+  
   if (!modelo || !capacidad || !imei) {
     showError("Complete modelo, capacidad e IMEI");
     return;
@@ -837,9 +841,26 @@ lista_precio: null  };
 
         if (error) throw error;
         showSuccess(`✅ iPhone ${modelo} ${capacidad} actualizado correctamente`);
-      } else {
-        // INSERT en Supabase
-        const { error } = await supabase.from("products").insert({
+   } else {
+  console.log("🔵🔵🔵 LLEGAMOS AL PUNTO DE INSERT EN SUPABASE");
+  console.log("📤 Datos a insertar:", {
+    id: nuevoProducto.id,
+    imei: nuevoProducto.imei,
+    lista_precio: nuevoProducto.lista_precio,
+    modelo: nuevoProducto.modelo,
+    capacidad: nuevoProducto.capacidad
+  });
+  
+  if (!hasSupabase) {
+    console.log("⚠️ NO HAY SUPABASE - Solo guardando en memoria local");
+  } else {
+    console.log("✅ HAY SUPABASE - Intentando guardar...");
+    
+    // INSERT en Supabase CON DEBUG COMPLETO
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
           id: nuevoProducto.id,
           name: nuevoProducto.name,
           modelo: nuevoProducto.modelo,
@@ -858,11 +879,40 @@ lista_precio: null  };
           fecha_ingreso: nuevoProducto.fecha_ingreso,
           bateria: nuevoProducto.bateria,
           lista_precio: nuevoProducto.lista_precio
-        });
+        })
+        .select()
+        .single();
 
-        if (error) throw error;
-        showSuccess(`✅ iPhone ${modelo} ${capacidad} agregado correctamente`);
+      if (error) {
+        console.error("❌ ERROR CRÍTICO SUPABASE:", error);
+        console.error("📋 Detalles completos:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        alert(`❌ ERROR AL GUARDAR EN BASE DE DATOS:\n\n${error.message}`);
+        
+        // RECARGAR para evitar inconsistencia
+        setTimeout(async () => {
+          const refreshedState = await loadFromSupabase(seedState());
+          setState(refreshedState);
+        }, 1000);
+        
+        return;
       }
+
+      console.log("✅ GUARDADO EXITOSO EN SUPABASE:", data);
+      
+    } catch (error: any) {
+      console.error("💥 ERROR INESPERADO:", error);
+      alert(`Error inesperado: ${error.message}`);
+    }
+  }
+  
+  showSuccess(`✅ iPhone ${modelo} ${capacidad} agregado correctamente`);
+}  // ← Cierre del else
     } catch (error: any) {
       showError(`Error al guardar: ${error.message}`);
       return;
@@ -880,7 +930,10 @@ lista_precio: null  };
   setCostoReparacion("");
   setDescripcion("");
   setModo("lista");
+   // 👇👇👇 AGREGA ESTA LÍNEA JUSTO AQUÍ
+  console.log("🟢🟢🟢 FINALIZANDO agregarProducto - TODO COMPLETADO");
 }
+  
   // AGREGA esta función después de la función agregarProducto:
 
 function editarProducto(producto: Producto) {
