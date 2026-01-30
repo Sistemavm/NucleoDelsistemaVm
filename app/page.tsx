@@ -792,8 +792,7 @@ async function agregarProducto() {
     descripcion: descripcion || undefined,
     fecha_ingreso: productoEditando ? productoEditando.fecha_ingreso : todayISO(),
     bateria: bateria,
-    lista_precio: "consumidor_final"
-  };
+lista_precio: null  };
 
   const st = clone(state);
   
