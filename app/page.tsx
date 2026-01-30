@@ -759,6 +759,8 @@ const [filtroListaPrecio, setFiltroListaPrecio] = useState("Todos");
   // REEMPLAZA la función agregarProducto completa por esta versión:
 
 async function agregarProducto() {
+  const st = clone(state); // <-- AGREGAR ESTA LÍNEA
+  
   if (!modelo || !capacidad || !imei) {
     showError("Complete modelo, capacidad e IMEI");
     return;
@@ -766,8 +768,7 @@ async function agregarProducto() {
 
   // Verificar IMEI único (solo si es nuevo producto)
   if (!productoEditando) {
-    const imeiExistente = state.products.find((p: Producto) => p.imei === imei);
-    if (imeiExistente) {
+const imeiExistente = st.products.find((p: Producto) => p.imei === imei);    if (imeiExistente) {
       showError("El IMEI ya existe en el sistema");
       return;
     }
